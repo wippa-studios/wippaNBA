@@ -614,15 +614,35 @@ def report_agreement_split(y_test, model_p, market, matched, profit_fn):
     """ROI split by whether the model's pick matches the market's.
 
     This is where any edge has to live. On games where the model agrees with the
-    market the ROI is the bookmaker's margin and nothing else. All of the
-    model's behaviour is in the disagreements, and there the model is right
-    LESS often than the market while being paid a much better price.
+    market the ROI is the bookmaker's margin and nothing else.
 
-    Measured on the held-out window: agreement is 83.4% of games at -4.49% ROI
-    (the vig); disagreements are 16.6% at +6.06% +/- 7.77pp, which is 0.78
-    standard errors and therefore not evidence of anything. The finer split by
-    claimed edge swings from +12% to -17% to +34% on 59-127 bets, which is the
-    clearest illustration available of why single figures need intervals.
+    THE SEGMENT HAS BEEN TESTED AND IS NOT AN EDGE. Measured on the held-out
+    window: agreement is 83.4% of games at -4.37% +/- 1.69pp; disagreements are
+    16.6% at +8.52% +/- 7.88pp. That looks like a mechanism and it is one -- on
+    disagreements the model is right 43.6% against the market's 56.4%, but is
+    paid a much better price (median decimal 2.30, 89.6% underdog prices;
+    break-even is a 0.4005 hit rate and the model achieves 0.4306).
+
+    Five pre-registered tests killed it:
+      * shuffled-skill null -- reassigning which side the model backs at random
+        gives ROI mean -0.69%, and the observed +6.06% sits at the 87th
+        percentile. P(null >= observed) = 0.132. The model's skill contributes
+        nothing detectable.
+      * temporal -- three of five quarters lose money (-3.96, -11.22, -20.07);
+        the whole result comes from one quarter at +30.51% and a six-bet cell.
+      * concentration -- the best 5% of games carry 243% of the profit.
+      * power -- 288 bets cannot detect a 5% ROI; ~96,571 would be needed.
+      * literature -- Vandenbruaene et al. (2022, J. Sports Econ 23(7)) find that
+        across 628 strategy implementations the null of unprofitability is never
+        rejected once multiple testing is accounted for, with a hurdle of
+        |z| > 3. This is z = 1.08.
+
+    So this section exists to locate the mechanism and to keep it honest, not to
+    advertise a result. See the "Disagreement segment" issue for the full record.
+
+    What survives is a property of the DATA rather than an edge: disagreements
+    happen on games where the market is itself least confident, with both sides
+    near even money. Worth knowing; not evidence of skill.
     """
     model_pick = (model_p > 0.5).astype(int)
     market_pick = (market > 0.5).astype(int)
@@ -655,10 +675,13 @@ def report_agreement_split(y_test, model_p, market, matched, profit_fn):
         print(f"{label:34} {bets:>6} {hit:>7.4f} {roi:>+8.2f}% {stderr:>7.2f}pp "
               f"[{roi - 1.96 * stderr:>+7.2f},{roi + 1.96 * stderr:>+7.2f}]")
     print(f"\nDisagreement rate: {(~agree).mean():.1%} of games with a closing line.")
-    print("On disagreements the model is right LESS often than the market, yet can")
-    print("still show positive ROI, because it is backing underdogs at long prices.")
-    print("That is the only mechanism here that could produce an edge; it is not")
-    print("yet distinguishable from zero.")
+    print("On disagreements the model is right LESS often than the market, yet shows")
+    print("positive ROI because it is backing underdogs at longer prices. That is the")
+    print("only mechanism here that COULD produce an edge.")
+    print("\nIt has been tested and is NOT one: a shuffled-skill null puts this figure at")
+    print("the 87th percentile (p=0.132), three of five quarters lose money, the best 5%")
+    print("of games carry 243% of the profit, and 288 bets cannot detect a 5% ROI. Treat")
+    print("this number as a null result until a held-out segment says otherwise.")
 
 
 def score_model(y_test, proba):
