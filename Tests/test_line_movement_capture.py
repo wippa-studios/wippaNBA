@@ -109,7 +109,8 @@ class TestWatchModeBehaviour(unittest.TestCase):
     def _run_watch(self, books, failures=(), max_passes=1):
         calls = []
 
-        def fake_capture_once(book, at_time=None, game_date=None, con=None, timeout=None):
+        def fake_capture_once(book, at_time=None, game_date=None, con=None, timeout=None,
+                              provenance=glm.PROVENANCE_OBSERVED):
             # Stop once the requested number of whole passes has completed, by
             # unwinding at the START of the next pass the way Ctrl-C would. Raising
             # from inside the pass instead would abort before `failures` is assigned,

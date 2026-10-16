@@ -313,12 +313,13 @@ class TestRecordSnapshot(unittest.TestCase):
         columns = [column[0] for column in con.execute("SELECT * FROM odds_snapshots").description]
         self.assertEqual(
             columns,
-            ["CapturedAt", "Date", "Sportsbook", "Home", "Away", "ML_Home", "ML_Away", "OU"],
+            ["CapturedAt", "Date", "Sportsbook", "Home", "Away", "ML_Home", "ML_Away", "OU",
+             "Provenance"],
         )
         self.assertEqual(
             row,
             ("2026-01-05T12:00:00+00:00", "2026-01-05", "fanduel", "Boston Celtics",
-             "Denver Nuggets", -110, -110, 224.5),
+             "Denver Nuggets", -110, -110, 224.5, "observed"),
         )
 
     def test_identical_recapture_is_idempotent(self):
@@ -561,10 +562,20 @@ class TestSnapshotCoverage(unittest.TestCase):
             "2026-01-05T13:00:00+00:00",
             "2026-01-05T19:00:00+00:00",
         ]
-        for captured_at in times:
-            record(con, captured_at, [build_row(), build_row(home="Miami Heat", away="LA Clippers")])
-        for captured_at in times[:2]:
-            record(con, captured_at, [build_row(home="Milwaukee Bucks", away="Phoenix Suns")])
+        # The price drifts with the clock. A capture that wrote the SAME price at
+        # three timestamps would be one observation repeated, which snapshot_coverage
+        # now correctly refuses to call dense -- so these fixtures move, as a real
+        # capture does, and the counts each test asserts are unchanged.
+        for i, captured_at in enumerate(times):
+            record(con, captured_at, [
+                build_row(home_ml=-110 + 5 * i, away_ml=-110 + 5 * i),
+                build_row(home="Miami Heat", away="LA Clippers",
+                          home_ml=-120 + 4 * i, away_ml=-120 + 4 * i),
+            ])
+        for i, captured_at in enumerate(times[:2]):
+            record(con, captured_at, [
+                build_row(home="Milwaukee Bucks", away="Phoenix Suns",
+                          home_ml=-130 + 6 * i, away_ml=-130 + 6 * i)])
         record(con, times[0], [build_row(game_date="2026-01-06", home="Golden State Warriors",
                                           away="Dallas Mavericks")])
         return con
@@ -602,9 +613,10 @@ class TestSnapshotCoverage(unittest.TestCase):
 
     def test_sportsbook_filter(self):
         con = self.build_slate()
-        for hour in (9, 13, 19):
+        for i, hour in enumerate((9, 13, 19)):
             record(con, f"2026-01-05T{hour:02d}:00:00+00:00",
-                   [build_row(sportsbook="draftkings", home="Miami Heat", away="LA Clippers")])
+                   [build_row(sportsbook="draftkings", home="Miami Heat", away="LA Clippers",
+                              home_ml=-120 + 4 * i, away_ml=-120 + 4 * i)])
         report = line_movement.snapshot_coverage(con, min_snapshots=2, sportsbook="draftkings")
         self.assertEqual(report["games"], 1)
         self.assertEqual(report["games_with_min_snapshots"], 1)
@@ -619,8 +631,9 @@ class TestSnapshotCoverage(unittest.TestCase):
 
     def test_dense_coverage_is_reported_as_dense(self):
         con = make_connection()
-        for hour in (9, 13, 19):
-            record(con, f"2026-01-05T{hour:02d}:00:00+00:00", [build_row()])
+        for i, hour in enumerate((9, 13, 19)):
+            record(con, f"2026-01-05T{hour:02d}:00:00+00:00",
+                   [build_row(home_ml=-110 + 5 * i, away_ml=-110 + 5 * i)])
         report = line_movement.snapshot_coverage(con, min_snapshots=2)
         self.assertAlmostEqual(report["coverage_pct"], 100.0, places=6)
         self.assertEqual(report["gaps"], [])
@@ -1020,6 +1033,9 @@ class TestMain(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmpdir:
             db_path = Path(tmpdir) / "odds.sqlite"
             games = [fake_game()]
+            # --backfill is required because this test pins a fixed historical --at,
+            # and the odds endpoint returns one current price whatever time is asked
+            # for. The row is therefore written and MARKED backfilled; see #26.
             with mock.patch.object(line_movement, "Scoreboard", lambda date: FakeScoreboard(games)), \
                  mock.patch.object(line_movement.time, "sleep"):
                 code = line_movement.main([
@@ -1027,6 +1043,7 @@ class TestMain(unittest.TestCase):
                     "--db", str(db_path),
                     "--at", "2026-01-05T18:30:00+00:00",
                     "--date", "2026-01-05",
+                    "--backfill",
                 ])
             self.assertEqual(code, 0)
             with sqlite3.connect(db_path) as con:

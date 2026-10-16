@@ -183,9 +183,26 @@ SNAPSHOT_SCHEMA = (
     '"ML_Home" INTEGER,'
     '"ML_Away" INTEGER,'
     '"OU" REAL,'
+    # Provenance records whether the price was observed at CapturedAt or merely
+    # labelled with it. The odds endpoint returns one current price regardless of
+    # the time asked for, so a row written with a backdated CapturedAt contains a
+    # real price and a fictional timestamp. Without this column the two are
+    # indistinguishable once written, and coverage counts them alike -- which is
+    # how a single observation repeated three times reports as full coverage and
+    # yields a CLV of exactly 0.0 that reads as "the line held".
+    '"Provenance" TEXT NOT NULL DEFAULT \'observed\','
     'PRIMARY KEY ("CapturedAt", "Sportsbook", "Date", "Home", "Away")'
     ")"
 )
+
+# Rows written with an observation time that was supplied rather than measured.
+PROVENANCE_OBSERVED = "observed"
+PROVENANCE_BACKFILLED = "backfilled"
+
+# How far in the past an --at may be before it has to be declared with --backfill.
+# Small enough that an operator cannot "accidentally" rewind a season, large enough
+# to absorb ordinary clock skew between a scheduler and the host.
+BACKFILL_STALENESS_SECONDS = 3600
 
 SNAPSHOT_INDEX = (
     'CREATE INDEX IF NOT EXISTS "idx_odds_snapshots_game" ON "' + SNAPSHOT_TABLE + '"'
@@ -194,12 +211,18 @@ SNAPSHOT_INDEX = (
 
 SNAPSHOT_UPSERT = (
     'INSERT INTO "' + SNAPSHOT_TABLE + '" ('
-    '"CapturedAt", "Date", "Sportsbook", "Home", "Away", "ML_Home", "ML_Away", "OU"'
-    ') VALUES (:CapturedAt, :Date, :Sportsbook, :Home, :Away, :ML_Home, :ML_Away, :OU) '
+    '"CapturedAt", "Date", "Sportsbook", "Home", "Away", "ML_Home", "ML_Away", "OU", '
+    '"Provenance"'
+    ') VALUES (:CapturedAt, :Date, :Sportsbook, :Home, :Away, :ML_Home, :ML_Away, :OU, '
+    ':Provenance) '
     'ON CONFLICT ("CapturedAt", "Sportsbook", "Date", "Home", "Away") DO UPDATE SET '
     '"ML_Home" = excluded."ML_Home", '
     '"ML_Away" = excluded."ML_Away", '
-    '"OU" = excluded."OU"'
+    '"OU" = excluded."OU", '
+    # An observed row must never be downgraded to backfilled by a later write, and a
+    # backfilled row must never be promoted to observed. Provenance describes how the
+    # timestamp arose; correcting a price later does not change that.
+    '"Provenance" = "' + SNAPSHOT_TABLE + '"."Provenance"'
 )
 
 
@@ -472,6 +495,23 @@ def ensure_snapshot_table(con):
     try:
         con.execute(SNAPSHOT_SCHEMA)
         con.execute(SNAPSHOT_INDEX)
+        # CREATE TABLE IF NOT EXISTS does nothing when the table already exists, so a
+        # database written before "Provenance" existed fails every insert with "no
+        # column named Provenance". Add it when missing.
+        #
+        # The column is added with a default of 'observed' rather than 'backfilled'.
+        # A pre-existing row was in practice captured by the scheduler when it was
+        # written, so 'observed' is the truthful reading - and the distinct-price rule
+        # is the real guard against a fabricated trajectory, so a migrated table stays
+        # protected either way.
+        existing = [row[1] for row in con.execute(
+            'PRAGMA table_info("' + SNAPSHOT_TABLE + '")'
+        )]
+        if existing and "Provenance" not in existing:
+            con.execute(
+                'ALTER TABLE "' + SNAPSHOT_TABLE + '" ADD COLUMN "Provenance" TEXT '
+                "NOT NULL DEFAULT '" + PROVENANCE_OBSERVED + "'"
+            )
     except sqlite3.Error as exc:
         raise SnapshotStoreError(f"could not create {SNAPSHOT_TABLE}: {exc}") from exc
     return con
@@ -554,7 +594,7 @@ def _fetch_snapshot(con, values):
     return dict(zip([column[0] for column in cursor.description], row))
 
 
-def record_snapshot(con, captured_at, rows):
+def record_snapshot(con, captured_at, rows, provenance=PROVENANCE_OBSERVED):
     """Append one timestamped snapshot of `rows` and return what was written.
 
     Returns a dict: total, inserted, updated, skipped.
@@ -570,7 +610,19 @@ def record_snapshot(con, captured_at, rows):
     re-record skip the write entirely and be reported as such. The upsert
     statement is race-safe if two capture processes ever land on the same
     timestamp, which is the one case the pre-read alone cannot cover.
+
+    `provenance` is the important argument. The odds endpoint returns one current
+    price no matter which time is requested, so a caller-supplied `captured_at` is a
+    LABEL on a real price, not a retrieval of the price at that time. Rows labelled
+    with a materially past timestamp are therefore marked `backfilled`, and
+    snapshot_coverage() refuses to count them -- otherwise a single observation
+    written under three timestamps reports as three snapshots and full coverage.
     """
+    if provenance not in (PROVENANCE_OBSERVED, PROVENANCE_BACKFILLED):
+        raise SnapshotError(
+            f"unknown snapshot provenance {provenance!r}; expected "
+            f"{PROVENANCE_OBSERVED!r} or {PROVENANCE_BACKFILLED!r}"
+        )
     captured_text = format_captured_at(captured_at)
     rows = list(rows)
     if not rows:
@@ -603,6 +655,7 @@ def record_snapshot(con, captured_at, rows):
                     "ML_Home": home_ml,
                     "ML_Away": away_ml,
                     "OU": total,
+                    "Provenance": provenance,
                 }
                 existing = _fetch_snapshot(con, values)
                 con.execute(SNAPSHOT_UPSERT, values)
@@ -702,9 +755,14 @@ def snapshot_coverage(con, min_snapshots=DEFAULT_MIN_SNAPSHOTS, date=None, sport
     """
     try:
         cursor = con.execute(
-            'SELECT "Date", "Sportsbook", "Home", "Away", COUNT(*) AS snapshots FROM "'
-            + SNAPSHOT_TABLE
-            + '" GROUP BY "Date", "Sportsbook", "Home", "Away"'
+            'SELECT "Date", "Sportsbook", "Home", "Away", COUNT(*) AS snapshots, '
+            'SUM(CASE WHEN "Provenance" = ? THEN 1 ELSE 0 END) AS observed, '
+            'COUNT(DISTINCT COALESCE(CAST("ML_Home" AS TEXT), \'\') || \'|\' || '
+            'COALESCE(CAST("ML_Away" AS TEXT), \'\') || \'|\' || '
+            'COALESCE(CAST("OU" AS TEXT), \'\')) AS distinct_prices '
+            'FROM "' + SNAPSHOT_TABLE + '" '
+            'GROUP BY "Date", "Sportsbook", "Home", "Away"',
+            (PROVENANCE_OBSERVED,),
         )
         grouped = cursor.fetchall()
     except sqlite3.Error as exc:
@@ -717,7 +775,7 @@ def snapshot_coverage(con, min_snapshots=DEFAULT_MIN_SNAPSHOTS, date=None, sport
     wanted_book = str(sportsbook).strip().lower() if sportsbook is not None else None
 
     per_game = []
-    for game_date, book, home, away, count in grouped:
+    for game_date, book, home, away, count, observed, distinct_prices in grouped:
         if wanted_date is not None and game_date != wanted_date:
             continue
         if wanted_book is not None and book != wanted_book:
@@ -728,29 +786,47 @@ def snapshot_coverage(con, min_snapshots=DEFAULT_MIN_SNAPSHOTS, date=None, sport
                 "Sportsbook": book,
                 "Home": home,
                 "Away": away,
+                # `snapshots` counts ROWS, which is what a back-filled table inflates.
+                # Coverage is decided on `observed` and `distinct_prices`: rows whose
+                # timestamp was supplied rather than measured do not count, and rows
+                # repeating one price are one observation however many times written.
                 "snapshots": count,
+                "observed": observed or 0,
+                "distinct_prices": distinct_prices or 0,
             }
         )
 
     counts = [entry["snapshots"] for entry in per_game]
     games = len(per_game)
-    covered = sum(1 for count in counts if count >= min_snapshots)
+    # Coverage is decided on OBSERVED rows only, and a game also has to have more
+    # than one distinct price. Counting rows would let a back-filled table -- the
+    # same observation written under several timestamps -- report full coverage and
+    # produce a CLV of exactly 0.0 that reads as "the line held".
+    covered = sum(
+        1 for entry in per_game
+        if entry["observed"] >= min_snapshots and entry["distinct_prices"] >= 2
+    )
     coverage_pct = (covered / games * 100.0) if games else 0.0
+    total_rows = sum(counts)
+    total_observed = sum(entry["observed"] for entry in per_game)
 
     by_date = {}
     for entry in per_game:
         bucket = by_date.setdefault(entry["Date"], {"games": 0, "games_with_min_snapshots": 0})
         bucket["games"] += 1
-        if entry["snapshots"] >= min_snapshots:
+        if entry["observed"] >= min_snapshots and entry["distinct_prices"] >= 2:
             bucket["games_with_min_snapshots"] += 1
 
-    gaps = [entry for entry in per_game if entry["snapshots"] < min_snapshots]
-    mean_count = (sum(counts) / games) if games else 0.0
+    gaps = [entry for entry in per_game
+            if entry["observed"] < min_snapshots or entry["distinct_prices"] < 2]
+    mean_count = (sum(entry["observed"] for entry in per_game) / games) if games else 0.0
     dense_enough = bool(games) and coverage_pct >= 95.0 and mean_count >= min_snapshots
 
     report = {
         "min_snapshots": min_snapshots,
-        "total_snapshots": sum(counts),
+        "total_snapshots": total_rows,
+        "total_observed_snapshots": total_observed,
+        "total_backfilled_snapshots": total_rows - total_observed,
         "games": games,
         "games_with_min_snapshots": covered,
         "coverage_pct": coverage_pct,
@@ -878,7 +954,8 @@ def rows_from_scoreboard(scoreboard, sportsbook):
 
 
 def capture_once(sportsbook, at_time=None, game_date=None, con=None, db_path=None,
-                 timeout=REQUEST_TIMEOUT_SECONDS, scorer=None):
+                 timeout=REQUEST_TIMEOUT_SECONDS, scorer=None,
+                 provenance=PROVENANCE_OBSERVED):
     """Fetch the live slate for one sportsbook and record it as a snapshot.
 
     at_time    the observation instant; defaults to now, UTC. It is the whole
@@ -888,6 +965,11 @@ def capture_once(sportsbook, at_time=None, game_date=None, con=None, db_path=Non
     con        an open connection to reuse. When None, one is opened on
                db_path and closed again (contextlib.closing, as elsewhere).
     timeout    seconds to wait for the fetch before giving up.
+    provenance PROVENANCE_OBSERVED for a price observed at `at_time`;
+               PROVENANCE_BACKFILLED when the timestamp was supplied rather than
+               measured. Backfilled rows are excluded from coverage and CLV,
+               because the endpoint returns one current price no matter which
+               time is requested (issue #26).
 
     Raises CaptureError on every failure path -- missing sbrscrape, a fetch that
     throws, a fetch that times out, a slate with no games, a slate with no odds
@@ -924,11 +1006,11 @@ def capture_once(sportsbook, at_time=None, game_date=None, con=None, db_path=Non
         row["Date"] = slate_date
 
     if con is not None:
-        result = record_snapshot(con, captured_at, rows)
+        result = record_snapshot(con, captured_at, rows, provenance=provenance)
     else:
         target = DB_PATH if db_path is None else db_path
         with contextlib.closing(sqlite3.connect(target)) as owned:
-            result = record_snapshot(owned, captured_at, rows)
+            result = record_snapshot(owned, captured_at, rows, provenance=provenance)
 
     result["sportsbook"] = sportsbook
     result["date"] = slate_date.strftime(DATE_FORMAT)
@@ -1174,6 +1256,16 @@ def main(argv=None):
         help="Seconds to wait for the fetch (default: %(default)s).",
     )
     parser.add_argument(
+        "--backfill",
+        action="store_true",
+        help=(
+            "Declare that --at is a LABEL on a price fetched now, not a retrieval "
+            "of the price at that time. Required for any --at more than an hour in "
+            "the past. Rows written this way are marked backfilled and are excluded "
+            "from snapshot coverage and from every CLV figure."
+        ),
+    )
+    parser.add_argument(
         "--coverage",
         action="store_true",
         help="Report snapshot density instead of capturing. Fetches and writes nothing.",
@@ -1205,6 +1297,31 @@ def main(argv=None):
         print(f"CAPTURE FAILED [{','.join(books)}]: {exc}")
         return 1
 
+    # A supplied --at is a LABEL on whatever price the endpoint returns now, not a
+    # retrieval of the price at that time. Writing a materially past timestamp
+    # without saying so manufactures a line-movement trajectory from one
+    # observation, so it has to be declared. See issue #26.
+    provenance = PROVENANCE_OBSERVED
+    if captured_at is not None and not args.backfill:
+        staleness = (datetime.now(timezone.utc) - captured_at).total_seconds()
+        if staleness > BACKFILL_STALENESS_SECONDS:
+            print(
+                f"CAPTURE REFUSED: --at is {staleness / 3600.0:.1f} hours in the past "
+                f"({captured_at.isoformat()}). The odds endpoint returns one current "
+                f"price regardless of the time requested, so an undeclared past "
+                f"timestamp would write a real price under a fictional time and "
+                f"report as a trajectory that never happened. Pass --backfill to do "
+                f"it anyway; those rows are marked and excluded from coverage and CLV."
+            )
+            return 1
+    if args.backfill:
+        provenance = PROVENANCE_BACKFILLED
+        print(
+            "BACKFILL MODE: rows will be written with provenance "
+            f"{PROVENANCE_BACKFILLED!r} and will NOT count toward snapshot coverage "
+            "or any CLV figure."
+        )
+
     def one_pass():
         """Capture every configured book once. Returns the number that failed."""
         failures = 0
@@ -1217,6 +1334,7 @@ def main(argv=None):
                         game_date=args.date,
                         con=con,
                         timeout=args.timeout,
+                        provenance=provenance,
                     )
             except LineMovementError as exc:
                 # A non-zero exit is the monitoring signal. The daily job that
