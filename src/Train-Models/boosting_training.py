@@ -53,7 +53,7 @@ DEFAULT_NUM_BOOST_ROUND = 2500
 def _snap(position, dates):
     """Move a split point to a date-group boundary, if the dates were supplied.
 
-    Plain row counts put whole slates on both sides of a cut; mean 6.42 rows share
+    Plain row counts put whole slates on both sides of a cut; mean 6.45 rows share
     one snapshot date here and the largest group is 40. See
     ``training_common.snap_cut_to_date_boundary``.
     """
@@ -66,7 +66,7 @@ def prepare_data(df, target_column, drop_columns):
     """Sort by snapshot date and select the positional feature matrix.
 
     The sort is a stable merge sort, not pandas' default quicksort, which is not
-    stable: rows sharing a snapshot date (a same-day slate, mean 6.42 rows, max
+    stable: rows sharing a snapshot date (a same-day slate, mean 6.45 rows, max
     40) came out in a different order under it, so a train/test boundary could
     land inside a group and the split could not be reproduced from the stored
     table alone.
@@ -208,8 +208,9 @@ def walk_forward_cv_loss(
     Returns ``(weighted_mean, per_fold_losses)``. Both are wanted: the weighted
     mean is what the search selects on, and the per-fold list is what gets
     printed beside it. Per-fold log loss standard deviation across the old
-    five-fold geometry was 0.0094 -- larger than any effect the search could
-    resolve -- so a single number without its folds is not interpretable.
+    five-fold geometry was already 0.0044 at a single fixed configuration, before
+    any hyperparameter search was involved, so a single number without its folds
+    is not interpretable.
 
     Folds come from ``training_common.walk_forward_folds``, whose windows are
     capped at one season by default and are configurable. The returned mean

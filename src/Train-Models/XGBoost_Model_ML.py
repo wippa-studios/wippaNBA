@@ -36,13 +36,13 @@ from training_common import (
     DEFAULT_TRIALS,
     MONEYLINE_NUM_CLASSES,
     MONEYLINE_TARGET,
+    calibration_choices,
     drop_columns_for,
     format_param,
     load_dataset,
     report_search_selection_risk,
 )
 from training_reporting import (
-    CALIBRATION_CHOICES,
     MIN_CALIBRATION_ROWS,
     log_loss_standard_error,
     make_calibrated_estimator,
@@ -66,10 +66,10 @@ DROP_COLUMNS = drop_columns_for(TARGET_COLUMN)
 def add_search_arguments(parser):
     """The flags every trainer shares. See Logistic_Regression_ML for the why.
 
-    `--trials` used to default to 100 here. It is 15 now: the selection effect
-    of 100 trials at this sample size is 2.50 standard errors, against a total
-    true range of 0.0019 nats, and 83%-100% of the CV winner's advantage
-    evaporates on the holdout.
+    `--trials` used to default to 100 here. It is 15 now:
+    `selection_bias_estimate` returns 2.50 standard errors at 100 trials against
+    1.74 at 15, on this sample size, and the measured gap between the best and the
+    mean CV score grows by 0.0011 nats between 15 and 100.
     """
     parser.add_argument(
         "--dataset", default=DEFAULT_DATASET, help="Dataset table name."
@@ -109,7 +109,9 @@ def add_search_arguments(parser):
     parser.add_argument(
         "--calibration",
         default="sigmoid",
-        choices=list(CALIBRATION_CHOICES),
+        # calibration_choices() reads argv, because argparse fixes `choices`
+        # before it looks at any other flag. See its docstring.
+        choices=list(calibration_choices()),
         help="Calibration method for probabilities.",
     )
     parser.add_argument(
@@ -153,7 +155,7 @@ def main():
 
     X, y, feature_names, data = prepare_data(df, TARGET_COLUMN, DROP_COLUMNS)
     # `dates` makes every cut land on a date-group boundary: the dataset holds
-    # whole slates (mean 6.42 rows per snapshot date, max 40), and a cut through
+    # whole slates (mean 6.45 rows per snapshot date, max 40), and a cut through
     # one of them puts part of a single night's games on each side.
     snapshot_dates = data[training_common.DATE_COLUMN]
     X_train_val, y_train_val, X_test, y_test = split_train_test(

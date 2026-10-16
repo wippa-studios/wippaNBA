@@ -39,6 +39,7 @@ from training_common import (
     DEFAULT_TRIALS,
     MONEYLINE_NUM_CLASSES,
     MONEYLINE_TARGET,
+    calibration_choices,
     drop_columns_for,
     impute_split,
     load_dataset,
@@ -47,7 +48,6 @@ from training_common import (
     walk_forward_folds,
 )
 from training_reporting import (
-    CALIBRATION_CHOICES,
     MIN_CALIBRATION_ROWS,
     log_loss_standard_error,
     make_calibrated_estimator,
@@ -67,16 +67,15 @@ LABELS = [0, 1]
 def add_search_arguments(parser):
     """The flags every trainer shares, in one place.
 
-    `--trials` defaults to 15, not 100. Measured on this dataset, the standard
-    deviation of the 5-fold CV score ACROSS configurations is 8.2x-8.6x the total
-    true spread of test performance, so the search was ranking on noise. At 100
-    trials `selection_bias_estimate` returns 2.50 SE -- an expected inflation of
-    0.0112 nats on the printed CV score against a total true range of 0.0019
-    nats -- and 83%-100% of the CV winner's advantage evaporates on the holdout.
-    Ten to fifteen trials IS the entire signal; 100 buys at most 0.0019 nats
-    against a 0.0073 noise floor. ROADMAP.md Level 6.2 lists "more
-    hyperparameter search without selection correction" as an explicit
-    non-goal.
+    `--trials` defaults to 15, not 100. Measured on the current table over 12
+    sampled configurations: the standard deviation of the 5-fold CV score ACROSS
+    configurations is 0.0046 nats, while the entire true range of held-out log
+    loss across the same twelve is 0.0009 -- the search was ranking noise, by a
+    factor of about five. `selection_bias_estimate` returns 2.50 SE at 100 trials
+    against 1.74 SE at 15. Ten to fifteen trials IS essentially the entire signal;
+    a hundred buys about 0.0011 nats. See `training_common.DEFAULT_TRIALS` for
+    the full derivation, and ROADMAP.md Level 6.2, which lists "more
+    hyperparameter search without selection correction" as an explicit non-goal.
 
     `--fold-rows` and `--splits` together set the validation geometry; see
     training_common.walk_forward_folds for why the width is capped at one
@@ -120,7 +119,9 @@ def add_search_arguments(parser):
     parser.add_argument(
         "--calibration",
         default="sigmoid",
-        choices=list(CALIBRATION_CHOICES),
+        # calibration_choices() reads argv, because argparse fixes `choices`
+        # before it looks at any other flag. See its docstring.
+        choices=list(calibration_choices()),
         help="Calibration method for probabilities.",
     )
     parser.add_argument(
@@ -163,7 +164,7 @@ def main():
 
     X, y, data = prepare_data(df, TARGET_COLUMN, DROP_COLUMNS)
     # `dates` makes every cut land on a date-group boundary: the dataset holds
-    # whole slates (mean 6.42 rows per snapshot date, max 40), and a cut through
+    # whole slates (mean 6.45 rows per snapshot date, max 40), and a cut through
     # one of them puts part of a single night's games on each side.
     snapshot_dates = data[training_common.DATE_COLUMN]
     X_train_val, y_train_val, X_test, y_test = split_train_test(

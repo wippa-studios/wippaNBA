@@ -5,8 +5,14 @@ never be imported as one. The scripts are executed from inside this directory --
 `cd src/Train-Models && python -m XGBoost_Model_ML`, or
 `python src/Train-Models/XGBoost_Model_ML.py` from the repo root -- and in both
 cases this directory is `sys.path[0]`. A sibling module is therefore importable
-under its plain top-level name (`from training_common import ...`) with no
-`sys.path` manipulation of any kind.
+under its plain top-level name (`from training_common import ...`).
+
+The three invocation styles put different directories on sys.path, and the one
+thing they do NOT agree on is whether the repository ROOT is reachable -- it is
+not, when the script is run from inside this directory. So this module puts the
+root there itself, once, below. That is what lets every module here reach
+`src.Utils.*` regardless of how it was started; the entry points keep their own
+insertion of this directory because the sibling imports still need it.
 
 What belongs here is what all six entry points agree on and used to each spell
 out again: where the data lives, which column each target lives in, how many
@@ -20,8 +26,9 @@ permutes every input after it. That is exactly what had happened -- the two
 totals trainers disagreed about whether the closing total `OU` is a feature, so
 the runner fed them a column order neither had trained on.
 
-DEFAULT_DATASET is the same story one level up, and is why it lives here rather
-than in the eight entry points that read it.
+DEFAULT_DATASET, STABLE_SORT_KIND, DEFAULT_TRIALS, DEFAULT_FOLD_ROWS and the
+split/selection helpers are the same story at every other level: each was defined
+in two to eight places, and the copies had drifted or were individually wrong.
 
 `format_param` rounds and dot-escapes a hyperparameter value for the model
 filename. The XGBoost and NN trainers use it; the logistic regression trainers
@@ -93,19 +100,26 @@ STABLE_SORT_KIND = "mergesort"
 # capped at one season by default. See walk_forward_folds.
 DEFAULT_FOLD_ROWS = 1230
 
-# HOW MANY CONFIGS THE SEARCH MAY TRY. Fifteen, not the hundred every trainer
-# used to default to, and not the fifty the logistic ones used to default to.
+# HOW MANY CONFIGS THE SEARCH MAY TRY. Fifteen, not the hundred the XGBoost
+# trainers used to default to, and not the fifty the logistic ones and the
+# networks used to default to.
 #
-# Measured twice, independently, on this dataset: the standard deviation of the
-# 5-fold CV score ACROSS configurations is 8.2x-8.6x the total true spread of test
-# performance. The search was ranking on noise, not on skill. At 100 trials
-# ``validation.selection_bias_estimate`` returns 2.50 SE -- an expected inflation
-# of 0.0112 nats on the printed CV score, against a total true range of 0.0019
-# nats -- and 83%-100% of the CV winner's advantage evaporates on the holdout.
+# WHY, REPRODUCIBLE. On this dataset, over 12 sampled configurations, the
+# standard deviation of the 5-fold CV score ACROSS configurations is 0.0046
+# nats, while the entire true range of HELD-OUT log loss across the same twelve
+# configurations is 0.0009 nats. The search was ranking noise, by a factor of
+# about five. The expected distance from the mean CV score to the best of N is
+# 0.0075 nats at N=15 and 0.0086 nats at N=100 -- so a hundred trials buy
+# 0.0011 nats. ``validation.selection_bias_estimate`` agrees in standard-error
+# units: 2.50 SE at 100 trials against 1.74 SE at 15, on 1,735 held-out rows.
 #
-# 100 buys at most 0.0019 nats against a 0.0073 noise floor. Ten to fifteen trials
-# is the entire signal. ROADMAP.md lists "more hyperparameter search without
-# selection correction" as an explicit non-goal for exactly this reason.
+# (Issue #7 quoted 8.2x-8.6x; that was two independent measurements of the same
+# ratio, and the figure above is a third with a different and smaller sample of
+# configurations. The order of magnitude is the same and so is the conclusion.)
+#
+# Ten to fifteen trials is the entire signal. ROADMAP.md lists "more
+# hyperparameter search without selection correction" as an explicit non-goal for
+# exactly this reason.
 DEFAULT_TRIALS = 15
 
 # The two prediction targets and how many classes each one carries. The
@@ -253,7 +267,7 @@ def impute_split(train, *others):
 
     Fitting the imputer on the joined frame lets held-out statistics reach
     training. It is latent on the shipped dataset -- there are no NaN cells in
-    the feature columns -- but 18 of the 106 columns would move their fill value
+    the feature columns -- but 14 of the 106 columns would move their fill value
     by more than 1% if the medians were computed over all rows, and a latent leak
     is still a leak. Same shape as scripts/evaluate.py's impute_fit_transform.
 
@@ -270,11 +284,11 @@ def resolve_fold_rows(n_rows, n_splits, fold_rows=None):
     """Validation-fold width in rows, capped at one season by default.
 
     ``TimeSeriesSplit(n_splits=5)`` on this dataset made every validation block
-    2,582 rows -- two full seasons -- and the five blocks together spanned 2014
-    to 2024, ten years, against a 62-day deployment window. Per-fold log loss
-    standard deviation across those folds is 0.0094, so fold identity explained
-    more variance than the hyperparameter search ever did, and four folds in five
-    measured regimes the model will never be used in.
+    2,603 rows -- measured: 716, 720, 990, 679 and 728 days -- and the five
+    blocks together ran from 2014-05-10 to 2024-11-08, more than ten years,
+    against a 62-day deployment window. Four folds in five measured regimes the
+    model will never be used in, and at C=1.0 the per-fold log loss standard
+    deviation was already 0.0044 before any hyperparameter search happened.
 
     Passing ``fold_rows`` uses it as given. Passing None (the default) takes the
     smaller of "an even share of the data" and one regular season, which is the
@@ -295,7 +309,7 @@ def snap_cut_to_date_boundary(dates, position):
     """Move a row-position cut FORWARD until it sits between two dates.
 
     A chronological split cuts at a row position, and the dataset holds whole
-    slates -- mean 6.42 rows share one snapshot date, the largest group is 40. A
+    slates -- mean 6.45 rows share one snapshot date, the largest group is 40. A
     cut that lands inside such a group puts part of one day's games in training
     and the rest in the test set. They played on the same night, against the same
     injury report and the same slate, so they are not independent observations and
@@ -334,10 +348,12 @@ def walk_forward_folds(n_rows, n_splits, fold_rows=None, min_train_rows=None, da
     ``dates`` the blocks are exactly ``fold_rows`` wide.
 
     ``purged_walk_forward_split`` in src/Utils/validation.py is deliberately NOT
-    used here. It was measured on this dataset and is a no-op: embargo_pct=0.01
-    over a ~13.5 year span resolves to a 45-day embargo, which moves log loss by
-    less than 0.001. It is a fine module; it is not the fix for fold geometry,
-    and swapping it in would look like a fix while changing nothing.
+    used here. It was measured on this dataset and is a no-op: ``embargo_pct=0.01``
+    over the 4,522-day training span resolves to a 45-day embargo, and swapping
+    ``TimeSeriesSplit`` for the purged split moved mean CV log loss by +0.0006 to
+    +0.0016 across three configurations. It is a fine module; it is not the fix
+    for fold geometry, and swapping it in would look like a fix while changing
+    nothing.
     """
     width = resolve_fold_rows(n_rows, n_splits, fold_rows)
     first_val_start = n_rows - n_splits * width
@@ -355,7 +371,15 @@ def walk_forward_folds(n_rows, n_splits, fold_rows=None, min_train_rows=None, da
         if dates is not None:
             start = snap_cut_to_date_boundary(dates, start)
             stop = snap_cut_to_date_boundary(dates, stop)
-        folds.append((np.arange(start), np.arange(start, min(stop, n_rows))))
+        stop = min(stop, n_rows)
+        if start >= stop:
+            raise ValueError(
+                f"fold {split}: snapping its boundaries to date-group edges left an "
+                f"EMPTY validation block at row {start}. Use a wider --fold-rows; "
+                "a validation fold narrower than the largest same-date group cannot "
+                "be placed between two dates."
+            )
+        folds.append((np.arange(start), np.arange(start, stop)))
     if floor > 1 and any(len(train) < floor for train, _ in folds):
         raise ValueError(
             f"the earliest fold would train on fewer than {floor} rows. Lower "
@@ -378,6 +402,11 @@ def recency_weighted_fold_mean(losses, half_life_folds=1.0):
     at its default of 1.0 and five folds the weights are
     [0.0625, 0.125, 0.25, 0.5, 1.0] and the newest fold carries 52%.
 
+    Both directions are tested in ``Tests/test_training_layer.py``: with quality
+    improving over the folds the weighted mean is BETTER than the flat one, and
+    with quality decaying it is WORSE. That is the property; a re-scaling that
+    happened to flatter one direction would not be.
+
     Returns (weighted_mean, per_fold_losses, weights). The per-fold values are
     returned so the caller can print the last fold's loss beside it -- the two
     numbers disagreeing is the signal, and hiding one of them is what let the flat
@@ -395,6 +424,28 @@ def recency_weighted_fold_mean(losses, half_life_folds=1.0):
     weights = weights / total
     weighted = float(np.dot(np.asarray(values), weights))
     return weighted, values, weights.tolist()
+
+
+def calibration_choices(argv=None):
+    """The ``--calibration`` choices, widened when the opt-in flag is present.
+
+    Isotonic is NOT offered by default: on this dataset it measured +0.0035 nats,
+    worse than no calibration at all, because it fits one free parameter per
+    training point against a 1,562-row segment. ``resolve_calibration_method``
+    refuses it there twice over -- once for the missing opt-in and once for the
+    segment size -- but a user should not have to read a traceback to find out.
+
+    argparse fixes ``choices`` before it looks at any other flag, so a boolean
+    opt-in cannot widen a NEIGHBOURING flag's choices from inside the parser.
+    This pre-scans ``argv`` for the opt-in, which is the only way to express
+    "off unless you also say this" as a pair of flags. Passing ``argv``
+    explicitly is what makes it testable.
+    """
+    if argv is None:
+        argv = sys.argv[1:]
+    if "--allow-isotonic" in list(argv):
+        return ("sigmoid", "isotonic", "none")
+    return ("sigmoid", "none")
 
 
 def report_search_selection_risk(n_configs_tried, metric_name, n_test_rows, standard_error):

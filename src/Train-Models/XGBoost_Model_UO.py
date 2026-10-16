@@ -36,13 +36,13 @@ from training_common import (
     DEFAULT_TRIALS,
     TOTALS_NUM_CLASSES,
     TOTALS_TARGET,
+    calibration_choices,
     drop_columns_for,
     format_param,
     load_dataset,
     report_search_selection_risk,
 )
 from training_reporting import (
-    CALIBRATION_CHOICES,
     MIN_CALIBRATION_ROWS,
     log_loss_standard_error,
     make_calibrated_estimator,
@@ -103,7 +103,9 @@ def add_search_arguments(parser):
     parser.add_argument(
         "--calibration",
         default="sigmoid",
-        choices=list(CALIBRATION_CHOICES),
+        # calibration_choices() reads argv, because argparse fixes `choices`
+        # before it looks at any other flag. See its docstring.
+        choices=list(calibration_choices()),
         help="Calibration method for probabilities.",
     )
     parser.add_argument(
@@ -147,7 +149,7 @@ def main():
 
     X, y, feature_names, data = prepare_data(df, TARGET_COLUMN, DROP_COLUMNS)
     # `dates` makes every cut land on a date-group boundary: the dataset holds
-    # whole slates (mean 6.42 rows per snapshot date, max 40), and a cut through
+    # whole slates (mean 6.45 rows per snapshot date, max 40), and a cut through
     # one of them puts part of a single night's games on each side.
     snapshot_dates = data[training_common.DATE_COLUMN]
     X_train_val, y_train_val, X_test, y_test = split_train_test(

@@ -16,16 +16,23 @@ held-out set (1,722 rows):
 * Isotonic is off by default and refused below ``MIN_CALIBRATION_ROWS``. Isotonic
   regression fits one free parameter per training point, so it needs far more
   rows than the calibration segment has. Measured here it was **+0.0035 nats --
-  actively worse than doing nothing**, which is what overfitting 1,547 rows of a
+  actively worse than doing nothing**, which is what overfitting 1,562 rows of a
   two-parameter calibration segment looks like.
 
-* Sigmoid is kept, but its effect is now reported rather than assumed. Measured
-  on the held-out set it moved log loss by -0.00008 +/- 0.00101 on one run and
-  +0.00214 on an independent replication: mechanically a near-constant intercept
-  shift (correlation 0.999 with the raw scores, mean shift -0.015 to -0.020),
-  i.e. nothing, within noise. `report_calibration_effect` prints that number
-  with its bootstrap standard error so "no effect" is a visible measurement
-  instead of an assumption baked into a printed score.
+* Sigmoid is kept, but its effect is now reported rather than assumed. Measured on
+  the moneyline held-out set it moved log loss by -0.00008 +/- 0.00101 on one run
+  and +0.00214 on an independent replication: mechanically a near-constant
+  intercept shift (correlation 0.999 with the raw scores, mean shift -0.015 to
+  -0.020), i.e. nothing, within noise. Re-measured on the current table with
+  `Logistic_Regression_ML.py --trials 5`: **-0.00019 +/- 0.00088**, 95% CI
+  [-0.00200, +0.00153] -- an interval that includes zero, which is now a printed
+  measurement rather than an assumption baked into a score.
+
+  On the TOTALS model the same sigmoid is NOT a no-op: -0.0104 +/- 0.0034, an
+  interval excluding zero. Three classes with a 1% push tail distort the
+  probability simplex in a way a two-parameter sigmoid genuinely repairs. Which is
+  the point of reporting the number instead of deciding in advance that
+  calibration does nothing.
 
   Expected calibration error is deliberately NOT the reported effect. At this
   sample size ECE runs 0.021-0.028, inside the 0.0276 mean / 0.0391 p95 band a
@@ -56,8 +63,10 @@ MIN_MATCHED_ODDS_ROWS = 50
 # has to be made out loud, at a size where the evidence exists.
 MIN_CALIBRATION_ROWS = 2000
 
-# The only two calibrators any trainer offers by default. Isotonic has to be
-# asked for with --allow-isotonic and then passes the size gate above.
+# The default --calibration choices. Isotonic has to be asked for with
+# --allow-isotonic, which widens them; see
+# ``training_common.calibration_choices`` for why that cannot be done inside the
+# parser, and ``resolve_calibration_method`` below for the size gate.
 CALIBRATION_CHOICES = ("sigmoid", "none")
 
 # Re-exported so the trainers get it from a sibling module that already

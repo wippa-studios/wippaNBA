@@ -30,7 +30,7 @@ def prepare_data(df, target_column, drop_columns):
     """Sort by snapshot date and select the feature frame. Does NOT impute.
 
     The sort is a stable merge sort. pandas' default quicksort is not stable, and
-    rows sharing a snapshot date (a same-day slate; mean 6.42 rows, max 40) came
+    rows sharing a snapshot date (a same-day slate; mean 6.45 rows, max 40) came
     out in a different order under it, so a split boundary could land inside a
     group and the split could not be reproduced from the stored table alone.
 

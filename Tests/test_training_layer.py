@@ -353,8 +353,8 @@ class TestTotalsTrainerRuns(unittest.TestCase):
     """``multi_class`` was removed in scikit-learn 1.7; the script passed it."""
 
     def test_multi_class_is_not_in_this_sklearn(self):
-        # Only meaningful on a modern scikit-learn; on 1.3.1 it IS a parameter,
-        # and the version fork below takes the other branch.
+        # Only meaningful on a modern scikit-learn; on the 1.3.1 pin it IS a
+        # parameter, and the version fork takes the other branch.
         import inspect
 
         from sklearn.linear_model import LogisticRegression
@@ -362,7 +362,9 @@ class TestTotalsTrainerRuns(unittest.TestCase):
         present = "multi_class" in inspect.signature(
             LogisticRegression.__init__
         ).parameters
-        self.assertEqual(present, training_common_supports_multi_class())
+        self.assertEqual(
+            present, logistic_training.supports_multi_class_parameter()
+        )
 
     def test_kwargs_omit_multi_class_when_the_version_dropped_it(self):
         import inspect
@@ -426,11 +428,6 @@ class TestTotalsTrainerRuns(unittest.TestCase):
                 and any(kw.arg == "multi_class" for kw in node.keywords)
             ]
             self.assertEqual(offenders, [], f"{name} passes multi_class to the estimator")
-
-
-def training_common_supports_multi_class():
-    """``logistic_training.supports_multi_class_parameter``, by the module's own test."""
-    return logistic_training.supports_multi_class_parameter()
 
 
 # ---------------------------------------------------------------------------
@@ -587,6 +584,49 @@ class TestCalibrationIsMeasured(unittest.TestCase):
         self.assertEqual(
             set(training_reporting.CALIBRATION_CHOICES), {"sigmoid", "none"}
         )
+
+    def test_the_opt_in_flag_widens_the_choices(self):
+        # argparse fixes `choices` before it reads any other flag, so the widening
+        # is a pre-scan of argv. Without it --allow-isotonic would be a flag that
+        # silently does nothing.
+        self.assertEqual(
+            training_common.calibration_choices(["--trials", "5"]),
+            ("sigmoid", "none"),
+        )
+        self.assertEqual(
+            training_common.calibration_choices(
+                ["--trials", "5", "--allow-isotonic"]
+            ),
+            ("sigmoid", "isotonic", "none"),
+        )
+
+    def test_a_parser_built_without_the_flag_refuses_isotonic(self):
+        for name in TRAINER_SOURCES:
+            if "NN_" in name:
+                continue
+            parser = load_trainer_module(name).build_parser()
+            action = next(a for a in parser._actions if a.dest == "calibration")
+            self.assertNotIn("isotonic", action.choices, name)
+            with self.assertRaises(SystemExit):
+                with contextlib.redirect_stderr(io.StringIO()):
+                    parser.parse_args(["--calibration", "isotonic"])
+
+    def test_a_parser_built_with_the_flag_accepts_isotonic(self):
+        saved = sys.argv
+        sys.argv = ["XGBoost_Model_ML.py", "--calibration", "isotonic",
+                    "--allow-isotonic"]
+        try:
+            for name in TRAINER_SOURCES:
+                if "NN_" in name:
+                    continue
+                parser = load_trainer_module(name).build_parser()
+                args = parser.parse_args(
+                    ["--calibration", "isotonic", "--allow-isotonic"]
+                )
+                self.assertEqual(args.calibration, "isotonic", name)
+                self.assertTrue(args.allow_isotonic, name)
+        finally:
+            sys.argv = saved
 
     def test_isotonic_needs_an_explicit_opt_in(self):
         with self.assertRaises(ValueError) as caught:
@@ -767,6 +807,18 @@ class TestFoldGeometry(unittest.TestCase):
         self.assertEqual(training_common.resolve_fold_rows(15_620, 5, fold_rows=400), 400)
         with self.assertRaises(ValueError):
             training_common.resolve_fold_rows(15_620, 5, fold_rows=0)
+
+    def test_a_fold_narrower_than_a_date_group_is_refused(self):
+        # Snapping a 3-row validation window forward across a 40-row date group can
+        # leave nothing between the two snapped edges. That has to be an error with
+        # the fix named in it, not an empty fold and a log-loss crash four calls on.
+        dates = real_snapshot_dates()
+        with self.assertRaises(ValueError) as caught:
+            training_common.walk_forward_folds(
+                len(dates), 5, fold_rows=3, dates=dates
+            )
+        self.assertIn("EMPTY validation block", str(caught.exception))
+        self.assertIn("--fold-rows", str(caught.exception))
 
     def test_folds_never_overlap_and_never_look_ahead(self):
         n_rows = 15_620

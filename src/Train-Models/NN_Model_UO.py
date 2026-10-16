@@ -101,7 +101,7 @@ def main():
 
     X, y, data = prepare_data(df, TARGET_COLUMN, DROP_COLUMNS)
     # `dates` makes both cuts land on a date-group boundary: the dataset holds
-    # whole slates (mean 6.42 rows per snapshot date, max 40), and a cut through
+    # whole slates (mean 6.45 rows per snapshot date, max 40), and a cut through
     # one of them puts part of a single night's games on each side.
     X_train, X_val, X_test, y_train, y_val, y_test = split_time_series(
         X,

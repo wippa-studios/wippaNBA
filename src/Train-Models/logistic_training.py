@@ -17,7 +17,7 @@ Two notes on what is NOT here:
 Imputation is NOT done in ``prepare_data`` any more. It used to be, which meant
 the medians were computed over the joined frame and the held-out rows therefore
 reached training. It is latent on the shipped dataset -- there are no NaN cells
-in the 106 feature columns -- but 18 of those columns would move their fill
+in the 106 feature columns -- but 14 of those columns would move their fill
 value by more than 1% if the medians were computed on all rows. Use
 ``training_common.impute_split(train, *others)`` after every split instead; see
 its docstring for why it returns the frames and not the medians.
@@ -26,7 +26,8 @@ The split helpers take an optional ``dates``. Pass the sorted frame's ``Date``
 column and every cut is moved forward to a date-group boundary, so no split ever
 separates two games played on the same night. Omit it and the cuts are plain row
 counts, which is what these helpers did before and which is wrong on this data:
-mean 6.42 rows share one snapshot date and the largest group is 40.
+mean 6.45 rows share one snapshot date and the largest group is 40, and the 90%
+cut lands inside one of them.
 """
 
 import inspect
@@ -51,7 +52,7 @@ def prepare_data(df, target_column, drop_columns):
     The sort is a stable merge sort. pandas' default is quicksort, which is NOT
     stable: rows sharing a snapshot date came out in a different order under it,
     and a train/test boundary landing inside a same-date group means the split
-    cannot be reproduced from the stored table alone. Mean group size is 6.42
+    cannot be reproduced from the stored table alone. Mean group size is 6.45
     rows per snapshot date and the largest is 40.
 
     Returns the frame UN-imputed. See the module docstring.
