@@ -149,8 +149,12 @@ class TestEwmaArithmetic(unittest.TestCase):
 
     def test_ewma_weight_convention_is_two_to_the_minus_i(self):
         weights = recency.ewma_weights(4, halflife=10)
-        self.assertEqual(list(weights), [2.0 ** (-3 / 10), 2.0 ** (-2 / 10),
-                                        2.0 ** (-1 / 10), 1.0])
+        # Compared with a relative tolerance: the exponentiation differs in the
+        # last bit between CPython 3.10 and 3.11, and an exact float equality
+        # would fail on one interpreter for no substantive reason.
+        for got, want in zip(weights, [2.0 ** (-3 / 10), 2.0 ** (-2 / 10),
+                                       2.0 ** (-1 / 10), 1.0]):
+            self.assertAlmostEqual(got, want, delta=abs(want) * 1e-12)
         self.assertEqual(recency.ewma_weights(1, halflife=10)[0], 1.0)
 
     def test_ewma_halflife_ten_ignores_the_old_half_of_a_short_series(self):

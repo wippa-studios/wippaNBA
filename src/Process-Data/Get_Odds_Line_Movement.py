@@ -201,8 +201,12 @@ def parse_captured_at(value):
     if isinstance(value, datetime):
         moment = value
     elif isinstance(value, str):
+        # datetime.fromisoformat only learned to accept the trailing "Z" in
+        # Python 3.11. Normalise it to an explicit +00:00 so a UTC timestamp
+        # parses identically on every supported interpreter.
+        text = value[:-1] + "+00:00" if value.endswith(("Z", "z")) else value
         try:
-            moment = datetime.fromisoformat(value)
+            moment = datetime.fromisoformat(text)
         except ValueError as exc:
             raise SnapshotError(
                 f"could not parse CapturedAt {value!r}; expected an ISO-8601 timestamp "
