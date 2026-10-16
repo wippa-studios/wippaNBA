@@ -9,33 +9,67 @@ This is deliberately its own module rather than a fold of `boosting_training`:
 the architecture, the normalisation and the split (a real validation slice, not
 a calibration slice) have nothing in common with a gradient boosted tree, and
 pretending otherwise would only hide the differences.
+
+``prepare_data`` no longer imputes. It used to fill NaN with the median of the
+WHOLE frame before the split, which lets held-out statistics reach training, and
+it also collapsed the frame to a normalised numpy matrix in one step -- so the
+imputation could not be moved after the split without being unpacked first.
+``prepare_data`` now returns the feature FRAME; ``to_model_matrix`` does the
+imputation, the cast and the normalisation, and the two entry points call it
+once per split segment.
 """
 
 import numpy as np
 import pandas as pd
 import tensorflow as tf
 
-from training_common import DATE_COLUMN
+from training_common import DATE_COLUMN, STABLE_SORT_KIND, impute_split, snap_cut_to_date_boundary
 
 
 def prepare_data(df, target_column, drop_columns):
+    """Sort by snapshot date and select the feature frame. Does NOT impute.
+
+    The sort is a stable merge sort. pandas' default quicksort is not stable, and
+    rows sharing a snapshot date (a same-day slate; mean 6.45 rows, max 40) came
+    out in a different order under it, so a split boundary could land inside a
+    group and the split could not be reproduced from the stored table alone.
+
+    Returns ``(X, y, data)``. ``data`` is the full sorted frame; the caller
+    passes ``data["Date"]`` to ``split_time_series`` so both cuts land on
+    date-group boundaries.
+
+    ``OU`` is kept in the totals trainers' drop_columns' complement, so it lands
+    in X at its dataset position; re-appending it here would push it to the
+    end and permute the inputs.
+    """
     data = df.copy()
     if DATE_COLUMN in data.columns:
         data[DATE_COLUMN] = pd.to_datetime(data[DATE_COLUMN], errors="coerce")
-        data = data.sort_values(DATE_COLUMN)
+        data = data.sort_values(DATE_COLUMN, kind=STABLE_SORT_KIND)
     y = data[target_column].astype(int).to_numpy()
-    # `OU` is kept in the totals trainers' drop_columns' complement, so it lands
-    # in X at its dataset position; re-appending it here would push it to the
-    # end and permute the inputs.
     X = data.drop(columns=drop_columns, errors="ignore")
     X = X.replace([np.inf, -np.inf], np.nan)
-    X = X.fillna(X.median(numeric_only=True)).fillna(0)
-    X = X.to_numpy(dtype=float)
-    X = tf.keras.utils.normalize(X, axis=1)
-    return X, y
+    return X, y, data
 
 
-def split_time_series(X, y, val_size=0.1, test_size=0.1):
+def to_model_matrix(X_train, *others):
+    """Impute with TRAIN medians only, then cast and normalise every frame given.
+
+    ``X_train`` is first; every other frame is held out. The median is computed
+    once, on ``X_train`` alone, and reused for the rest, so no held-out statistic
+    reaches training. Call this once per split segment, never on the joined
+    frame.
+
+    Returns one normalised matrix per argument, in the order given.
+    """
+    matrices = [
+        tf.keras.utils.normalize(frame.to_numpy(dtype=float), axis=1)
+        for frame in impute_split(X_train, *others)
+    ]
+    return tuple(matrices)
+
+
+def split_time_series(X, y, val_size=0.1, test_size=0.1, dates=None):
     if not (0 < val_size < 1) or not (0 < test_size < 1):
         raise ValueError("val_size and test_size must be in (0, 1).")
     if val_size + test_size >= 1:
@@ -45,6 +79,9 @@ def split_time_series(X, y, val_size=0.1, test_size=0.1):
         raise ValueError("Empty dataset.")
     val_start = int(n * (1 - val_size - test_size))
     test_start = int(n * (1 - test_size))
+    if dates is not None:
+        val_start = snap_cut_to_date_boundary(dates, val_start)
+        test_start = snap_cut_to_date_boundary(dates, test_start)
     X_train, y_train = X[:val_start], y[:val_start]
     X_val, y_val = X[val_start:test_start], y[val_start:test_start]
     X_test, y_test = X[test_start:], y[test_start:]

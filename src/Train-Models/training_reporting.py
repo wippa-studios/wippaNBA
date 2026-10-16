@@ -7,6 +7,37 @@ have no calibrator and no closing-line report.
 `make_calibrated_estimator` wraps a model that has already been fitted without
 refitting it. `report_closing_line` prints the market baseline and the realised
 ROI against the closing line for whichever model produced the picks.
+
+CALIBRATION IS GATED, AND ITS EFFECT IS MEASURED
+================================================
+Two things changed here after measuring what the calibrators actually do on the
+held-out set (1,722 rows):
+
+* Isotonic is off by default and refused below ``MIN_CALIBRATION_ROWS``. Isotonic
+  regression fits one free parameter per training point, so it needs far more
+  rows than the calibration segment has. Measured here it was **+0.0035 nats --
+  actively worse than doing nothing**, which is what overfitting 1,562 rows of a
+  two-parameter calibration segment looks like.
+
+* Sigmoid is kept, but its effect is now reported rather than assumed. Measured on
+  the moneyline held-out set it moved log loss by -0.00008 +/- 0.00101 on one run
+  and +0.00214 on an independent replication: mechanically a near-constant
+  intercept shift (correlation 0.999 with the raw scores, mean shift -0.015 to
+  -0.020), i.e. nothing, within noise. Re-measured on the current table with
+  `Logistic_Regression_ML.py --trials 5`: **-0.00019 +/- 0.00088**, 95% CI
+  [-0.00200, +0.00153] -- an interval that includes zero, which is now a printed
+  measurement rather than an assumption baked into a score.
+
+  On the TOTALS model the same sigmoid is NOT a no-op: -0.0104 +/- 0.0034, an
+  interval excluding zero. Three classes with a 1% push tail distort the
+  probability simplex in a way a two-parameter sigmoid genuinely repairs. Which is
+  the point of reporting the number instead of deciding in advance that
+  calibration does nothing.
+
+  Expected calibration error is deliberately NOT the reported effect. At this
+  sample size ECE runs 0.021-0.028, inside the 0.0276 mean / 0.0391 p95 band a
+  PERFECTLY calibrated model produces, so ECE movement at this n is not evidence
+  of anything.
 """
 
 import re
@@ -17,11 +48,95 @@ import pandas as pd
 from sklearn.calibration import CalibratedClassifierCV
 from sklearn.metrics import accuracy_score
 
+from src.Utils import metrics
+
 from training_common import BASE_DIR
 
 ODDS_DB = BASE_DIR / "Data" / "OddsData.sqlite"
 
 MIN_MATCHED_ODDS_ROWS = 50
+
+# Isotonic needs enough rows to estimate one free parameter per knot without
+# overfitting them. This dataset's calibration segment is 1,547 rows and
+# isotonic still cost +0.0035 nats, so the floor is deliberately well above the
+# segment size here: the point is that asking for isotonic is a decision that
+# has to be made out loud, at a size where the evidence exists.
+MIN_CALIBRATION_ROWS = 2000
+
+# The default --calibration choices. Isotonic has to be asked for with
+# --allow-isotonic, which widens them; see
+# ``training_common.calibration_choices`` for why that cannot be done inside the
+# parser, and ``resolve_calibration_method`` below for the size gate.
+CALIBRATION_CHOICES = ("sigmoid", "none")
+
+# Re-exported so the trainers get it from a sibling module that already
+# imported src.Utils.metrics, rather than each of them reaching across to the
+# repository root and depending on import order within their own file.
+log_loss_standard_error = metrics.log_loss_standard_error
+
+
+def resolve_calibration_method(method, n_calib_rows, allow_isotonic=False):
+    """Return the calibrator to use, or raise naming what to change.
+
+    ``method="isotonic"`` raises unless BOTH the caller opted in with
+    ``allow_isotonic`` AND the calibration segment is at least
+    ``MIN_CALIBRATION_ROWS`` rows. Either gate alone would be enough to stop the
+    accident; requiring both means the decision is deliberate and evidenced.
+    """
+    if method != "isotonic":
+        return method
+    if not allow_isotonic:
+        raise ValueError(
+            "Isotonic calibration is not offered by default: on this dataset it "
+            "measured +0.0035 nats, worse than no calibration at all, because it "
+            f"fits one free parameter per training point. Pass --allow-isotonic "
+            f"and use at least {MIN_CALIBRATION_ROWS} calibration rows to insist "
+            f"(this run has {n_calib_rows})."
+        )
+    if n_calib_rows < MIN_CALIBRATION_ROWS:
+        raise ValueError(
+            f"Isotonic calibration needs at least {MIN_CALIBRATION_ROWS} "
+            f"calibration rows; this run has {n_calib_rows}. It fits one free "
+            "parameter per training point and will overfit anything smaller."
+        )
+    return method
+
+
+def report_calibration_effect(
+    y_true, raw_proba, calibrated_proba, labels=None, n_calib_rows=None, method="none"
+):
+    """Print what the calibrator did, with a standard error on it.
+
+    Returns the dict from ``metrics.bootstrap_paired_delta`` so a caller or a
+    test can assert on the numbers rather than on stdout. The reported delta is
+    calibrated minus raw: NEGATIVE means the calibrator helped.
+
+    Also prints the calibration segment size next to the choice, because
+    "sigmoid" on 1,547 rows and "sigmoid" on 150,000 rows are different claims
+    wearing the same name, and the segment size is what tells them apart.
+    """
+    verdict = metrics.bootstrap_paired_delta(
+        y_true, calibrated_proba, raw_proba, labels=labels
+    )
+    segment = "n/a" if n_calib_rows is None else str(n_calib_rows)
+    print(
+        f"Calibration: {method}, fit on {segment} rows. "
+        f"Effect on held-out log loss (calibrated - raw): "
+        f"{verdict['delta']:+.5f} +/- {verdict['standard_error']:.5f} "
+        f"(bootstrap SE, {verdict['n_bootstrap']} resamples, 95% CI "
+        f"[{verdict['low']:+.5f}, {verdict['high']:+.5f}])"
+    )
+    lower, upper = verdict["low"], verdict["high"]
+    crosses_zero = lower <= 0.0 <= upper
+    print(
+        "  -> the interval includes zero, so this calibrator's effect is not "
+        "distinguishable from none." if crosses_zero else
+        "  -> the interval excludes zero, so this calibrator's effect is real "
+        f"({'improves' if verdict['delta'] < 0 else 'hurts'} log loss)."
+    )
+    return verdict
+
+
 SEASON_PATTERN = re.compile(r"^(?:odds_)?(\d{4}-\d{2})(?:_new)?$")
 # Same candidate precedence as src/Process-Data/Create_Games.py, so the closing
 # line reported here is the same line that built the dataset.

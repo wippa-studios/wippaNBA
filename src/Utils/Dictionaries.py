@@ -203,6 +203,9 @@ team_index_current = {
     'Boston Celtics': 1,
     'Brooklyn Nets': 2,
     'Charlotte Hornets': 3,
+    # NOTE: 'LA Clippers' is an alias of 'Los Angeles Clippers', not a 31st
+    # team. Both keys intentionally resolve to the same positional index. That is
+    # why this dict has 31 keys and 30 distinct indices -- do not "fix" the count.
     'Chicago Bulls': 4,
     'Cleveland Cavaliers': 5,
     'Dallas Mavericks': 6,
@@ -231,3 +234,52 @@ team_index_current = {
     'Utah Jazz': 28,
     'Washington Wizards': 29
 }
+
+
+# ---------------------------------------------------------------------------
+# Franchise name canonicalisation
+# ---------------------------------------------------------------------------
+# The dataset's team names come from the TeamData snapshot; the odds ledger's
+# Home/Away come from the scraper. They spell the same franchise differently,
+# and inconsistently across eras -- the odds feed says "Charlotte Bobcats" only
+# before 2013-14 and "Charlotte Hornets" after, while the dataset carries
+# whichever spelling that era's snapshot used.
+#
+# Both sides are era-consistent, so collapsing every spelling of a franchise to
+# one key is safe for a join: it cannot merge two different teams because both
+# sides are describing the same era of the same franchise.
+#
+# This must be applied to BOTH sides of a join. A one-directional alias map is
+# actively harmful -- mapping only "Charlotte Bobcats" -> "Charlotte Hornets"
+# breaks every recent Hornets game, because the modern spelling is the one left
+# untranslated. canonical_team_name() is a single total function, so calling it
+# on each side is inherently bidirectional.
+FRANCHISE_ALIASES = {
+    'LA Clippers': 'Los Angeles Clippers',
+    'Charlotte Bobcats': 'Charlotte Hornets',
+    'New Orleans Hornets': 'New Orleans Pelicans',
+    'Seattle SuperSonics': 'Oklahoma City Thunder',
+    'New Jersey Nets': 'Brooklyn Nets',
+}
+
+
+def canonical_team_name(name):
+    """Collapse every known spelling of a franchise to a single key.
+
+    Unknown names are returned unchanged, so this is safe to apply to any
+    column: it never invents a mapping, it only resolves known aliases.
+    """
+    if not isinstance(name, str):
+        return name
+    name = name.strip()
+    return FRANCHISE_ALIASES.get(name, name)
+
+
+def canonical_team_index(index_map):
+    """Rebuild a positional index map keyed by canonical name.
+
+    Aliases that collide onto the same index (LA Clippers / Los Angeles
+    Clippers) are preserved as separate keys pointing at the same position, so
+    lookups by either spelling still resolve.
+    """
+    return {canonical_team_name(k): v for k, v in index_map.items()}

@@ -10,18 +10,28 @@ implicit:
    shares a calendar date with a test row, and additionally embargoing the rows
    immediately before the test window.
 
-2. Every trainer runs a hyperparameter search (100 trials for XGBoost) and
-   reports the BEST trial's score on one held-out slice. That is a winner's-curse
-   statistic: the reported number grows with the number of trials tried even when
-   nothing improves. ``selection_bias_estimate``, ``deflated_sharpe_ratio`` and
+2. Every trainer runs a hyperparameter search and reports the BEST trial's score
+   on one held-out slice. That is a winner's-curse statistic: the reported number
+   grows with the number of trials tried even when nothing improves.
+   ``selection_bias_estimate``, ``deflated_sharpe_ratio`` and
    ``report_selection_risk`` quantify how much of a headline number can be
-   selection noise.
+   selection noise. ``report_selection_risk`` is now printed by all six trainers
+   in ``src/Train-Models``, via ``training_common.report_search_selection_risk``.
 
-WHAT THIS MODULE DOES NOT DO
-----------------------------
-It does not fix the trainers. Nothing here is wired into
-``src/Train-Models/*``; those files are owned elsewhere. This module is
-standalone and currently unused, which is expected.
+WHAT THIS MODULE IS AND IS NOT USED FOR
+---------------------------------------
+``purged_walk_forward_split`` is deliberately NOT used by the trainers. It was
+measured on this dataset and is a no-op there: ``embargo_pct=0.01`` over a span
+of about thirteen and a half years resolves to a 45-day embargo, which moves log
+loss by less than 0.001. It is a fine module and it does what it says; it just
+is not the fix for fold geometry, and swapping it in would look like a fix while
+changing nothing. Fold width is a separate problem and is handled by
+``training_common.walk_forward_folds``.
+
+``report_selection_risk`` and ``selection_bias_estimate`` ARE used, by the
+trainers, next to every printed "Best val log loss". Before that the correction
+existed and was never called, so every published CV score in this repository was
+a winner's-curse statistic presented as a measurement.
 
 ASSUMPTIONS THAT ARE MADE (and the ones that are NOT)
 -----------------------------------------------------

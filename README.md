@@ -1,211 +1,255 @@
 # Legit NBA Predictions
 
-A fork of [kyleskom/NBA-Machine-Learning-Sports-Betting](https://github.com/kyleskom/NBA-Machine-Learning-Sports-Betting)
-that audits the original work, fixes the defects it found, and reports what the
-model actually does when you bet it.
+A fork of [kyleskom/NBA-Machine-Learning-Sports-Betting](https://github.com/kyleskom/NBA-Machine-Learning-Sports-Betting) —
+1,744 stars, 569 forks, maintained since 2019.
 
-**The short version, before you read anything else:**
+This fork does two things: it **fixes defects it found in the original**, and it
+**rebuilds the modelling layer from NBA's own data** so the results can be read
+against each other honestly.
 
-- The original project's headline **68.9% moneyline accuracy was caused by target
-  leakage** and does not survive a corrected join. Leak-free accuracy is about
-  **65.7%** against a **54.7%** home baseline in the held-out window.
-- **There is no demonstrated betting edge, and the model is worse than the
-  market.** The closing-line favourite wins **68.1%** against the model's 65.7%.
-  The model's ROI at the closing line is **+1.5% to +8.3% depending on
-  threshold, with standard errors of ±4.4 to ±9.4** — every estimate sits within
-  roughly one standard error of zero, so the sign of the result depends on the
-  window and the definition used. Nothing here distinguishes skill from noise.
-- The totals (over/under) model is **no better than a coin flip** and does not beat
-  always predicting "over".
+**There is no demonstrated betting edge here, and we do not claim one.** What
+follows is an audit and a set of prediction models, judged on how well they
+predict — not on whether they make money.
 
-Reproduce every figure below with `python scripts/evaluate.py`.
-
-This fork is therefore a **data-pipeline and modelling project**, not a
-profitable-betting system. See [Limitations](#limitations) before using any number
-from this repo.
-
-**Status.** The audit and its fixes are done and verified. The measurement and
-modelling layers built after that are tested but **not yet wired into the
-runtime** — the runners still size bets with full Kelly, the trainers still use an
-unpurified `TimeSeriesSplit`, and nothing invokes the harness automatically.
-[ROADMAP.md](ROADMAP.md) records what is live, what is staged, and what is next.
-
-| | |
-|---|---|
-| Tests | 419 passing under both `pytest` and `unittest` |
-| CI | Python 3.10 and 3.11; dependency install verified end to end |
-| Leakage gate | `leakage_gate=PASS`, enforced by `scripts/evaluate.py` |
-| Models | **none retrained** — everything in `Models/` predates every fix |
+> **Credit:** all original code, pipelines and model scripts are the work of
+> **Kyle Skompinski and contributors**. Kyle built a substantial, well-maintained
+> project and did it in good faith. The defects below are the ordinary
+> accumulation of years of iteration by one maintainer — most are invisible
+> without measuring rather than reading. This fork corrects; it does not replace.
 
 ---
 
-## Where this started
+## What this does
 
-[`kyleskom/NBA-Machine-Learning-Sports-Betting`](https://github.com/kyleskom/NBA-Machine-Learning-Sports-Betting)
-began on **2019-11-29** as a personal NBA statistics project and grew into one of
-the most-starred sports-analytics repositories on GitHub (**1,744 stars, 569
-forks**, 142 commits). It scrapes daily NBA team stats, joins them with sportsbook
-odds, trains XGBoost / Keras / logistic-regression models for moneyline and
-totals, and prints expected value and Kelly Criterion stake sizes for the day's
-games. It also ships a Flask UI for browsing the output.
+Predicts the outcome of NBA games, then measures how good those predictions
+actually are.
 
-It is a genuinely substantial piece of work, and it was clearly maintained in good
-faith — commits run from "Initial commit" through a substantial
-[`Major Overhaul (#502)`](https://github.com/kyleskom/NBA-Machine-Learning-Sports-Betting/commit/8e36b0b72ecc5082aa8976dff742cdf910b3aa36)
-in January 2026. The defects documented below are the ordinary accumulation of
-years of iteration by a single maintainer, not carelessness, and most of them are
-invisible without measuring rather than reading.
+```
+  NBA's own data          Features                 Models            Judgement
+  ──────────────          ────────                 ──────            ────────
+  nba_api pull  ──────►   20 rolling    ──────►   Elo            ──────►  log loss
+  310 CSVs                team metrics            logistic          Brier
+  11 seasons              rest days               margin/total      AUC
+  13,199 games            back-to-backs           gradient          calibration
+                          3-in-4                  boosting
+                          travel distance
+```
 
-This fork exists because the project's central number — **68.9%** — never appears
-in the original README as prose. It exists only in a screenshot
-(`Screenshots/output.png`) and in model filenames
-(`Models/XGBoost_Models/XGBoost_68.9%_ML_*.json`). An unsourced, undated,
-unqualified headline accuracy figure for a product whose entire purpose is placing
-bets is the single most consequential documentation gap in the project, and it is
-what prompted the audit.
+**1. Pull the data.** `download_nba_data.py` fetches game logs, per-game team and
+player measures, schedules and season-end snapshots from `stats.nba.com`. It is
+resumable, and it drops `*_RANK` columns because those encode rank as of download
+time rather than as of any game.
 
-**Attribution:** all original code, data pipelines, and model scripts are the work
-of Kyle Skompinski and contributors. This fork makes corrections; it does not
-replace the original effort. There is **no LICENSE file in the upstream project**,
-which means default copyright applies and no rights to reuse the code are granted
-by upstream. This fork is offered for study and comment.
+```bash
+python download_nba_data.py                          # core, 11 seasons
+python download_nba_data.py --stages core,extras     # + tracking, synergy, shot charts
+```
+
+**2. Build features.** `src/DataProviders/nba_data.py` is shared by every model,
+so their numbers are comparable. Each feature for a game is computed **only from
+games that already happened**. That is tested rather than asserted: deleting 5,199
+future games changes no historical feature by more than `0.000e+00`.
+
+**3. Split by date, walk forward.** Train always precedes test, and never
+overlaps. Accuracy alone is useless here — always predicting "home" scores 55% —
+so log loss leads, followed by Brier, AUC and a calibration table.
+
+**4. Run the models.** Each is standalone and prints its own results:
+
+```bash
+python -m src.Models.baselines       # the bar everything else must beat
+python -m src.Models.logreg_rolling
+python -m src.Models.margin_total
+python -m src.Models.gbm
+```
+
+---
+
+## Results
+
+All models below are scored on the **same 13,199 games** with the **same five
+walk-forward splits**, so they are directly comparable to each other. Lower log
+loss and Brier are better; higher AUC is better.
+
+| model | log loss ↓ | Brier ↓ | AUC ↑ | accuracy |
+|---|---|---|---|---|
+| always predict home | 0.6883 | 0.2476 | 0.5010 | 0.5527 |
+| Elo (K=10, tuned on validation) | 0.6260 | 0.2180 | 0.7020 | 0.6512 |
+| Bradley-Terry | 0.6929 | 0.2494 | 0.5514 | 0.5568 |
+| log-linear on Elo | 0.6234 | 0.2169 | 0.7026 | 0.6542 |
+| margin + total → Φ(m̂/σ) | 0.6204 | 0.2156 | 0.7074 | — |
+| **logistic regression** | **0.6193** | **0.2150** | **0.7089** | **0.6570** |
+| XGBoost | 0.6233 | 0.2167 | 0.7030 | 0.6562 |
+| HistGradientBoosting | 0.6236 | 0.2169 | 0.7026 | 0.6526 |
+
+**What the table actually says.** Three results matter more than the ranking.
+
+**Boosting loses, and the confidence interval proves it.** XGBoost trails logistic
+regression by 0.0039 log loss, CI [−0.0056, −0.0023] — excludes zero. The two GBMs
+agree with each other to within 0.0004, so it is not an implementation artifact.
+The GBMs do best with *one* feature and never reach the linear model.
+
+**More complex targets do not pay.** Predicting margin and total, then converting
+with Φ(m̂/σ), reaches 0.6204 — no better than fitting the label directly on the same
+features (Δ +0.0006, CI [−0.0026, +0.0038]). Its value is the richer output: margin
+RMSE 14.01, total RMSE 18.78, and spread MAE 10.99 against 12.44 for a
+pick-no-edge line.
+
+**Batch rating systems lose to the base rate.** Bradley-Terry (0.6929) and SRS
+(0.6890) both score *worse* than always predicting home (0.6883), with CIs
+straddling zero. The cause is structural: a batch fit over five seasons reports
+where a team **was**, while the next game depends on where it **is**.
+
+### Compared with the original model
+
+| | data | rows | validation | log loss | AUC |
+|---|---|---|---|---|---|
+| original logistic regression | scraped odds | 17,356 | chronological 90/10 | 0.6189 | 0.7084 |
+| logistic regression (this fork) | NBA game logs | 13,199 | 5× walk-forward | 0.6193 | 0.7089 |
+
+**These two numbers are not a like-for-like comparison, and the near-identical
+values are a coincidence rather than a result.** Different games, different
+coverage, different seasons, and different split geometry. What can be said is
+narrower and still worth saying: a linear model on team strength is hard to beat
+on this task, whether the features come from a scrape or from NBA directly, and
+the models built on top of it did not beat it here.
 
 ---
 
 ## What the audit found
 
-Every number below is reproducible from the committed `Data/*.sqlite` files.
-Method and caveats are stated with each claim rather than buried.
+Six defects, all measured on the committed data. Reproduce with
+`python scripts/evaluate.py`.
 
-### 1. Target leakage — the 68.9% is not a forecasting result
+### 1. The 68.9% headline was target leakage
 
-`config.toml` scrapes NBA season-to-date stats with `DateTo` set to **the game
-date itself**. The NBA treats `DateTo` as inclusive, so the stats snapshot named
-`D` contains the result of the game played on `D`. `Create_Games.py` then joined
-that snapshot to the very game it was supposed to predict, so `W`, `L`, `GP`,
-`W_PCT`, `PTS`, `PLUS_MINUS` and every `*_RANK` column carried the answer.
+`config.toml` scraped season-to-date stats with `DateTo` set to **the game date
+itself**. NBA treats `DateTo` as inclusive, so the snapshot named `D` already
+contained the result of the game on `D`. Seven columns carried the answer.
 
-A rule using only the contaminated columns recovers the label almost perfectly:
+A rule using only contaminated columns recovers the label nearly perfectly:
 
-```
+```python
 pred = 1 if (W_home[D] - W_home[D-1]) > (W_away[D] - W_away[D-1]) else 0
 ```
 
-When each team's `W` on `D` includes that night's result, the increments encode
-the answer outright. Measured on the dataset as shipped versus the dataset this
-fork rebuilds, by calendar year:
+| year | as shipped | rebuilt |
+|---|---|---|
+| 2024 | 68.0% | 48.1% |
+| 2025 | 96.1% | 45.6% |
+| 2026 | **100.0%** | 38.5% |
+| all | 49.1% | **48.4%** |
 
-| year | shipped `dataset_2012-26` | rebuilt | rows |
-|---|---|---|---|
-| 2013 | 41.9% | 45.6% | 1,310 |
-| 2020 | 47.1% | 49.2% | 711 |
-| 2023 | 44.0% | 48.9% | 1,259 |
-| **2024** | **68.0%** | 48.1% | 1,196 |
-| **2025** | **96.1%** | 45.6% | 1,330 |
-| **2026** | **100.0%** | 38.5% | 52 |
-| all | 49.1% | **48.4%** | 17,166 |
+The leak is **not uniform**: 2012–2021 was scraped before tip-off and is genuinely
+pre-game, while recent seasons were backfilled after the fact. So the chronological
+split put mostly-clean data in training and 94.3% poisoned data in the test set.
 
-Chance is 50%. The clean years sit slightly *below* 50% because with no leak both
-teams' `W` are unchanged, so the rule degenerates into always predicting the away
-win — 42% is simply the away-win rate. That degenerate signature is what "no
-leakage" looks like.
-
-The leak is **not uniform**, which is what makes it nastier. Stats for 2012–2021
-were scraped the morning of `D`, before tip-off, so `DateTo=D` returned data
-through `D−1` and they were genuinely pre-game. Recent seasons were backfilled
-after the fact and are poisoned. The chronological train/test split therefore
-puts mostly-clean data in training and almost entirely poisoned data in the test
-set — 3.5% leaked in train/validation versus **94.3% in the held-out 10%**.
-`Data/dataset.sqlite` in this fork has been rebuilt through the corrected join.
-
-**Measured impact**, rebuilding every row against the correctly-aligned `D−1`
-snapshot and re-running an identical pipeline on identical rows:
-
-| | accuracy | log loss | ROI of the model's own `EV>0` bets |
+| | accuracy | log loss | ROI of the model's own picks |
 |---|---|---|---|
 | as shipped (94% of test rows leaked) | 0.675 | 0.613 | **+4.21%** |
-| correctly aligned (same rows) | 0.647 | 0.632 | **−1.86%** |
+| correctly aligned, same rows | 0.647 | 0.632 | **−1.86%** |
 
 Leakage was worth roughly **+2.8 points of accuracy and +6 points of phantom ROI**.
 
 ### 2. The model does not beat the market
 
-The original project had no market baseline anywhere. On the **rebuilt, leak-free**
-dataset, `scripts/evaluate.py` reports over 1,722 held-out games:
+The original had no market baseline anywhere. On rebuilt, leak-free data over
+1,722 held-out games:
 
-| strategy | accuracy | flat-bet ROI | standard error |
+| strategy | accuracy | flat-bet ROI | SE |
 |---|---|---|---|
-| model (logistic regression) | 0.657 | +1.5% (edge ≥ 0.00) | ±4.4 |
-| model (edge ≥ 0.05) | 0.657 | +5.3% | ±6.0 |
-| model (edge ≥ 0.10) | 0.657 | +8.3% | ±9.4 |
+| model | 0.657 | +1.5% to +8.3% | ±4.4 to ±9.4 |
 | **closing-line favourite** | **0.681** | **−5.46%** | ±1.62 |
 | always bet home | 0.547 | — | — |
 
-Model log loss 0.618, Brier 0.215, AUC 0.709. All 1,722 test rows carry a closing
-price, so no figure below rests on a partial join.
-
-Two things to read carefully here.
-
-**The market beats the model outright.** The favourite wins 68.1% where the model
-wins 65.7%. That is the clearest single result in this document.
-
-**The model's ROI is indistinguishable from zero.** The point estimates run from
-+1.5% to +8.3%, but the standard errors run from ±4.4 to ±9.4 — every threshold
-sits inside roughly one standard error of zero, and the sample shrinks from 581
-bets to 211 as the threshold rises. Earlier measurements on this same data
-produced negative figures (−1.9% to −7%); the differences are definitional
-(de-vigged edge versus raw `EV>0`, calibrated versus uncalibrated probabilities)
-and window dependent. **The honest conclusion is not "the model loses money" — it
-is that the sign of the result is not stable, so no edge is demonstrated in
-either direction.** A 550-row window returns +25% to +48%; the full window returns
-+1% to +8%. That is variance, not skill.
-
-By contrast the favourite's −5.46% ±1.62 **is** statistically solid — it is the
-bookmaker's vig, which is what an efficient market is supposed to charge.
+The market wins outright: 68.1% against 65.7%. The model's own ROI is
+**indistinguishable from zero** — every threshold sits within about one standard
+error, earlier measurements came out negative, and the sign depends on the window.
+The honest conclusion is not "the model loses money"; it is that **no edge is
+demonstrated in either direction.** The favourite's −5.46% ±1.62 *is* solid — that
+is the vig, which is what an efficient market should charge.
 
 ### 3. The totals model has no signal
 
-`OU-Cover` is a three-class target (under / over / push) on a 49.5 / 49.4 / 1.1
-split, and `compute_sample_weights` up-weights the rare push class by ~30×. On the
-held-out split the shipped totals model scores **0.497** three-class accuracy
-against **0.504** for always predicting "over", and a worse log loss than simply
-predicting the class prior. The reported ~50.1% is a coin flip.
+`OU-Cover` is three-class (under / over / push) on a 49.5 / 49.4 / 1.1 split, with
+the rare push class up-weighted ~30×. It scores **0.497** against **0.504** for
+always predicting "over", and a worse log loss than the class prior.
 
-### 4. Probability calibration was actively harmful
+### 4. Calibration was actively harmful
 
-Inverse-frequency class weighting pushed the model's mean home probability ~6
-points off the true base rate (0.5079 vs a true 0.5694), while the sigmoid
-calibrator was fit on **unweighted** labels — so it was correcting a distortion it
-had never been validated against. Expected value is computed directly off those
-probabilities. Separately, the calibration set was used simultaneously as the
-early-stopping set, the calibrator's fit set, and a subset of the final CV
-validation fold.
+Inverse-frequency class weighting pushed mean home probability ~6 points off the
+true base rate (0.5079 vs 0.5694) while the sigmoid calibrator was fit on
+**unweighted** labels — correcting a distortion it had never been validated
+against. Expected value is computed straight off those probabilities. The
+calibration set was also used as the early-stopping set, the calibrator's fit set,
+and part of the final validation fold.
 
 ### 5. The web app leaked a live API key
 
-`Flask/app.py` contained a hardcoded third-party RapidAPI key on two lines,
-committed since 2023 and reachable through the unauthenticated `/player-stats` and
-`/team-data` routes. The README also instructed users to run `flask --debug run`,
-whose Werkzeug debugger serves application source — including that key — to any
-unauthenticated visitor on any unhandled exception.
+A hardcoded RapidAPI key sat in `Flask/app.py`, committed since 2023, reachable
+through two unauthenticated routes. The README also told users to run
+`flask --debug run`, whose Werkzeug debugger serves application source — the key
+included — on any unhandled exception.
 
-### 6. Engineering gaps that let all of this through
+### 6. Engineering gaps
 
-- **No CI, no linting, no type checking** of any kind.
-- `pytest Tests/` and `unittest discover` both **failed** on a clean checkout.
-- **74% of production code** lived in modules no test imported; `main.py` and all
-  six training scripts were at 0% coverage.
-- **255 games (1.5%)** were silently dropped from the dataset by a `len(rows) != 30`
-  guard, unrepairable because backfill treats any table as "present".
-- **9 postponed games and 1 phantom 190–190 tie** were labelled as home-team losses.
-- The README documented commands that **silently exit 0** while doing nothing
-  (`--dataset dataset_2012-26_new` — a table that does not exist).
-- `cd src/Process-Data && python -m Create_Games` raises `ModuleNotFoundError`.
-- **Three mutually incompatible days-rest formulas** across training and inference.
+No CI, no linting, no type checking. `pytest` and `unittest` both failed on a clean
+checkout. 74% of production code was in modules no test imported; the entry
+points were at 0% coverage. 255 games were silently dropped by a `len(rows) != 30`
+guard. Nine postponed games and one phantom 190–190 tie were labelled as losses.
+Documented commands silently exited 0 while doing nothing. Three mutually
+incompatible days-rest formulas existed across training and inference.
 
 ---
 
 ## What this fork changes
+
+**Correctness**
+- `Create_Games` joins each game to the most recent stats snapshot **strictly
+  before** the game date, eliminating the leak at its source.
+- Postponed, zero-score and phantom-tie games are excluded instead of labelled
+  as losses.
+- Days-rest is computed from **date-only UTC values against the team's previous
+  game**, in one shared implementation — replacing three divergent ones that
+  included the current game.
+- The UO model receives its `OU` column where it was trained on. It was being
+  appended, so XGBoost silently scored days-rest as the totals line.
+- A shared feature contract makes both runners **assert** the inference frame
+  matches training column order, so right-columns-wrong-order is rejected.
+
+**Model evaluation**
+- Class weighting is opt-in and defaults to **off**; probabilities need to be
+  calibrated, not balanced.
+- Train / early-stop / calibration / test are four disjoint chronological segments.
+- Every trainer persists its ordered feature list alongside the model.
+- Reported metrics include **log loss, a market baseline, and realised ROI** — not
+  accuracy alone.
+- The hyperparameter search was ranking on noise: it reseeded per trial, so each
+  trial ranked configurations differently rather than finding a better one. Seed is
+  now fixed, and the expected winner's curse is printed next to every headline.
+- Imputation is fitted on train inside each fold. It was fitted before the split,
+  and 14 of 106 columns have a median that moves more than 1% as a result.
+
+**Security & operations**
+- The API key comes from `RAPIDAPI_KEY`; endpoints fail closed with a 503.
+- Debug mode is gone; unhandled exceptions return a generic response, logged
+  server-side.
+- Every `requests.get` and `subprocess` call has a timeout; the per-request
+  triple-subprocess spawn is single-flighted and semaphore-capped.
+- Upstream failures raise a typed error instead of becoming an empty DataFrame
+  three frames downstream.
+
+**Engineering**
+- CI on Python 3.10–3.11 running both `pytest` and `unittest`.
+- Six near-identical training scripts collapsed to shared modules (2255 → 1551
+  lines) with byte-identical output.
+- Six trainers disagreed about which dataset table to train on; they now share one
+  name, resolved through a function that refuses same-day-join builds by name.
+
+---
+
+<details>
+<summary>Older fixes carried over from the first round of this audit</summary>
 
 **Correctness**
 - `Create_Games` joins each game to the most recent stats snapshot **strictly
@@ -249,6 +293,8 @@ unauthenticated visitor on any unhandled exception.
 - Season values come from `config.toml`, not from 19 hand-edited literals.
 - Six near-identical training scripts collapsed to shared modules (2255 → 1551
   lines) with byte-identical output.
+
+</details>
 
 ---
 
@@ -321,9 +367,16 @@ python -m src.Process-Data.Get_Data          # scrape daily team stats
 python -m src.Process-Data.Get_Odds_Data      # scrape sportsbook odds + results
 python -m src.Process-Data.Create_Games       # build the training dataset
 
-python -m src.Train-Models.XGBoost_Model_ML   --dataset dataset_2012-26 --trials 100 --splits 5
-python -m src.Train-Models.XGBoost_Model_UO   --dataset dataset_2012-26 --trials 100 --splits 5
+python -m src.Train-Models.XGBoost_Model_ML   --dataset dataset_2012-26 --trials 15 --splits 5
+python -m src.Train-Models.XGBoost_Model_UO   --dataset dataset_2012-26 --trials 15 --splits 5
 ```
+
+`--trials` defaults to **15**, not 100. On this dataset the standard deviation
+of the cross-validation score *across configurations* is several times the entire
+true spread of held-out performance, so a bigger search ranks noise — and at 100
+trials the expected winner's curse is 2.50 standard errors. Every trainer now
+prints that correction next to its own `Best val log loss`, so the number cannot
+be read without it. See [ROADMAP.md](ROADMAP.md) Level 6.2.
 
 Fill gaps with `--backfill` (optionally `--season 2025-26`).
 
@@ -357,7 +410,10 @@ rules.
 pytest Tests/                       # or: python -m unittest discover -s Tests -t .
 ```
 
-419 tests, no network access required, and no TensorFlow or XGBoost import.
+Most tests need no network access and no TensorFlow or XGBoost import. The model
+suites under `src/Models/` do need the downloaded NBA data described above; when
+`data/nba` is absent they skip rather than fail, so a fresh clone still gets a
+meaningful signal.
 
 ## Flask app
 
