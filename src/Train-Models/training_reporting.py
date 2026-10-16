@@ -32,6 +32,28 @@ ODDS_TABLE_CANDIDATES = (
     "{season}",
 )
 
+# WHICH dataset column joins to the odds date.
+#
+# These are two different dates and the difference is a bug fix, not a quirk.
+# Data/OddsData.sqlite stores the date a game was PLAYED on. The dataset's
+# ``Date`` used to be that same date, and an exact-date merge was correct.
+# It is not any more: src/Process-Data/Create_Games.py now joins each game to
+# the newest COMPLETE team-stats snapshot STRICTLY BEFORE the game, because the
+# NBA ``leaguedashteamstats`` endpoint treats ``DateTo`` as inclusive, so the
+# snapshot named D already contained the game played on D and every ``*_RANK``
+# derived from it. That fix kept ``Date`` as the honest as-of marker and moved
+# the trainers onto ``GameDate``, the real game date, which Create_Games now
+# writes beside it.
+#
+# So: join on GameDate. An exact merge on Date now misses all but a handful of
+# rows by one day. Do NOT "simplify" this into ``Date + timedelta(days=1)`` --
+# the offset is a guess about the snapshot spacing, it silently rots if
+# ``Date`` ever becomes the game date again, and it is wrong on the first and
+# last game of every season, where no prior snapshot exists or the gap is
+# larger than a day. The explicit column needs none of that.
+GAME_DATE_COLUMN = "GameDate"
+SNAPSHOT_DATE_COLUMN = "Date"
+
 
 def make_calibrated_estimator(estimator, method):
     """Wrap an already-fitted model in a probability calibrator.
@@ -115,17 +137,43 @@ def load_closing_odds():
     return odds.drop_duplicates(subset=["Date", "TEAM_NAME", "TEAM_NAME.1"], keep="first")
 
 
+def odds_join_date_column(rows):
+    """The dataset column the odds join should key on, and whether it fell back.
+
+    ``GameDate`` whenever the table has it. ``Date`` otherwise, with a warning:
+    dataset_2012-23 and dataset_2012-24 predate the leak-free join and so have
+    no GameDate column, and on those tables ``Date`` IS the game date, so the
+    join is still right -- the caller just has to be told which convention it
+    is reading. Silence there would let an old table look like a broken one.
+    """
+    if GAME_DATE_COLUMN in rows.columns:
+        return GAME_DATE_COLUMN, False
+    return SNAPSHOT_DATE_COLUMN, True
+
+
 def match_test_rows_to_odds(rows, odds):
     """Join test rows to the closing line on date plus both team names.
 
-    Never by positional arithmetic. The row number is carried through and the
-    result re-sorted on it, so the joined prices stay aligned with the y_test
-    array they are scored against.
+    The date comes from ``odds_join_date_column`` -- GameDate, or Date on a
+    dataset old enough to predate it. Never by positional arithmetic. The row
+    number is carried through and the result re-sorted on it, so the joined
+    prices stay aligned with the y_test array they are scored against.
     """
-    keys = rows[["Date", "TEAM_NAME", "TEAM_NAME.1"]].reset_index(drop=True)
-    keys["Date"] = pd.to_datetime(keys["Date"], errors="coerce").dt.strftime("%Y-%m-%d")
+    date_column, fell_back = odds_join_date_column(rows)
+    if fell_back:
+        print(
+            f"Warning: these test rows carry no {GAME_DATE_COLUMN} column, so the "
+            f"closing-line join falls back to {SNAPSHOT_DATE_COLUMN}. That is correct "
+            "for a dataset built before the leak-free join, where Date is still the "
+            "game date. Rebuild the dataset to get an exact join."
+        )
+    keys = rows[[date_column, "TEAM_NAME", "TEAM_NAME.1"]].reset_index(drop=True)
+    keys = keys.rename(columns={date_column: SNAPSHOT_DATE_COLUMN})
+    keys[SNAPSHOT_DATE_COLUMN] = pd.to_datetime(
+        keys[SNAPSHOT_DATE_COLUMN], errors="coerce"
+    ).dt.strftime("%Y-%m-%d")
     keys = keys.rename_axis("_row").reset_index()
-    matched = keys.merge(odds, on=["Date", "TEAM_NAME", "TEAM_NAME.1"], how="inner")
+    matched = keys.merge(odds, on=[SNAPSHOT_DATE_COLUMN, "TEAM_NAME", "TEAM_NAME.1"], how="inner")
     return matched.sort_values("_row").reset_index(drop=True)
 
 

@@ -47,6 +47,11 @@ TOTALS_NUM_CLASSES = 3
 # for the totals trainers and never wanted by the moneyline trainers.
 CLOSING_TOTAL_COLUMN = "OU"
 
+# The real game date, written by src/Process-Data/Create_Games.py next to the
+# snapshot Date. It is a join key and never a feature: see drop_columns_for.
+# The predictors sort on DATE_COLUMN, not on this one.
+GAME_DATE_COLUMN = "GameDate"
+
 
 def num_classes_for(target_column):
     """The number of classes ``target_column`` carries."""
@@ -75,6 +80,16 @@ def drop_columns_for(target_column, include_team_ids=False):
     trainer. Every totals model must agree on that, because the runner feeds
     them all the same column order and an input width none of them trained on
     is worse than a worse model.
+
+    ``GAME_DATE_COLUMN`` is dropped here for the same reason Date is. The
+    leak-free join in Create_Games makes ``Date`` the as-of SNAPSHOT date --
+    strictly before the game -- while ``Data/OddsData.sqlite`` stores the game
+    date, so the two are one day apart and no longer interchangeable. The
+    trainers still sort by ``Date`` (it is the honest as-of marker) and
+    training_reporting joins to the odds on ``GameDate`` instead; neither of
+    those makes the column a measurement, so it is dropped. Datasets written
+    before the column existed simply do not have it and
+    ``drop(columns=..., errors="ignore")`` makes the entry a no-op.
     """
     columns = ["index", "Score", MONEYLINE_TARGET, "TEAM_NAME"]
     if include_team_ids:
@@ -83,6 +98,7 @@ def drop_columns_for(target_column, include_team_ids=False):
     if include_team_ids:
         columns.append("TEAM_ID.1")
     columns.append("Date.1")
+    columns.append(GAME_DATE_COLUMN)
     columns.append(TOTALS_TARGET)
     if target_column == MONEYLINE_TARGET:
         columns.append(CLOSING_TOTAL_COLUMN)

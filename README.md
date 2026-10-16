@@ -7,13 +7,18 @@ model actually does when you bet it.
 **The short version, before you read anything else:**
 
 - The original project's headline **68.9% moneyline accuracy was caused by target
-  leakage** and does not survive a corrected join. Realistic leak-free accuracy is
-  roughly **63–65%** against a **~57%** always-bet-the-home baseline.
-- **Betting these predictions at the closing line loses money** — measured at
-  **−1.9% to −7% ROI**. A model that picks the better team 64% of the time is
-  *worse than the sportsbook*, which already prices that information in.
+  leakage** and does not survive a corrected join. Leak-free accuracy is about
+  **65.7%** against a **54.7%** home baseline in the held-out window.
+- **There is no demonstrated betting edge, and the model is worse than the
+  market.** The closing-line favourite wins **68.1%** against the model's 65.7%.
+  The model's ROI at the closing line is **+1.5% to +8.3% depending on
+  threshold, with standard errors of ±4.4 to ±9.4** — every estimate sits within
+  roughly one standard error of zero, so the sign of the result depends on the
+  window and the definition used. Nothing here distinguishes skill from noise.
 - The totals (over/under) model is **no better than a coin flip** and does not beat
   always predicting "over".
+
+Reproduce every figure below with `python scripts/evaluate.py`.
 
 This fork is therefore a **data-pipeline and modelling project**, not a
 profitable-betting system. See [Limitations](#limitations) before using any number
@@ -112,20 +117,38 @@ Leakage was worth roughly **+2.8 points of accuracy and +6 points of phantom ROI
 
 ### 2. The model does not beat the market
 
-The original project had no market baseline anywhere. Adding one on the identical
-held-out rows:
+The original project had no market baseline anywhere. On the **rebuilt, leak-free**
+dataset, `scripts/evaluate.py` reports over 1,722 held-out games:
 
-| strategy | accuracy | flat-bet ROI |
-|---|---|---|
-| model (as shipped, leaky) | 0.675 | +4.21% |
-| **bet the lower-priced side** | **0.677** | **−5.53%** |
-| always bet home | 0.541 | — |
+| strategy | accuracy | flat-bet ROI | standard error |
+|---|---|---|---|
+| model (logistic regression) | 0.657 | +1.5% (edge ≥ 0.00) | ±4.4 |
+| model (edge ≥ 0.05) | 0.657 | +5.3% | ±6.0 |
+| model (edge ≥ 0.10) | 0.657 | +8.3% | ±9.4 |
+| **closing-line favourite** | **0.681** | **−5.46%** | ±1.62 |
+| always bet home | 0.547 | — | — |
 
-The model's 1.2-point accuracy lead over the sportsbook favourite is roughly one
-standard error (1.13 points at n=1,697) — statistically indistinguishable from
-noise. An independent reproduction betting the model's picks at closing lines
-across a range of confidence thresholds returned **−6% to −7% ROI**, consistent
-with the bookmaker's vig and with the figure above.
+Model log loss 0.618, Brier 0.215, AUC 0.709. All 1,722 test rows carry a closing
+price, so no figure below rests on a partial join.
+
+Two things to read carefully here.
+
+**The market beats the model outright.** The favourite wins 68.1% where the model
+wins 65.7%. That is the clearest single result in this document.
+
+**The model's ROI is indistinguishable from zero.** The point estimates run from
++1.5% to +8.3%, but the standard errors run from ±4.4 to ±9.4 — every threshold
+sits inside roughly one standard error of zero, and the sample shrinks from 581
+bets to 211 as the threshold rises. Earlier measurements on this same data
+produced negative figures (−1.9% to −7%); the differences are definitional
+(de-vigged edge versus raw `EV>0`, calibrated versus uncalibrated probabilities)
+and window dependent. **The honest conclusion is not "the model loses money" — it
+is that the sign of the result is not stable, so no edge is demonstrated in
+either direction.** A 550-row window returns +25% to +48%; the full window returns
++1% to +8%. That is variance, not skill.
+
+By contrast the favourite's −5.46% ±1.62 **is** statistically solid — it is the
+bookmaker's vig, which is what an efficient market is supposed to charge.
 
 ### 3. The totals model has no signal
 
@@ -279,33 +302,37 @@ application source, including any credentials, to unauthenticated visitors.
 
 Read this before using any number from this repository.
 
-1. **No demonstrated betting edge.** At the closing line this model loses money.
-   The measurements above are reproducible from the committed data; they are the
-   most important thing in this README.
-2. **Accuracy is not profitability.** 64% accuracy loses money when the market
-   prices that accuracy into a −200 line. Only ROI and closing-line value measure
+1. **No demonstrated betting edge.** The model's ROI at the closing line is
+   +1.5% to +8.3% with standard errors of ±4.4 to ±9.4 — inside one standard
+   error of zero at every threshold, with the sign depending on the evaluation
+   window. Treat it as no result, not as a profit and not as a loss. The
+   measurements are reproducible with `python scripts/evaluate.py`.
+2. **The model is worse than the market it is trying to beat.** The closing-line
+   favourite wins 68.1% where the model wins 65.7%.
+3. **Accuracy is not profitability.** 65.7% accuracy loses money when the market
+   prices that accuracy into the line. Only ROI and closing-line value measure
    this product.
-3. **The `68.9%` figure is retired.** It is reproduced here only to explain the
+4. **The `68.9%` figure is retired.** It is reproduced here only to explain the
    leak. It is not a forecasting result.
-4. **The committed model artifacts predate every fix in this fork and must be
+5. **The committed model artifacts predate every fix in this fork and must be
    retrained before use.** They were fitted on the leaked dataset above, and
    `Models/NN_Models/Trained-Model-OU-49.2_*.keras` additionally carries the old
    totals column order — it has 107 inputs either way, so nothing will raise, it
    will simply be wrong. Treat everything in `Models/` as untrusted until
    retrained.
-5. **The totals model should not be used.** It does not beat a coin flip or a
+6. **The totals model should not be used.** It does not beat a coin flip or a
    constant prior.
-6. **Small test set.** ~1.7k held-out rows spanning ~1.2 seasons. Too small to
+7. **Small test set.** ~1.7k held-out rows spanning ~1.2 seasons. Too small to
    resolve a 1–2 point edge, with no way to re-test on new data.
-7. **Kelly sizing is full Kelly** with no fractional scaling, bankroll cap,
+8. **Kelly sizing is full Kelly** with no fractional scaling, bankroll cap,
    simultaneous-exposure limit, or discount for model uncertainty. Full Kelly on a
    marginally-uncertain edge has a high probability of severe drawdown.
-8. **Not financial advice.** Nothing here is a recommendation to wager. Sports
+9. **Not financial advice.** Nothing here is a recommendation to wager. Sports
    betting carries real financial risk; this is an educational data-science project.
-9. **Data provenance.** Team stats come from `stats.nba.com` (whose Terms of Use
+10. **Data provenance.** Team stats come from `stats.nba.com` (whose Terms of Use
    restrict redistribution) and odds from a scraped source. Neither is licensed
    for redistribution by this project.
-10. **No license.** Neither this fork nor its upstream grants reuse rights.
+11. **No license.** Neither this fork nor its upstream grants reuse rights.
 
 ## Credit
 

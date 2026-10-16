@@ -214,6 +214,7 @@ def main():
     ou_values = []
     ou_cover = []
     games = []
+    game_dates = []
     days_rest_away = []
     days_rest_home = []
 
@@ -307,6 +308,10 @@ def main():
 
                 scores.append(row.Points)
                 ou_values.append(row.OU)
+                # The date the game is actually played on, kept alongside the
+                # snapshot Date because the two stopped being the same thing
+                # when the leak-free join landed (see find_prior_snapshot).
+                game_dates.append(game_date.isoformat())
                 days_rest_home.append(row.Days_Rest_Home)
                 days_rest_away.append(row.Days_Rest_Away)
                 win_margin.append(1 if row.Win_Margin > 0 else 0)
@@ -346,6 +351,17 @@ def main():
     # block and OU-Cover, and the UO trainers keep it there, so it must not
     # move: expected_feature_order()/validate_feature_frame() in
     # src/Utils/features.py exist to keep it that way.
+    #
+    # GameDate is the real game date from the odds row. It is NOT a feature --
+    # every drop list in training_common.drop_columns_for and in
+    # src/Utils/features.py removes it by name -- and it is written here, ahead
+    # of Score, only because it belongs with the date keys. Every column below
+    # it keeps its position relative to every other column below it, so the OU
+    # contract above is untouched. Do not "tidy" it into the away-team block or
+    # drop it as redundant with Date: it is the only column that joins to
+    # Data/OddsData.sqlite, whose Date is the game date, while Date is now the
+    # prior snapshot date.
+    frame["GameDate"] = np.asarray(game_dates)
     frame["Score"] = np.asarray(scores)
     frame["Home-Team-Win"] = np.asarray(win_margin)
     frame["OU"] = np.asarray(ou_values)
@@ -353,6 +369,11 @@ def main():
     frame["Days-Rest-Home"] = np.asarray(days_rest_home)
     frame["Days-Rest-Away"] = np.asarray(days_rest_away)
 
+    # Only the numeric columns are coerced. The identifier and date columns --
+    # Date, Date.1 and GameDate all contain "Date", TEAM_NAME contains "TEAM_" --
+    # stay as they were read, so GameDate survives as the ISO string the odds
+    # join compares against. Coercing it to float would silently produce a
+    # column full of NaN and break that join.
     for field in frame.columns.values:
         if "TEAM_" in field or "Date" in field:
             continue

@@ -17,6 +17,20 @@ one order, checked at the boundary.
 # names, never the ids, so it strips both suffixes.
 TEAM_FEATURE_DROP = ("TEAM_ID", "TEAM_NAME")
 
+# The real game date, written by ``Create_Games`` alongside the snapshot Date.
+#
+# It exists because the two stopped being the same column: the leak-free join
+# makes ``Date`` the as-of SNAPSHOT date (strictly before the game), while
+# ``Data/OddsData.sqlite`` stores the game date. A positional model has no use
+# for either -- they are keys, not measurements -- so every drop list below
+# removes GameDate, exactly as it removes Date and Date.1. Leaving it in would
+# make the moneyline feature count 107 and the totals count 108, and the
+# committed boosters in Models/ were trained on 106 and 107.
+#
+# Do NOT also add "GameDate.1": no step in the build produces a suffixed copy,
+# so the entry would be dead weight in a list that is read as the contract.
+GAME_DATE_COLUMN = "GameDate"
+
 # Verbatim from src/Train-Models/XGBoost_Model_UO.py (DROP_COLUMNS). OU is
 # deliberately NOT dropped here: it is the model input, and its position in the
 # dataset -- between the away-team block and OU-Cover -- is part of the contract.
@@ -29,6 +43,7 @@ UO_LABEL_DROP_COLUMNS = [
     "index.1",
     "TEAM_NAME.1",
     "Date.1",
+    GAME_DATE_COLUMN,
     "OU-Cover",
 ]
 
@@ -42,6 +57,7 @@ ML_DROP_COLUMNS = [
     "index.1",
     "TEAM_NAME.1",
     "Date.1",
+    GAME_DATE_COLUMN,
     "OU-Cover",
     "OU",
 ]
@@ -70,6 +86,7 @@ NN_UO_DROP_COLUMNS = [
     "index.1",
     "TEAM_NAME.1",
     "Date.1",
+    GAME_DATE_COLUMN,
     "OU-Cover",
 ]
 
@@ -86,6 +103,7 @@ NN_ML_DROP_COLUMNS = [
     "index.1",
     "TEAM_NAME.1",
     "Date.1",
+    GAME_DATE_COLUMN,
     "OU",
     "OU-Cover",
 ]
