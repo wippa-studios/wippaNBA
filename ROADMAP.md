@@ -280,12 +280,34 @@ shadow operation.
 Consecutive games share team state, so validation folds are not independent.
 Use purged splits with an embargo window.
 
+**Tested here and rejected as the fix.** `purged_walk_forward_split` in
+`src/Utils/validation.py` does what it says, but on this dataset it changes
+nothing: `embargo_pct=0.01` over the 4,522-day training span resolves to a
+45-day embargo, and swapping `TimeSeriesSplit` for the purged split moved mean CV
+log loss by **+0.0006 to +0.0016** across three configurations. Fold *geometry* is
+a separate problem and is fixed separately: fold width and count are now
+configurable, a fold is capped at one season (1,230 rows) rather than at
+`n/(splits+1)` — which was 2,603 rows, two seasons, two years — and the search
+scores on a recency-weighted mean rather than a flat one.
+
 ### 6.2 Correct for multiple testing
 
-The trainers run 100 trials and select the best on one slice. Report a
-deflated Sharpe ratio or an equivalent selection-adjusted figure, and report the
-number of configurations tried alongside every headline result. Otherwise the
-headline is a winner's-curse statistic.
+The trainers used to run 100 trials and select the best on one slice. That number
+is now **15**, and every trainer prints `report_selection_risk`'s selection
+correction next to its own `Best val log loss`, so a winner's-curse statistic can
+no longer be presented as a measurement.
+
+Measured on the current table, over 12 sampled configurations: the standard
+deviation of the 5-fold CV score *across* configurations is **0.0046** while the
+entire true range of held-out log loss across the same configurations is
+**0.0009** — the search is ranking noise by a factor of about five. The expected
+gap between the best and the mean CV score is −0.0075 nats at 15 trials and
+−0.0086 at 100, so 100 trials buy **0.0011 nats**. `selection_bias_estimate`
+returns 2.50 SE at 100 trials against 1.74 SE at 15, on 1,735 held-out rows.
+
+The remaining half of this level is still open: the deflated Sharpe ratio
+(`deflated_sharpe_ratio`) is implemented and tested but is not reported by any
+trainer, because it needs a returns series and the trainers report log loss.
 
 ### 6.3 Lock the holdout
 

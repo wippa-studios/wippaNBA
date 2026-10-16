@@ -321,9 +321,16 @@ python -m src.Process-Data.Get_Data          # scrape daily team stats
 python -m src.Process-Data.Get_Odds_Data      # scrape sportsbook odds + results
 python -m src.Process-Data.Create_Games       # build the training dataset
 
-python -m src.Train-Models.XGBoost_Model_ML   --dataset dataset_2012-26 --trials 100 --splits 5
-python -m src.Train-Models.XGBoost_Model_UO   --dataset dataset_2012-26 --trials 100 --splits 5
+python -m src.Train-Models.XGBoost_Model_ML   --dataset dataset_2012-26 --trials 15 --splits 5
+python -m src.Train-Models.XGBoost_Model_UO   --dataset dataset_2012-26 --trials 15 --splits 5
 ```
+
+`--trials` defaults to **15**, not 100. On this dataset the standard deviation
+of the cross-validation score *across configurations* is several times the entire
+true spread of held-out performance, so a bigger search ranks noise — and at 100
+trials the expected winner's curse is 2.50 standard errors. Every trainer now
+prints that correction next to its own `Best val log loss`, so the number cannot
+be read without it. See [ROADMAP.md](ROADMAP.md) Level 6.2.
 
 Fill gaps with `--backfill` (optionally `--season 2025-26`).
 
