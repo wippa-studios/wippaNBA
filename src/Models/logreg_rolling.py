@@ -320,6 +320,26 @@ class FeaturePipeline:
     def _check(self, X: pd.DataFrame, reset: bool) -> pd.DataFrame:
         if not isinstance(X, pd.DataFrame):
             raise TypeError(f"expected a DataFrame, got {type(X).__name__}")
+        # A zero-column frame is refused here, in this module's own voice. Without
+        # this it reaches pandas' internals and surfaces as a ValueError from
+        # ``hash_pandas_object`` that mentions neither the feature request nor the
+        # function that emptied the frame -- an error that costs an hour to read.
+        # An empty input is still refused: a model with no features has nothing to
+        # fit and cannot produce a prediction, so failing early is strictly better
+        # than emitting a constant.
+        if X.shape[1] == 0:
+            wanted = self.columns if self.columns is not None else []
+            raise FeatureSelectionError(
+                f"cannot fit with zero feature columns. The pipeline was "
+                f"configured with {len(wanted)} column(s); the frame passed in has "
+                f"{X.shape[0]} row(s) and no columns at all. This is what a feature "
+                f"list that pruned to nothing looks like -- check that the columns "
+                f"were resolved with resolve_features() and that prune_features() "
+                f"received column names rather than feature GROUP names."
+                + (f" Requested columns: {sorted(wanted)[:12]}"
+                   f"{' ...' if len(wanted) > 12 else ''}."
+                   if wanted else "")
+            )
         if self.columns is not None:
             if reset:
                 missing = [c for c in self.columns if c not in X.columns]
@@ -782,14 +802,61 @@ def shrink_to_prior(roll: pd.DataFrame, games: pd.DataFrame,
 # Experiment harness
 # --------------------------------------------------------------------------- #
 
-def prune_features(X: pd.DataFrame, features: list[str]) -> list[str]:
+class FeatureSelectionError(ValueError):
+    """A feature request was not understood, rather than merely partly unmet.
+
+    Subclasses ``ValueError`` so any existing ``except ValueError`` around a fit
+    keeps working, while callers that care can catch the specific case and get a
+    message that names the request instead of pandas' internal machinery.
+    """
+
+
+def prune_features(X: pd.DataFrame, features: list[str],
+                   context: str = "") -> list[str]:
     """Drop declared features this build of the shared module cannot supply.
 
     ``feature_groups`` names what the SPEC wants; the shared loaders decide what
     is actually reachable. Reporting the intersection is honest, and keeps a
     missing column from becoming a KeyError deep inside a fit.
+
+    An EMPTY result is treated as an error, not a valid answer. Pruning some
+    columns away is normal and expected; pruning ALL of them means the caller
+    passed something this function cannot interpret -- almost always feature
+    GROUP names (``"rating"``, ``"schedule"``) where column names belong, since
+    no group name happens to also be a column. Left alone, that returned ``[]``
+    silently and the zero-column frame then died inside pandas' internal
+    ``hash_pandas_object`` with a ``ValueError`` naming neither the missing group
+    nor the function that dropped it.
+
+    So the two empty cases are distinguished:
+
+    * ``features`` was empty on entry -> returned unchanged. A caller asking for
+      nothing has asked for nothing, and that is not this function's business.
+    * ``features`` was non-empty and nothing survived -> raise, naming both the
+      request and what the frame actually offers.
+
+    ``context`` is echoed in the message so the error points at the call site that
+    went wrong rather than at this helper.
     """
-    return [f for f in features if f in X.columns]
+    if not features:
+        return []
+    kept = [f for f in features if f in X.columns]
+    if kept:
+        return kept
+
+    where = f" ({context})" if context else ""
+    raise FeatureSelectionError(
+        f"prune_features{where} kept none of {len(features)} requested feature(s), "
+        f"so the design matrix would have zero columns. "
+        f"Requested: {sorted(features)[:12]}"
+        f"{' ...' if len(features) > 12 else ''}. "
+        f"X offers {X.shape[1]} column(s); sample: "
+        f"{sorted(map(str, X.columns))[:12]}"
+        f"{' ...' if X.shape[1] > 12 else ''}. "
+        "If you passed feature GROUP names ('rating', 'schedule', 'matchup') rather "
+        "than column names, call resolve_features() first - prune_features only "
+        "intersects against literal columns."
+    )
 
 
 def load_design(halflife: float = 10.0, min_games: int = 5,
@@ -829,7 +896,7 @@ def walk_forward_eval(X: pd.DataFrame, games: pd.DataFrame, features: list[str],
     carried across splits, which is the whole point.
     """
     y = games["y"].to_numpy(dtype=int)
-    features = prune_features(X, features)
+    features = prune_features(X, features, context="walk_forward_eval()")
     rows = []
     preds: dict[str, np.ndarray] = {}
     for k, (tr, te) in enumerate(nd.walk_forward_split(
@@ -854,7 +921,7 @@ def regularisation_path(X: pd.DataFrame, games: pd.DataFrame, features: list[str
     """Metrics across the C grid, per split. Report the whole path, not the
     argmin - the argmin over these test blocks is itself an optimistic number."""
     y = games["y"].to_numpy(dtype=int)
-    features = prune_features(X, features)
+    features = prune_features(X, features, context="regularisation_path()")
     splits = nd.walk_forward_split(games, n_splits=n_splits, initial_frac=initial_frac)
     rows = []
     for k, (tr, te) in enumerate(splits, start=1):
@@ -882,7 +949,7 @@ def select_C_inner(X: pd.DataFrame, games: pd.DataFrame, features: list[str],
     choice: when the path is flat, prefer the more shrunk model.
     """
     y = games["y"].to_numpy(dtype=int)
-    features = prune_features(X, features)
+    features = prune_features(X, features, context="select_C_inner()")
     inner = nd.walk_forward_split(games, n_splits=n_inner,
                                   initial_frac=initial_frac)
     if not inner:
@@ -953,7 +1020,7 @@ def pooled_predictions(X: pd.DataFrame, games: pd.DataFrame, features: list[str]
     concatenated in date order. Used for pooled metrics and for the paired
     bootstrap against a baseline."""
     y = games["y"].to_numpy(dtype=int)
-    features = prune_features(X, features)
+    features = prune_features(X, features, context="pooled_predictions()")
     p_model = np.full(len(games), np.nan)
     p_base = np.full(len(games), np.nan)
     for tr, te in nd.walk_forward_split(games, n_splits=n_splits,
