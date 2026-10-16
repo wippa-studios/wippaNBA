@@ -602,72 +602,36 @@ def assemble_features(games: pd.DataFrame, roll: pd.DataFrame,
 
 
 def rebound_features(games: pd.DataFrame, halflife: float = 10.0) -> pd.DataFrame:
-    """ORB%/DRB% exponentially-weighted form, home_/away_ aligned to ``games``.
+    """Rebound-share CONTRASTS, derived from the shared feature block.
 
-    Why this exists: ``rolling_team_features`` asks the four-factors table for
-    ``ORB_PCT`` and ``DRB_PCT``, but that table ships ``OREB_PCT`` and
-    ``DREB_PCT``. The names do not match, the ``if col in m.columns`` guard
-    skips both, and the spec's fourth factor silently never appears in the
-    feature set. This fills the gap by calling the SHARED loader
-    (``load_team_advanced``) and the SHARED causal EWM primitive
-    (``_ewm_by_team``) - not by re-implementing either. Same data, same
-    causality guarantee (shift-within-team, then weight), two extra columns.
+    This used to re-read the four-factors table and re-apply the causal EWM itself,
+    as a workaround for ``rolling_team_features`` asking that table for two column
+    names (``ORB_PCT``, ``DRB_PCT``) it has never published -- it ships ``OREB_PCT``
+    and no ``DRB_PCT`` -- so the ``if col in m.columns`` guard skipped both and the
+    fourth factor silently never entered any feature set.
 
-    Rebound DIFFERENCES are near-useless on their own anyway - offensive
-    rebounding barely moves win probability - so this is reported as an ablation,
-    not in the headline feature set.
+    That gap is closed at the source now: the shared block reads the coherent
+    ``OREB_PCT``/``DREB_PCT`` pair from the ADVANCED table, where both are published
+    per-game at 97.2% coverage. So this function no longer loads anything. It takes
+    the home/away contrasts straight from the shared block, which means there is
+    exactly one place in the repo that computes these features and therefore exactly
+    one place that can be wrong.
+
+    Keeping a second, parallel derivation here was not harmless: with the shared
+    block now supplying the same columns, the two collided and produced duplicate
+    ``ewm_orb``/``ewm_drb`` columns and a fan-out error rather than extra features.
+
+    Rebound DIFFERENCES are near-useless on their own anyway - offensive rebounding
+    barely moves win probability - so these are reported as an ablation, not in the
+    headline feature set.
     """
-    _ewm = getattr(nd, "_ewm_by_team", None)
-    if _ewm is None:                       # shared module was refactored
-        return pd.DataFrame(index=games.index)
-    keep_ids = set(games["GAME_ID"])
-    # ORB% lives in the four-factors table. DREB% is NOT reachable from any PUBLIC
-    # shared loader: `load_team_fourfactors` has OREB_PCT but no DREB_PCT, and
-    # `load_team_advanced` strips OREB_PCT/DREB_PCT down to eight columns at
-    # construction. So DREB% is dropped rather than read behind the loader's
-    # back. One of the spec's four factors is therefore genuinely unavailable,
-    # which is worth saying out loud rather than papering over.
-    ff = nd.load_team_fourfactors()
-    name_map = {}
-    for src, dst in (("OREB_PCT", "ewm_orb"), ("DREB_PCT", "ewm_drb")):
-        if src in ff.columns:
-            name_map[src] = dst
-    if not name_map:
-        return pd.DataFrame(index=games.index)
-    cols = list(name_map)
-    ff = ff[ff["GAME_ID"].isin(keep_ids)][["GAME_ID", "TEAM_ABBREVIATION"] + cols]
-    # The shared builder dedups before merging the four-factors table; without
-    # that the same fan-out bug it guards against reappears here (26398 rows out
-    # of 13199 games, i.e. exactly doubled).
-    ff = ff.drop_duplicates(subset=["GAME_ID", "TEAM_ABBREVIATION"])
-    dates = games[["GAME_ID", "GAME_DATE"]].drop_duplicates("GAME_ID")
-    m = ff.merge(dates, on="GAME_ID", how="left")
-    m = m.rename(columns={"TEAM_ABBREVIATION": "team"}).sort_values(["team", "GAME_DATE"])
-
-    for c, nm in name_map.items():
-        m[nm] = _ewm(m, c, halflife)
-
-    feat = ["GAME_ID", "team"] + list(name_map.values())
-    h = m[m.team.isin(games.home.unique())][feat].rename(
-        columns={c: f"home_{c}" for c in name_map.values()})
-    a = m[m.team.isin(games.away.unique())][feat].rename(
-        columns={c: f"away_{c}" for c in name_map.values()})
-    # Both joins MUST key on the team as well as the game. Almost every team
-    # appears as both home and away somewhere in the sample, so filtering by
-    # `home.unique()` / `away.unique()` leaves BOTH rows of every game in each
-    # frame; joining on GAME_ID alone then doubles the output (26398 rows from
-    # 13199 games) and every contrast below silently averages both teams in.
-    out = games[["GAME_ID", "home", "away"]].reset_index(drop=True).merge(
-        h, left_on=["GAME_ID", "home"], right_on=["GAME_ID", "team"], how="left")
-    out = out.merge(a, left_on=["GAME_ID", "away"], right_on=["GAME_ID", "team"],
-                    how="left", suffixes=("", "_a"))
-    out = out.drop(columns=[c for c in ("team", "team_a") if c in out.columns])
-    if len(out) != len(games):
-        raise AssertionError(f"rebound_features produced {len(out)} rows for "
-                             f"{len(games)} games - join fanned out")
-    return out.drop(columns=["GAME_ID", "home", "away"]).reset_index(drop=True)
-
-
+    roll = nd.rolling_team_features(games, halflife=halflife, min_games=5)
+    out = {}
+    for name, hc, ac in REBOUND_PAIRS:
+        if hc in roll.columns and ac in roll.columns:
+            out[name] = (roll[hc].to_numpy(dtype=float)
+                         - roll[ac].to_numpy(dtype=float))
+    return pd.DataFrame(out, index=games.index)
 # --------------------------------------------------------------------------- #
 # Prior-season shrinkage
 # --------------------------------------------------------------------------- #
