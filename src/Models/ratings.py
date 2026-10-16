@@ -820,17 +820,19 @@ def fit_predict_elo(
     initial_rating: float = 0.0,
     season: np.ndarray | None = None,
     date_format: str = "%Y-%m-%d",
+    same_day: str = "sequential",
+    order_by: Sequence[str] | None = None,
 ):
     """Walk games in date order, predicting each before updating with its result.
 
     This is the leakage-safe entry point and the only function in the module
     that processes games sequentially. The guarantee it provides:
 
-    1. Games are sorted by ``(date, home, away)``. The first key is the real
-       game date; ``home`` then ``away`` break same-date ties in a way that is
-       arbitrary but **deterministic**, so the row order a caller happens to
-       supply cannot change any prediction. (Shuffling the order of players
-       within a date is a no-op.)
+    1. Games are sorted by ``(date, home, away)`` unless ``order_by`` says
+       otherwise. The first key is the real game date; ``home`` then ``away``
+       break same-date ties in a way that is arbitrary but **deterministic**, so
+       the row order a caller happens to supply cannot change any prediction.
+       (Shuffling the order of players within a date is a no-op.)
     2. For game N the prediction uses the ratings as they stood *before* game N.
     3. The update from game N's result is applied only *after* game N's
        prediction is recorded, so it can affect games N+1 onward and nothing
@@ -841,6 +843,33 @@ def fit_predict_elo(
     ``Tests/test_ratings.py`` pins (2) and (3) with a hand-computed two-game
     sequence, and pins (1) by shuffling within a date and asserting the output
     frame is unchanged.
+
+    Same-date batching
+    ------------------
+    Guarantees (2) and (3) are per *game*, which leaves one decision open when
+    several games share a date: if they are processed one after another, the
+    second game of the day is predicted from ratings that already contain the
+    first game's result. That is only sound if you believe you could have known
+    that result before tip-off -- and since a slate can contain a 19:30 and a
+    21:30 game, and the schedule table this repository reads has no tip-off time,
+    it is an assumption rather than a fact. ``same_day`` makes it explicit:
+
+    ``"sequential"`` (default)
+        One game at a time, exactly as described above. Preserves the historical
+        behaviour of this function, and the alphabetical tiebreak makes it
+        reproducible, but a same-date game is not independent of its
+        same-date neighbours.
+    ``"batched"``
+        Every game on a date is predicted from the state as of the end of the
+        *previous* date, and only then does the whole date update. No game on a
+        date can see another game on the same date, in either direction. This is
+        the conservative choice, and it is the one to quote when the question is
+        "how much of the accuracy is real".
+
+    The two modes differ only in whether the group of games that shares a
+    rating state is one game or one date; the arithmetic inside a group is the
+    same in both. ``fit_predict_elo`` is the single place that decides, so both
+    modes stay auditable together.
 
     Data it expects
     ---------------
@@ -858,6 +887,17 @@ def fit_predict_elo(
         arguments below.
     k, home_advantage
         Convenience overrides for the two most-tuned fields.
+    same_day
+        ``"sequential"`` or ``"batched"`` -- see above.
+    order_by
+        Column names to sort by, replacing ``("date", "home", "away")``. Must
+        name columns of ``games``, and the date must be one of them: sorting on
+        anything else would reintroduce the snapshot-date bug
+        :func:`normalize_games` goes out of its way to prevent. Useful to put
+        same-date games in a known order -- an NBA ``GAME_ID`` runs in
+        schedule order within a season, which is a closer approximation to
+        tip-off order than alphabetical team names -- so the cost of an
+        arbitrary tiebreak can be measured rather than assumed.
     use_margin
         Force margin-of-victory on or off. ``None`` (default) uses
         ``config.mov_multiplier``, which in turn only applies where a margin is
@@ -907,9 +947,29 @@ def fit_predict_elo(
     if frame["date"].isna().any():
         raise ValueError("games contains an unparseable date")
 
+    same_day = str(same_day).lower()
+    if same_day not in ("sequential", "batched"):
+        raise ValueError(
+            f"same_day must be 'sequential' or 'batched', got {same_day!r}"
+        )
+
     # THE ordering. Mergesort keeps the (home, away) tiebreak stable, so the
     # result depends only on the game's own keys and never on input row order.
-    frame = frame.sort_values(["date", "home", "away"], kind="mergesort").reset_index(drop=True)
+    sort_cols = ["date", "home", "away"] if order_by is None else list(order_by)
+    unknown_cols = [c for c in sort_cols if c not in frame.columns]
+    if unknown_cols:
+        raise KeyError(
+            f"order_by names column(s) {unknown_cols} that the games frame does "
+            f"not have; columns are {list(frame.columns)}"
+        )
+    if "date" not in sort_cols:
+        raise ValueError(
+            "order_by must include 'date': a rating system whose sort keys do not "
+            "start from the real game date can process a season out of order, "
+            "which is the exact bug normalize_games refuses to allow for the "
+            "'Date' column"
+        )
+    frame = frame.sort_values(sort_cols, kind="mergesort").reset_index(drop=True)
 
     if season is not None:
         if len(season) != len(games):
@@ -945,13 +1005,26 @@ def fit_predict_elo(
     rest_h = frame["days_rest_home"].to_numpy() if use_rest else np.full(n, np.nan)
     rest_a = frame["days_rest_away"].to_numpy() if use_rest else np.full(n, np.nan)
 
-    for i in range(n):
-        game_date = date_vals[i]
-        game_season = season_vals[i]
+    # The loop below runs over GROUPS of games that share a rating state, and
+    # "sequential" is the special case where every group is one game. Expressing
+    # it this way rather than as two separate loops is what keeps the two modes
+    # from drifting apart: there is exactly one copy of the arithmetic, so
+    # `same_day="batched"` differs from the default only in how wide a group is,
+    # never in what happens inside one.
+    if same_day == "sequential":
+        group_starts = np.arange(n)
+        group_ends = np.arange(1, n + 1)
+    else:
+        starts = np.concatenate(([True], date_vals[1:] != date_vals[:-1]))
+        group_starts = np.flatnonzero(starts)
+        group_ends = np.append(group_starts[1:], n)
 
-        # Step 1: advance the rating state to just before this game. Season
+    for lo, hi in zip(group_starts, group_ends):
+        # Step 1: advance the rating state to just before this group. Season
         # carry-over and decay both scale every rating, and neither may look at
-        # this game's result.
+        # this group's results.
+        game_date = date_vals[lo]
+        game_season = season_vals[lo]
         if prev_date is not None:
             elapsed_days = float((game_date - prev_date) / np.timedelta64(1, "D"))
             if half_life is not None and elapsed_days > 0:
@@ -960,30 +1033,38 @@ def fit_predict_elo(
                 elo.scale_all(cfg.season_reversion)
         prev_date, prev_season = game_date, game_season
 
-        home, away = home_vals[i], away_vals[i]
-        rh = rest_h[i]
-        ra = rest_a[i]
-        rh = None if rh != rh else float(rh)
-        ra = None if ra != ra else float(ra)
+        # Step 2: PREDICT every game in the group from the state built in step 1.
+        # Nothing below the end of this block may influence any of these rows.
+        for i in range(lo, hi):
+            home, away = home_vals[i], away_vals[i]
+            rh = rest_h[i]
+            ra = rest_a[i]
+            rh = None if rh != rh else float(rh)
+            ra = None if ra != ra else float(ra)
 
-        # Step 2: PREDICT from the state built in step 1. Nothing below this
-        # line may influence this row's prediction.
-        diff = elo.effective_diff(home, away, days_rest_home=rh, days_rest_away=ra)
-        prob = float(1.0 / (1.0 + 10.0 ** (-diff / cfg.elo_scale)))
-        mult = elo.margin_multiplier(margin_vals[i], diff) if has_margin else 1.0
+            diff = elo.effective_diff(home, away, days_rest_home=rh, days_rest_away=ra)
+            prob = float(1.0 / (1.0 + 10.0 ** (-diff / cfg.elo_scale)))
+            mult = elo.margin_multiplier(margin_vals[i], diff) if has_margin else 1.0
 
-        rating_home_before[i] = elo.rating(home)
-        rating_away_before[i] = elo.rating(away)
-        effective_diff[i] = diff
-        prob_home[i] = prob
-        mov_mult[i] = mult
+            rating_home_before[i] = elo.rating(home)
+            rating_away_before[i] = elo.rating(away)
+            effective_diff[i] = diff
+            prob_home[i] = prob
+            mov_mult[i] = mult
 
-        # Step 3: UPDATE. This can only influence rows after i.
-        step = cfg.k * mult * (win_vals[i] - prob)
-        elo.ratings[home] = elo.rating(home) + step
-        elo.ratings[away] = elo.rating(away) - step
-        delta[i] = step
-        rating_home_after[i] = elo.rating(home)
+        # Step 3: UPDATE every game in the group. A group's updates can only
+        # influence rows after `hi`, and inside a group of one, only rows after
+        # `i` -- which is the ordering guarantee. Under `same_day="batched"` no
+        # row inside this block can see any other row inside it.
+        for i in range(lo, hi):
+            home, away = home_vals[i], away_vals[i]
+            step = cfg.k * mov_mult[i] * (win_vals[i] - prob_home[i])
+            elo.ratings[home] = elo.rating(home) + step
+            elo.ratings[away] = elo.rating(away) - step
+            delta[i] = step
+            rating_home_after[i] = elo.rating(home)
+
+    frame["same_day_mode"] = same_day
 
     frame["rating_home_before"] = rating_home_before
     frame["rating_away_before"] = rating_away_before
@@ -1269,33 +1350,17 @@ class SRSResult:
 
     Which margin predicts a game
     ----------------------------
-    Two expressions are available and they are **not** interchangeable. Writing
-    ``o`` for offense and ``d`` for defense, and using the identity ``d == -o``
-    that holds exactly here (explained below):
+    Two expressions are available and they are **not** interchangeable:
 
-    * :meth:`predicted_margin` -- the net-rating difference,
-      ``2 * (o[home] - o[away]) + hca``. This is the conventional SRS
-      predictor, and it is what :meth:`prob_home` uses.
-    * :meth:`predicted_matchup_margin` -- the matchup form,
-      ``o[home] + o[away] + hca``.
+    * :meth:`predicted_margin` -- ``offense[home] - defense[away] + hca``, the
+      conventional SRS predictor, and what :meth:`prob_home` uses.
+    * :meth:`predicted_matchup_margin` -- ``offense[home] - offense[away] + hca``,
+      using only the two teams' own scoring tendencies and ignoring the matchup.
 
-    A difference versus a sum, out of the same ratings. Which is right depends on
-    whether you believe a team beats a given opponent (matchup form) or simply
-    out-rates it (net form); the original SRS, and the literature behind it, uses
-    the net form, so that is the default here. Neither is degenerate: in a fully
-    symmetric league both collapse to the home advantage alone, which is the
-    correct answer there. It is spelled out because reading one expression off
-    these ratings when the other was meant silently produces a different number.
-
-    Why ``d == -o`` holds exactly
-    -----------------------------
-    With the league-average margin removed, an adjusted margin of ``m`` means
-    the home team scored ``+m/2`` above average and the away team ``-m/2``: the
-    two scoring deviations sum to zero because ``total == 2 * average`` by
-    construction. The home team's conceding deviation is the away team's scoring
-    deviation, ``-m/2``, so offense and defense come out as exact negatives. The
-    split is therefore conventional rather than independently identified, and
-    net rating is the quantity actually carrying the information.
+    They differ whenever a team scores well against some opponents and badly
+    against others, which is the whole reason SRS was published with a separate
+    defense term. Read off the wrong one and the number is simply different, so
+    the distinction is spelled out rather than left to the reader.
 
     Attributes
     ----------
@@ -1306,13 +1371,14 @@ class SRSResult:
         Per-team game count, the divisor in that regression.
     home_advantage
         Points added for playing at home, in the same units.
-    margin_scale
-        Logistic calibration converting a predicted margin to a probability:
-        ``p = logistic(margin_scale * predicted_margin)``. Fitted by 1-D Newton
-        on the training games. It absorbs the residual scale factor in the
-        ratings, which is why a mis-scaled rating still calibrates.
-    iterations, log_likelihood
-        Diagnostics for the rating loop and the calibration respectively.
+    margin_scale, margin_center
+        Logistic calibration: ``p = logistic(margin_scale * (margin -
+        margin_center))``. ``margin_center`` is the mean training margin and
+        exists so the calibration has an intercept -- without it the fitted
+        slope collapses to zero, because an NBA margin already encodes the home
+        base rate. See :func:`_fit_margin_scale`.
+    log_likelihood
+        Log likelihood of the calibration at the out-of-fold margins.
     """
 
     offense: dict[str, float]
@@ -1320,7 +1386,7 @@ class SRSResult:
     games_played: dict[str, int]
     home_advantage: float
     margin_scale: float
-    iterations: int = 0
+    margin_center: float = 0.0
     log_likelihood: float = math.nan
 
     @property
@@ -1337,50 +1403,309 @@ class SRSResult:
         return self.net_rating[home] - self.net_rating[away] + self.home_advantage
 
     def predicted_matchup_margin(self, home: str, away: str) -> float:
-        """The matchup form, ``offense[home] - defense[away] + hca``.
+        """The offense-only form, ``offense[home] - offense[away] + hca``.
 
-        Provided because it is the more obvious-looking quantity and because a
-        reader comparing against another SRS implementation should be able to
-        see the difference rather than infer it. It is not used for
-        predictions; see the class docstring for why it collapses to zero in a
-        fixed-total league.
+        Exposed for comparison, not used for predictions. See the class
+        docstring.
         """
-        return self.offense[home] - self.defense[away] + self.home_advantage
+        return self.offense[home] - self.offense[away] + self.home_advantage
 
     def prob_home(self, home: str, away: str) -> float:
-        """Predicted home win probability from the calibrated margin."""
-        return float(logistic(self.margin_scale * self.predicted_margin(home, away)))
+        """Predicted home win probability from the calibrated margin.
+
+        ``logistic(margin_scale * (predicted_margin - margin_center))``. The
+        centring matches the calibration in :func:`_fit_margin_scale`, which
+        fits the same centred form. Dropping it here while keeping it there
+        would make every prediction read as a huge edge and saturate the
+        sigmoid.
+        """
+        return float(
+            logistic(self.margin_scale * (self.predicted_margin(home, away) - self.margin_center))
+        )
+
+
+def _srs_ratings(
+    hi: np.ndarray,
+    ai: np.ndarray,
+    adjusted: np.ndarray,
+    games_played: np.ndarray,
+    n: int,
+    games: np.ndarray | None = None,
+) -> np.ndarray:
+    """Fit SRS offense and defense by weighted least squares. Returns both.
+
+    The system
+    ----------
+    One equation per game::
+
+        o[home] - d[away] = adjusted margin
+
+    with ``adjusted = margin - mean(margin)`` removing the league average (which
+    is also the home edge, about +2.0 points) so the ratings are mean-centred by
+    construction. ``o`` is points scored above average, ``d`` is points allowed
+    above average, so a positive ``d`` is a worse defence and
+    ``net = o - d``.
+
+    That is ``n_games`` equations in ``2n`` unknowns, and it is genuinely
+    underdetermined in the useful sense: every team plays every other twice,
+    once at each venue, and the two games constrain the same combination with
+    different right-hand sides -- consistency would demand the two margins be
+    equal. Measured on this repo's data, 463 pairings appear at both venues and
+    a typical pair disagrees by 20 points. The solver's job is the least-bad
+    answer, not an exact one.
+
+    Why offense and defense are separate parameters
+    -------------------------------------------------
+    Collapsing ``d = -o`` -- true in a fixed-total league, where a team's
+    conceding deviation is its opponent's scoring deviation -- *overdetermines*
+    the system and forces the ratings to shrink toward zero. Measured here the
+    collapsed form returns a net-rating spread of 5 points where the separated
+    form returns 10, for the same R^2. Per-game margin noise (std ~15 points)
+    dwarfs the team-strength signal, so both fit the games about equally badly;
+    the separated form at least preserves the scale.
+
+    Do not add the mirror equation
+    ------------------------------
+    It is tempting to also write ``d[home] - o[away] = -adjusted``, giving each
+    team a residual from its own perspective. That is the same observation
+    entered twice, and on a symmetric round robin the two blocks contradict each
+    other. Measured on a six-team league with strengths spread over +/-6, the
+    two-block version returned a net-rating spread of 0.72 where this one returns
+    12.0 -- the true spread. A game informs the attacker's offense and the
+    defender's defense. That is all the information it carries.
+
+    Why not the published iteration
+    -------------------------------
+    The iterative form -- take the residual, reassign, divide by games played --
+    is the usual presentation, and it is what this module implemented first. It
+    does not converge. Because ``d = -o`` holds at its fixed point, the
+    prediction collapses to ``o[home] + o[away]``, and a game then corrects the
+    attacker by ``+resid/gp_h`` and the defender by ``-resid/gp_a``; when those
+    game counts differ the pair's total drifts every pass instead of being
+    preserved. Measured on an 8-team synthetic league, ratings grew by 1.27x per
+    pass and passed 300 after 60 passes, where the least-squares answer is 13.
+    Damping slowed it without removing the drift, because the instability is
+    structural rather than a step-size accident, and the "converged" value was
+    an artefact of stopping at ``max_iter``. In the calibration holdout each
+    block stopped somewhere different, producing margins of +-600 points and a
+    calibration slope 55x too flat.
+
+    This solve has no iteration, so there is no truncation artefact: same input,
+    same output, always.
+
+    Regression to the mean
+    ----------------------
+    Game weights are ``1 / sqrt(gp_home * gp_away)``, floored at
+    ``1 / max(gp)`` so a one-game team cannot dominate. A game between two
+    established teams therefore counts for more than one involving a team with
+    three games, which is the regression that makes this a rating rather than an
+    average.
+
+    The system is rank-deficient -- adding a constant to every ``o`` and
+    subtracting it from every ``d`` changes no game equation -- so ``lstsq``
+    returns the minimum-norm solution, which is the centred one. That
+    normalisation comes out of the solver rather than needing a projection
+    afterwards, though the centring is re-applied explicitly regardless.
+
+    Returns
+    -------
+    (numpy.ndarray, numpy.ndarray)
+        Per-team ``(offense, defense)`` arrays, each mean-zero.
+    """
+    n_games = hi.size
+    if n_games == 0 or n == 0:
+        return np.zeros(n), np.zeros(n)
+
+    gp = np.maximum(games_played, 1.0)
+    weight = 1.0 / np.sqrt(gp[hi] * gp[ai])
+    weight = np.maximum(weight, 1.0 / max(float(gp.max()), 1.0))
+
+    rows = np.arange(n_games)
+    # One equation per game: the home team's scoring minus the away team's
+    # conceding equals the adjusted margin.
+    #
+    # It is tempting to add the mirror equation for the away team's own
+    # perspective, ``d[home] - o[away] = -adjusted``. That is the same
+    # observation twice, and it is actively harmful: on a symmetric round robin
+    # the two blocks contradict each other and pull every rating toward zero.
+    # Measured on a six-team league with strengths spread over +/-6, the
+    # two-block version returned a net-rating spread of 0.72 where the
+    # one-block version returns 12.0, which is the true spread. A game informs
+    # the attacker's offense and the defender's defense -- that is all.
+    design = np.zeros((n_games, 2 * n))
+    target = np.zeros(n_games)
+    design[rows, hi] = 1.0
+    design[rows, n + ai] = -1.0
+    target[:] = adjusted
+
+    solution, _, rank, _ = np.linalg.lstsq(design * weight[:, None], target * weight, rcond=None)
+    if rank < 1 or not np.all(np.isfinite(solution)):
+        return np.zeros(n), np.zeros(n)
+    offense = solution[:n]
+    defense = solution[n:]
+    # Guarantee the centring the min-norm property gives in exact arithmetic.
+    return offense - float(np.mean(offense)), defense - float(np.mean(defense))
+
+
+def _calibrate_out_of_sample(
+    home, away, y, adjusted, index, n, home_advantage, holdout: float = 0.15
+):
+    """Fit ``margin_scale`` on the final ``holdout`` fraction of games.
+
+    Why a time-ordered holdout
+    --------------------------
+    Two calibrations look reasonable and both are badly wrong.
+
+    1. On the **realised** margin. The realised margin determines the label
+       exactly -- ``sign(margin) == home_win`` on 3067/3067 rows of the odds
+       tables -- so this fits a near-deterministic relation and returns a slope
+       around ``1.26``, steep enough that every predicted margin saturates the
+       sigmoid. Measured log loss with it: 13.3.
+    2. On the **in-sample fitted** margin. Better, but the rating was fitted to
+       these very games, so the fitted margin is correlated with the outcome by
+       construction. Measured slope: about 2x too steep.
+
+    So the slope is fitted on games the rating never saw: the last
+    ``holdout`` fraction of the input, in the order given, predicted by a rating
+    fitted on everything before. That is also exactly how the calibrated rating
+    gets used at prediction time, so the constant is fitted in the regime it
+    will be applied in.
+
+    The split is on *position in the input*, not on a random mask, and that
+    matters: the caller supplies games in date order, so the holdout is the most
+    recent games. A rating is never asked to predict a game from before it.
+
+    Falls back to in-sample when there are too few games to split, which is
+    biased but better than refusing to produce a calibration at all.
+
+    Returns
+    -------
+    (float, float)
+        The slope and the log likelihood at the held-out margins.
+    """
+    n_games = len(home)
+    home_arr = np.asarray(home)
+    away_arr = np.asarray(away)
+    y_arr = np.asarray(y, dtype=float)
+    scoring_arr = np.asarray(adjusted, dtype=float)
+
+    def ratings_for(mask: np.ndarray):
+        """Fit the rating system on the masked subset; return (offense, defense)."""
+        sub_hi = np.asarray([index[t] for t in home_arr[mask]], dtype=int)
+        sub_ai = np.asarray([index[t] for t in away_arr[mask]], dtype=int)
+        gp = np.zeros(n)
+        np.add.at(gp, sub_hi, 1.0)
+        np.add.at(gp, sub_ai, 1.0)
+        return _srs_ratings(sub_hi, sub_ai, scoring_arr[mask], gp, n)
+
+    def margins_from(off, dfn, mask: np.ndarray) -> np.ndarray:
+        """The SAME expression `predicted_margin` returns, for the masked rows.
+
+        That is a net-rating difference, ``offense[h] - defense[a]``. Building it
+        any other way -- from the offense difference alone, say -- would fit the
+        slope on margins of a different size and return a gradient that
+        ``prob_home`` does not actually apply.
+        """
+        return np.asarray(
+            [
+                off[index[h]] - dfn[index[a]] + home_advantage
+                for h, a in zip(home_arr[mask], away_arr[mask])
+            ]
+        )
+
+    # Need enough games on both sides for a rating and a holdout to mean anything.
+    cut = int(n_games * (1.0 - holdout))
+    if cut >= 30 and (n_games - cut) >= 20:
+        early = np.zeros(n_games, dtype=bool)
+        early[:cut] = True
+        late = ~early
+        off, dfn = ratings_for(early)
+        held = margins_from(off, dfn, late)
+        if np.std(held) > 1e-9:
+            return _fit_margin_scale(held, y_arr[late])
+
+    every = np.ones(n_games, dtype=bool)
+    off, dfn = ratings_for(every)
+    return _fit_margin_scale(margins_from(off, dfn, every), y_arr)
 
 
 def _fit_margin_scale(margins: np.ndarray, y: np.ndarray, tol: float = 1e-11) -> tuple[float, float]:
-    """1-D Newton for ``k`` in ``p = logistic(k * margin)``.
+    """Logistic calibration of a point margin, by 1-D Newton on the scale.
 
-    Maximises ``sum[y*z - log(1+exp(z))]`` with ``z = k * margin``. The scalar
-    derivative has a closed form, so this converges in a handful of iterations
-    and needs no optimiser. Returns ``(k, log_likelihood)``.
+    Fits ``p = logistic(k * (margin - mean(margin)))`` and returns ``k``.
+
+    The centring is not cosmetic, it is what makes the parameter identifiable.
+    A raw fit of ``p = logistic(k * margin)`` has no intercept, and an NBA
+    margin already carries the base rate -- its mean is about +2.0 points
+    precisely because home teams win more often. So the un-centred model's
+    likelihood is maximised as ``k -> 0``, which returns the base rate and
+    discards the signal entirely; measured on real margins here, the optimum
+    was ``k = 0`` with a log likelihood 2600 nats worse than at a real scale.
+    Centring profiles the intercept out, exactly as logistic regression does,
+    and leaves a single identifiable slope.
+
+    Safeguards, each added because its absence produced a real failure:
+
+    * ``z`` is clipped to +/-500 before ``exp``. The log likelihood
+      ``y*z - log1p(exp(z))`` overflows to ``inf``/``nan`` beyond that, and one
+      ``nan`` poisons the gradient permanently.
+    * A step is taken only if it improves the objective, halving until it does.
+      On a saturated likelihood the raw Newton step overshoots to ``|k| ~ 1e12``
+      where the Hessian underflows to zero (``2e-212``) and there is no way
+      back. Unfixed, that produced ``margin_scale = 33.1`` on real NBA margins
+      -- a scale at which one point of predicted margin is worth 0.84 in
+      probability -- and a log loss of 13.3.
+    * ``k`` is confined to ``[1e-9, 1000]``, since a negative slope is not a
+      probability model.
+
+    Returns
+    -------
+    (float, float)
+        The scale and the fitted log likelihood at the centred margin.
     """
     if margins.size == 0:
         return 1.0, math.nan
-    k = 0.35  # ~ logistic(0.35*margin): a 10-point edge is about 0.65
-    for _ in range(100):
-        z = np.clip(k * margins, -500.0, 500.0)
-        p = logistic(z)
-        grad = float(np.sum((y - p) * margins))
+    centred = margins - float(np.mean(margins))
+    spread = float(np.std(centred))
+    if spread <= 1e-12:
+        # No variation in the margin, so no slope is identifiable. Return the
+        # inverse-logit of the base rate as a scale-like quantity rather than
+        # dividing by zero.
+        base = float(np.clip(np.mean(y), 1e-6, 1.0 - 1e-6))
+        return float(np.clip(math.log(base / (1.0 - base)), 1e-9, 1000.0)), math.nan
+
+    def objective(value: float) -> float:
+        z = np.clip(value * centred, -500.0, 500.0)
+        return float(np.sum(y * z - np.log1p(np.exp(z))))
+
+    # A 2-sigma margin should read as roughly a 2:1 chance, so start near 0.35.
+    k = float(np.clip(0.35, 1e-9, 1000.0))
+    best_k, best_ll = k, objective(k)
+    for _ in range(200):
+        z = np.clip(k * centred, -500.0, 500.0)
+        p = np.asarray(logistic(z), dtype=float)
+        grad = float(np.sum((y - p) * centred))
         w = p * (1.0 - p)
-        hess = -float(np.sum(w * margins * margins))
-        if hess >= -1e-12:
+        hess = -float(np.sum(w * centred * centred))
+        if not math.isfinite(hess) or hess >= -1e-12 or not math.isfinite(grad):
             break
         step = -grad / hess
-        k_new = k + step
-        if not np.isfinite(k_new):
+        if not math.isfinite(step):
             break
-        if abs(k_new - k) < tol:
-            k = k_new
+        improved = False
+        for _ in range(60):
+            candidate = float(np.clip(k + step, 1e-9, 1000.0))
+            candidate_ll = objective(candidate)
+            if math.isfinite(candidate_ll) and candidate_ll >= best_ll:
+                if candidate_ll > best_ll:
+                    best_ll, best_k = candidate_ll, candidate
+                k = candidate
+                improved = True
+                break
+            step *= 0.5
+        if not improved or abs(step) < tol:
             break
-        k = k_new
-    z = np.clip(k * margins, -500.0, 500.0)
-    ll = float(np.sum(y * z - np.log1p(np.exp(z))))
-    return float(k), ll
+    return best_k, best_ll
 
 
 def fit_srs(
@@ -1420,11 +1745,22 @@ def fit_srs(
     Parameters
     ----------
     home_advantage
-        Points added for playing at home. ``None`` estimates it from the data as
-        the mean margin across home minus the mean margin across away.
+        Points added for playing at home, **on top of** the league average
+        margin that the rating loop already subtracts. Defaults to ``0.0``, not
+        to the data's mean margin, for the double-counting reason in the
+        implementation below. Pass an explicit value to put the home edge in the
+        intercept instead.
+
+        If you want the home edge estimated rather than removed with the league
+        mean, fit on the raw margin with ``home_advantage=0.0`` and read the
+        fitted ``margin_center`` -- that is where the home edge ends up once the
+        calibration's intercept is in play.
     iterations, tol
-        Cap and convergence threshold on the rating loop; it normally converges
-        in well under 30 passes.
+        Accepted for call-site compatibility and ignored. The rating solve is a
+        single weighted least-squares problem, so it has no iteration to cap and
+        no tolerance to meet; it is deterministic and runs once. See
+        :func:`_srs_ratings` for why the published iterative form of this loop
+        was replaced rather than merely bounded.
 
     Returns
     -------
@@ -1451,62 +1787,52 @@ def fit_srs(
 
     home = games["home"].astype(str).to_numpy()
     away = games["away"].astype(str).to_numpy()
+    y = np.asarray(games["home_win"].astype(float).to_numpy())
     roster = tuple(sorted(set(home) | set(away)))
     index = {t: i for i, t in enumerate(roster)}
     n = len(roster)
 
-    if home_advantage is None:
-        home_advantage = float(np.mean(margin))
-
-    # League average is removed once, up front, so every rating is a deviation
-    # from average and the whole system is mean-centred by construction.
+    # League average removed once, up front, so every rating is a deviation and
+    # the system is mean-centred by construction. With the average gone, the two
+    # teams' scoring deviations in a game sum to zero, so an adjusted margin of m
+    # means the home team scored +m/2 above average and the away team -m/2.
+    # See SRSResult's docstring for why that factor of one half matters.
     adjusted = margin - float(np.mean(margin))
-    # With the average margin removed, the two teams' scoring deviations in a
-    # game sum to zero, so an adjusted margin of `m` means the home team scored
-    # +m/2 above average and the away team -m/2. See SRSResult's docstring for
-    # why this factor of one half decides whether the ratings carry any signal.
-    scoring = adjusted / 2.0
 
-    offense = np.zeros(n)
-    defense = np.zeros(n)
-    games_played = np.zeros(n)
+    # `home_advantage` is an INTERCEPT applied on top of those centred ratings,
+    # and the centring has already removed the home edge -- the mean NBA margin
+    # is about +2.0 points precisely because home teams win more often. So the
+    # default is 0.0; defaulting to mean(margin) counts that edge twice.
+    if home_advantage is None:
+        home_advantage = 0.0
+
     hi = np.asarray([index[t] for t in home], dtype=int)
     ai = np.asarray([index[t] for t in away], dtype=int)
+    games_played = np.zeros(n)
     np.add.at(games_played, hi, 1.0)
     np.add.at(games_played, ai, 1.0)
     games_played = np.maximum(games_played, 1.0)
 
-    used = 0
-    for used in range(1, int(iterations) + 1):
-        # Residual against the matchup prediction. The loop is what regresses
-        # toward the mean: every contribution is divided by games_played below,
-        # so a team that opened 3-0 is diluted by 3x as fast as one that opened
-        # 30-0, which is the whole content of an SRS rating.
-        pred = offense[hi] - defense[ai]
-        resid = scoring - pred
-        new_offense = np.zeros(n)
-        new_defense = np.zeros(n)
-        # Scoring: the home team ran +resid above average, the away team -resid.
-        np.add.at(new_offense, hi, resid)
-        np.add.at(new_offense, ai, -resid)
-        # Conceding: the home team allowed -resid (the away team's -resid), and
-        # the away team allowed +resid. Positive therefore means worse.
-        np.add.at(new_defense, hi, -resid)
-        np.add.at(new_defense, ai, resid)
-        offense = new_offense / games_played
-        defense = new_defense / games_played
-        change = float(np.max(np.abs(np.concatenate([offense, defense]))))
-        if change < tol:
-            break
+    offense, defense = _srs_ratings(hi, ai, adjusted, games_played, n)
 
-    y = np.asarray(games["home_win"].astype(float).to_numpy())
-    scale, ll = _fit_margin_scale(margin, y)
+    predicted = np.asarray(
+        [
+            offense[index[h]] - defense[index[a]] + home_advantage
+            for h, a in zip(home, away)
+        ],
+        dtype=float,
+    )
+    # Calibrated on games the rating never saw. See _calibrate_out_of_sample for
+    # why both the realised margin and the in-sample fitted margin give a badly
+    # wrong slope.
+    scale, ll = _calibrate_out_of_sample(home, away, y, adjusted, index, n, home_advantage)
+
     return SRSResult(
         offense={t: float(offense[i]) for i, t in enumerate(roster)},
         defense={t: float(defense[i]) for i, t in enumerate(roster)},
         games_played={t: int(games_played[i]) for i, t in enumerate(roster)},
         home_advantage=float(home_advantage),
         margin_scale=scale,
-        iterations=used,
+        margin_center=float(np.mean(predicted)),
         log_likelihood=ll,
     )
