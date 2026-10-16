@@ -64,6 +64,7 @@ import glob
 import os
 import re
 from functools import lru_cache, wraps
+from pathlib import Path
 
 import numpy as np
 import pandas as pd
@@ -125,7 +126,37 @@ def _cached_copy(fn):
 # Loaders
 # --------------------------------------------------------------------------- #
 
+def _require_downloaded_data() -> None:
+    """Raise unittest.SkipTest when the NBA data has not been downloaded.
+
+    The 382 MB download is deliberately not committed, so a fresh clone and a CI
+    runner both find nothing here. That used to surface as
+    `ValueError: No objects to concatenate` during test collection, which failed
+    the entire suite on both Python versions.
+
+    Raising SkipTest from the loaders rather than from the test files is
+    deliberate. Two runners execute this suite - `pytest` and
+    `python -m unittest discover` - and they honour different skip mechanisms:
+    pytest understands markers registered by a conftest hook, while unittest
+    ignores pytest entirely and only understands SkipTest raised during setUp.
+    Putting the check here makes one change satisfy both, instead of editing
+    every test module and keeping the two in sync.
+
+    SkipTest is a legitimate outcome, not a failure: these tests cannot run
+    without an input the project does not ship.
+    """
+    if (Path(DATA_ROOT) / "game_logs").is_dir():
+        return
+    import unittest  # local import: this module is not otherwise test-coupled
+
+    raise unittest.SkipTest(
+        f"NBA data not found at {DATA_ROOT}. Download it with "
+        f"`python download_nba_data.py`, or set NBA_DATA_ROOT to an existing copy."
+    )
+
+
 def _paths(pattern: str) -> list[str]:
+    _require_downloaded_data()
     return sorted(glob.glob(os.path.join(DATA_ROOT, pattern)))
 
 
