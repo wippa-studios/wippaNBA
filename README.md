@@ -204,7 +204,7 @@ unauthenticated visitor on any unhandled exception.
   empty DataFrame three frames downstream.
 
 **Engineering**
-- CI on Python 3.9–3.11 running both `pytest` and `unittest`.
+- CI on Python 3.10–3.11 running both `pytest` and `unittest`.
 - `pyproject.toml`, a working `conftest.py`, and a declared Python ceiling.
 - `requests`, `numpy` and `joblib` are declared instead of resolving transitively.
 - Odds-date holes are backfilled; missing-season runs exit non-zero.
@@ -215,7 +215,7 @@ unauthenticated visitor on any unhandled exception.
 
 ## Requirements
 
-Python **3.9, 3.10 or 3.11**. The ceiling is deliberate: `tensorflow==2.14.0` has no
+Python **3.10 or 3.11**. The ceiling is deliberate: `tensorflow==2.14.0` has no
 wheels for 3.12+, and it cannot be bumped without a Keras 3 migration that also
 invalidates the committed `.keras` artifacts. `requirements.txt` documents this in
 full.

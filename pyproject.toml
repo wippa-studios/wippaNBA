@@ -7,16 +7,22 @@ name = "nba-machine-learning-sports-betting"
 version = "0.1.0"
 description = "Scrape NBA odds and box-score data, train ML/DL models on it, and predict spreads, totals and moneyline value."
 readme = "README.md"
-requires-python = ">=3.9,<3.12"
+requires-python = ">=3.10,<3.12"
 # No `license` field on purpose: this repository does not currently ship a
 # LICENSE file, and inventing a license in packaging metadata is a legal call
 # for the maintainer, not a packaging detail this fix should decide.
 
-# Mirrors requirements.txt 1:1. The lower bound of 3.9 and, critically, the
-# <3.12 upper bound are not arbitrary: tensorflow==2.14.0 only ships
-# cp39/cp310/cp311 wheels but declares `requires-python >=3.9`, so pip happily
-# attempts an sdist build on 3.12/3.13 and fails. See the long comment at the
-# top of requirements.txt for why the TensorFlow pin cannot simply be bumped.
+# Mirrors requirements.txt 1:1. Neither bound is arbitrary.
+#
+# Upper bound <3.12: tensorflow==2.14.0 only ships cp39/cp310/cp311 wheels but
+# declares `requires-python >=3.9`, so pip happily attempts an sdist build on
+# 3.12/3.13 and fails. See the long comment at the top of requirements.txt for
+# why the TensorFlow pin cannot simply be bumped.
+#
+# Lower bound >=3.10: nba-api requires Python >=3.10 from version 1.11.0 onward.
+# Confirmed by CI rather than assumed -- on 3.9 the resolver reports
+# "No matching distribution found for nba-api==1.11.4", with 1.10.2 the newest
+# 3.9-installable release. Python 3.9 is also EOL, so dropping it costs nothing.
 dependencies = [
     "colorama==0.4.6",
     "pandas==2.1.1",

@@ -17,12 +17,12 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # Must stay in lockstep with requires-python = ">=3.9,<3.12" in
+        # Must stay in lockstep with requires-python = ">=3.10,<3.12" in
         # pyproject.toml. Python 3.12/3.13 cannot be added until the
         # tensorflow 2.14 pin is replaced -- see the header comment in
         # requirements.txt. Adding 3.12 here without doing that migration
         # would produce a permanently red job.
-        python-version: ["3.9", "3.10", "3.11"]
+        python-version: ["3.10", "3.11"]
 
     # NOTE ON CI COST: `pip install -r requirements.txt` pulls TensorFlow on
     # every matrix leg, and TensorFlow is by far the slowest step here --
