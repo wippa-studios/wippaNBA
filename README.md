@@ -1,5 +1,11 @@
 # Legit NBA Predictions
 
+[![CI](https://github.com/wippa-studios/Legit-NBA-Predictions/actions/workflows/ci.yml/badge.svg?branch=improve-model-v2)](https://github.com/wippa-studios/Legit-NBA-Predictions/actions/workflows/ci.yml?query=branch%3Aimprove-model-v2)
+[![Python](https://img.shields.io/badge/python-3.10%20%7C%203.11-3776AB.svg)](https://github.com/wippa-studios/Legit-NBA-Predictions/actions/workflows/ci.yml)
+[![Data](https://img.shields.io/badge/data-nba_api-13%2C199%20games-informational.svg)](https://github.com/swar/nba_api)
+[![Fork of kyleskom/NBA-Machine-Learning-Sports-Betting](https://img.shields.io/badge/fork%20of-kyleskom%2FNBA--Machine--Learning--Sports--Betting-blueviolet.svg)](https://github.com/kyleskom/NBA-Machine-Learning-Sports-Betting)
+[![No betting edge claimed](https://img.shields.io/badge/prediction%20quality%20only%20%E2%80%94%20no%20betting%20edge%20claimed-lightgrey.svg)](#what-the-audit-found)
+
 A fork of [kyleskom/NBA-Machine-Learning-Sports-Betting](https://github.com/kyleskom/NBA-Machine-Learning-Sports-Betting) —
 1,744 stars, 569 forks, maintained since 2019.
 
