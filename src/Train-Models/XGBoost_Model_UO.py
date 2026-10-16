@@ -6,6 +6,16 @@ import numpy as np
 import xgboost as xgb
 from sklearn.metrics import accuracy_score, log_loss
 
+import os
+import sys
+
+# This directory is named with a hyphen, so it is not an importable package.
+# The shared modules below are siblings, which means they only resolve when
+# this script runs with the repository root on sys.path -- e.g.
+# `python -m src.Train-Models.Logistic_Regression_ML`. Adding the script's own
+# directory keeps `python src/Train-Models/Logistic_Regression_ML.py` working too.
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+
 from boosting_training import (
     BoosterWrapper,
     prepare_data,
@@ -24,6 +34,7 @@ from training_common import (
     load_dataset,
 )
 from training_reporting import make_calibrated_estimator, report_closing_line
+
 
 MODEL_DIR = BASE_DIR / "Models" / "XGBoost_Models"
 

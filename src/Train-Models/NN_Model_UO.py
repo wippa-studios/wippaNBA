@@ -3,6 +3,16 @@ import argparse
 import numpy as np
 import tensorflow as tf
 
+import os
+import sys
+
+# This directory is named with a hyphen, so it is not an importable package.
+# The shared modules below are siblings, which means they only resolve when
+# this script runs with the repository root on sys.path -- e.g.
+# `python -m src.Train-Models.Logistic_Regression_ML`. Adding the script's own
+# directory keeps `python src/Train-Models/Logistic_Regression_ML.py` working too.
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+
 from neural_training import build_model, prepare_data, sample_params, split_time_series
 from training_common import (
     BASE_DIR,
@@ -12,6 +22,7 @@ from training_common import (
     format_param,
     load_dataset,
 )
+
 
 MODEL_DIR = BASE_DIR / "Models"
 

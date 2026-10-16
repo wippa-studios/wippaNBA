@@ -7,6 +7,16 @@ from sklearn.model_selection import TimeSeriesSplit
 from sklearn.pipeline import make_pipeline
 from sklearn.preprocessing import StandardScaler
 
+import os
+import sys
+
+# This directory is named with a hyphen, so it is not an importable package.
+# The shared modules below are siblings, which means they only resolve when
+# this script runs with the repository root on sys.path -- e.g.
+# `python -m src.Train-Models.Logistic_Regression_ML`. Adding the script's own
+# directory keeps `python src/Train-Models/Logistic_Regression_ML.py` working too.
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+
 from logistic_training import (
     build_class_weight,
     compute_sample_weights,
@@ -21,6 +31,7 @@ from training_common import (
     load_dataset,
 )
 from training_reporting import make_calibrated_estimator, report_closing_line
+
 
 DEFAULT_DATASET = "dataset_2012-26_new"
 NUM_CLASSES = MONEYLINE_NUM_CLASSES

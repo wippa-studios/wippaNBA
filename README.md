@@ -24,6 +24,19 @@ This fork is therefore a **data-pipeline and modelling project**, not a
 profitable-betting system. See [Limitations](#limitations) before using any number
 from this repo.
 
+**Status.** The audit and its fixes are done and verified. The measurement and
+modelling layers built after that are tested but **not yet wired into the
+runtime** — the runners still size bets with full Kelly, the trainers still use an
+unpurified `TimeSeriesSplit`, and nothing invokes the harness automatically.
+[ROADMAP.md](ROADMAP.md) records what is live, what is staged, and what is next.
+
+| | |
+|---|---|
+| Tests | 419 passing under both `pytest` and `unittest` |
+| CI | Python 3.10 and 3.11; dependency install verified end to end |
+| Leakage gate | `leakage_gate=PASS`, enforced by `scripts/evaluate.py` |
+| Models | **none retrained** — everything in `Models/` predates every fix |
+
 ---
 
 ## Where this started
@@ -233,6 +246,44 @@ unauthenticated visitor on any unhandled exception.
 - Odds-date holes are backfilled; missing-season runs exit non-zero.
 - SQLite connections are closed; `Add_Days_Rest.py` refuses to overwrite a table
   it could not parse.
+- Season values come from `config.toml`, not from 19 hand-edited literals.
+- Six near-identical training scripts collapsed to shared modules (2255 → 1551
+  lines) with byte-identical output.
+
+---
+
+## Tooling added here
+
+Each of these is built and tested. None is wired into the runtime yet — that is
+the next deliberate step, tracked in [ROADMAP.md](ROADMAP.md).
+
+| Module | What it is for |
+|---|---|
+| `scripts/evaluate.py` | One command that reproduces every number in this README. Opens with a **leakage gate** that refuses to report accuracy on a contaminated dataset, then reports baselines, model metrics, the closing-line favourite, and ROI with standard errors. Degrades explicitly rather than scoring a partial odds join. |
+| `src/Utils/metrics.py` | Expected calibration error, maximum calibration error, reliability curves, multi-class Brier, guarded log loss. Cross-checked against scikit-learn to `0.000e+00`. |
+| `src/Utils/validation.py` | Purged walk-forward splits with embargo, plus selection-bias and deflated-Sharpe correction. On this dataset 100 hyperparameter trials are worth **~2.5 standard errors** — larger than most effects anyone would claim from it. |
+| `src/Utils/Kelly_Criterion.py` | Fractional Kelly, probability shrinkage, two-way de-vig (proportional and Shin), per-bet and slate caps. The audited arithmetic underneath is unchanged. |
+| `src/Process-Data/Get_Odds_Line_Movement.py` | Timestamped intraday odds snapshots and closing-line-value arithmetic. |
+| `src/Process-Data/Create_Recency_Features.py` | EWMA and rolling features replacing season-to-date cumulative averages, with an as-of assertion that raises on leakage. |
+| `src/Utils/nba_client.py` | Thin, lazily-imported `nba_api` wrapper. |
+
+Two of these are worth reading the reasoning for, because both encode a lesson:
+
+**`size_bet` exists because full Kelly is the wrong policy, not wrong maths.** The
+underlying formula is correct — it is exactly `f* = (bp−q)/b`. But on a
+mis-specified edge, a Monte-Carlo over 20,000 seasons ends at a **median 0.278×
+bankroll with a 100% chance of a 50% drawdown**; at quarter Kelly, a median 0.946×
+and no such drawdown. The honest counterpoint is in the same report: when the
+edge is exactly right, full Kelly returns 3.97× against quarter Kelly's 1.83×.
+Roughly half the growth when you are right, in exchange for not going broke when
+you are wrong.
+
+**`closing_line_value` exists because anything measured at the close is not a
+signal.** Betting the closing line returns CLV of exactly `0.0` by construction.
+You cannot beat a price you already have. An honest limit the module documents:
+the historical odds tables are single scrapes, so there is **no intraday history
+to recover** and past CLV cannot be computed. That question is permanently
+unanswerable for games already played.
 
 ---
 
@@ -276,15 +327,37 @@ python -m src.Train-Models.XGBoost_Model_UO   --dataset dataset_2012-26 --trials
 
 Fill gaps with `--backfill` (optionally `--season 2025-26`).
 
-> The `Process-Data` and `Train-Models` directory names contain hyphens and are not
-> importable as Python packages; they are invoked as paths. Renaming them is
-> tracked as follow-up work.
+> `Process-Data` and `Train-Models` contain hyphens and so are not importable as
+> packages. All three of these work and are tested:
+> `python -m src.Train-Models.XGBoost_Model_ML` ·
+> `python src/Train-Models/XGBoost_Model_ML.py` ·
+> `cd src/Train-Models && python -m XGBoost_Model_ML`.
+> Renaming the directories is tracked as follow-up work.
+
+## Verifying the numbers in this README
+
+Every performance figure here is reproducible. Nothing needs manual setup:
+
+```bash
+python scripts/evaluate.py
+```
+
+It opens with a leakage gate and **refuses to report accuracy at all** if the
+dataset is contaminated, so a passing run is itself evidence that the join is
+clean. Then it prints the baselines, the trained model, the closing-line
+favourite, and ROI across edge thresholds with standard errors.
+
+Useful flags: `--dataset`, `--test-size`, `--model {logreg,gbdt,none}`,
+`--skip-odds`. See `scripts/README.md` for the gate's checks and degradation
+rules.
 
 ## Tests
 
 ```bash
 pytest Tests/                       # or: python -m unittest discover -s Tests -t .
 ```
+
+419 tests, no network access required, and no TensorFlow or XGBoost import.
 
 ## Flask app
 
@@ -338,3 +411,10 @@ Read this before using any number from this repository.
 
 Original project by [Kyle Skompinski](https://github.com/kyleskom) and
 contributors. Corrections, audit and documentation in this fork are ours.
+
+## Further reading
+
+- [ROADMAP.md](ROADMAP.md) — the levels between this working pipeline and a real
+  forecasting or betting engine, with the measured case for why model tuning is
+  not the bottleneck.
+- `scripts/README.md` — what the evaluation harness measures and how it degrades.
