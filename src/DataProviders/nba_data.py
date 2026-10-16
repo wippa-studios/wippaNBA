@@ -29,6 +29,34 @@ LEAKAGE
 All feature builders here are strictly causal: a feature for game t is computed
 only from games with date < date(t). `rolling` enforces this explicitly. There is
 no function here that reads a season-end aggregate for a game inside that season.
+
+KNOWN CAVEAT - ewm_net_rating IS REDUNDANT, DO NOT READ ITS COEFFICIENT
+--------------------------------------------------------------------
+`home_ewm_net_rating` / `away_ewm_net_rating` are not independent information.
+NBA defines NET_RATING as OFF_RATING minus DEF_RATING, and these are exponentially
+weighted before the contrast is taken, so the identity survives the weighting.
+Measured on the real feature frame:
+
+    regress d_net_rating on (d_margin, d_off_rating, d_def_rating, 1)
+        R^2            = 0.99999735
+        residual sd    = 1.265e-02   (feature sd 7.764)
+
+The condition number of the four standardised strength contrasts is not finite -
+an SVD cannot decompose the matrix at all - while dropping d_net_rating gives a
+healthy 36.1. Consequences:
+
+* Per-coefficient readings of d_margin / d_net_rating / d_off_rating /
+  d_def_rating are NOT safe. Signs will flip between model families for reasons
+  that have nothing to do with the effect of the feature.
+* A cross-family "sign disagreement" audit over these columns measures the
+  degeneracy, not the world. A +/-1 SD contrast on d_net_rating while freezing
+  every other column asks about a pairing that essentially does not occur, so
+  the question was never asked off-manifold.
+* Predictions remain identified and are unaffected - only interpretation of
+  individual coefficients is.
+
+If you need interpretable coefficients, drop one of d_net_rating / d_margin and
+refit. Predictions do not need this.
 """
 from __future__ import annotations
 
