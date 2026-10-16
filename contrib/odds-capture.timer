@@ -1,0 +1,21 @@
+[Unit]
+Description=Capture NBA odds snapshots every 15 minutes
+Documentation=https://github.com/wippa-studios/Legit-NBA-Predictions/blob/master/ROADMAP.md
+
+[Timer]
+# 15 minutes is a compromise: dense enough that a moved line has several points
+# around it, sparse enough not to hammer the upstream endpoint.
+#
+# Coverage matters more than frequency. snapshot_coverage() reports the density
+# per game, and a single snapshot is indistinguishable from a line that never
+# moved, so CLV computed over thinly-covered games is biased toward zero. Raise
+# Persistent=true first and let it build before drawing any conclusion.
+OnBootSec=2min
+OnUnitActiveSec=15min
+# Spread the load rather than firing every runner at :00 on the hour.
+RandomizedDelaySec=90
+Persistent=true
+AccuracySec=30s
+
+[Install]
+WantedBy=timers.target

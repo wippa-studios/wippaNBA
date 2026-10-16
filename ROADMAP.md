@@ -122,8 +122,26 @@ document from committed data, with no manual steps.
 
 **Remaining:** calibration error and CLV are implemented as modules
 (`src/Utils/metrics.py`, `Get_Odds_Line_Movement.py`) but are not yet reported by
-the harness. CLV in particular cannot be, until intraday snapshots accumulate —
-there is no historical data to compute it from.
+the harness.
+
+**Retrospective CLV is struck, not deferred.** It cannot be computed for any game
+already played. The historical odds tables are single scrapes, so there is no
+intraday history to recover and no CLV figure for those games exists, now or ever.
+This is a permanent unanswerability for past games, not a backlog item.
+
+What is *not* struck is prospective CLV, and the capture machinery now ships for it:
+`Get_Odds_Line_Movement.py --sportsbook all --watch --every 900` keeps a trajectory
+resident, and `contrib/odds-capture.timer` does the same under systemd for anyone who
+would rather schedule it than babysit a process. Coverage has to build before any
+figure means anything — `snapshot_coverage()` reports density per game, and a game
+with one snapshot is indistinguishable from a line that never moved, so CLV over thin
+coverage is biased toward zero.
+
+Note what CLV would and would not settle. A positive CLV on a real, prospectively
+captured series would be evidence of skill; a negative one would exonerate the
+strategy. It is the only measurement available that can separate the two, because
+everything measured at the close returns CLV of exactly 0.0 by construction — you
+cannot beat a price you already have.
 
 ### 1.2 Leakage assertion as a permanent gate
 

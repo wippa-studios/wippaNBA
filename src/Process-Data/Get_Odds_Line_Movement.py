@@ -116,6 +116,44 @@ CAPTURED_AT_FORMAT = "%Y-%m-%dT%H:%M:%S+00:00"
 DATE_FORMAT = "%Y-%m-%d"
 
 DEFAULT_SPORTSBOOK = "fanduel"
+
+# Books the SBR scoreboard is known to carry. Rotation across more than one matters
+# for CLV: one book's line is not "the" closing line, and a movement at a single book
+# may be that book's risk management rather than the market repricing.
+#
+# This is a default, not a whitelist. An unrecognised key is passed through and the
+# fetch simply reports no odds for it, so adding a book needs no code change.
+KNOWN_SPORTSBOOKS = (
+    "fanduel",
+    "draftkings",
+    "betmgm",
+    "pointsbet",
+    "caesars",
+    "wynn",
+    "bet_rivers_ny",
+)
+
+
+def parse_sportsbooks(spec):
+    """Parse --sportsbook into an ordered list of book keys.
+
+    Accepts a comma-separated list, or ``all`` for KNOWN_SPORTSBOOKS. Order is
+    preserved so a rotation is reproducible, and duplicates are dropped so
+    ``--sportsbook fanduel,fanduel`` does not double-capture.
+    """
+    text = (spec or DEFAULT_SPORTSBOOK).strip().lower()
+    if text == "all":
+        candidates = list(KNOWN_SPORTSBOOKS)
+    else:
+        candidates = [part.strip() for part in text.split(",") if part.strip()]
+    seen, ordered = set(), []
+    for book in candidates:
+        if book not in seen:
+            seen.add(book)
+            ordered.append(book)
+    if not ordered:
+        raise LineMovementError(f"--sportsbook {spec!r} names no sportsbook")
+    return ordered
 DEFAULT_MIN_SNAPSHOTS = 2
 
 # The politeness delay Get_Odds_Data.py already uses between books. Snapshot
@@ -1091,7 +1129,24 @@ def main(argv=None):
     parser.add_argument(
         "--sportsbook",
         default=DEFAULT_SPORTSBOOK,
-        help="Sportsbook key to pull odds from (default: %(default)s).",
+        help=(
+            "Sportsbook key, or a comma-separated list to capture several in one "
+            "pass, or 'all' for the known set: %s (default: %%(default)s). "
+            "Rotation across books matters because one book's line is not 'the' "
+            "closing line." % ", ".join(KNOWN_SPORTSBOOKS)
+        ),
+    )
+    parser.add_argument(
+        "--watch",
+        action="store_true",
+        help="Stay resident and capture every --every seconds instead of exiting. "
+             "Equivalent to running this under a systemd --user timer.",
+    )
+    parser.add_argument(
+        "--every",
+        type=int,
+        default=900,
+        help="Seconds between passes when --watch is set (default: %(default)s).",
     )
     parser.add_argument(
         "--db",
@@ -1136,29 +1191,57 @@ def main(argv=None):
             snapshot_coverage(con, min_snapshots=args.min_snapshots)
         return 0
 
+    try:
+        books = parse_sportsbooks(args.sportsbook)
+    except LineMovementError as exc:
+        print(f"CAPTURE FAILED: {exc}")
+        return 1
+
     # Validate --at before the database is touched: a bad argument should not
     # leave an empty sqlite file behind as evidence that a job "ran".
     try:
         captured_at = None if args.at is None else parse_captured_at(args.at)
     except LineMovementError as exc:
-        print(f"CAPTURE FAILED [{args.sportsbook}]: {exc}")
+        print(f"CAPTURE FAILED [{','.join(books)}]: {exc}")
         return 1
 
-    try:
-        with contextlib.closing(sqlite3.connect(args.db)) as con:
-            capture_once(
-                args.sportsbook,
-                at_time=captured_at,
-                game_date=args.date,
-                con=con,
-                timeout=args.timeout,
-            )
-    except LineMovementError as exc:
-        # A non-zero exit is the monitoring signal. The daily job that "succeeded"
-        # while doing nothing is exactly the failure mode Level 5 is about.
-        print(f"CAPTURE FAILED [{args.sportsbook}]: {exc}")
+    def one_pass():
+        """Capture every configured book once. Returns the number that failed."""
+        failures = 0
+        for book in books:
+            try:
+                with contextlib.closing(sqlite3.connect(args.db)) as con:
+                    capture_once(
+                        book,
+                        at_time=captured_at,
+                        game_date=args.date,
+                        con=con,
+                        timeout=args.timeout,
+                    )
+            except LineMovementError as exc:
+                # A non-zero exit is the monitoring signal. The daily job that
+                # "succeeded" while doing nothing is exactly the failure mode
+                # Level 5 is about.
+                print(f"CAPTURE FAILED [{book}]: {exc}")
+                failures += 1
+        return failures
+
+    if not args.watch:
+        return 1 if one_pass() else 0
+
+    # --watch: stay resident and capture on an interval.
+    if args.every <= 0:
+        print("CAPTURE FAILED: --every must be a positive number of seconds")
         return 1
-    return 0
+    print(f"Watching {len(books)} book(s) every {args.every}s. Ctrl-C to stop.")
+    failures = 0
+    try:
+        while True:
+            failures = one_pass()
+            time.sleep(args.every)
+    except KeyboardInterrupt:
+        print("\nStopped.")
+    return 1 if failures else 0
 
 
 if __name__ == "__main__":

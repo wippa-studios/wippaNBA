@@ -1,0 +1,25 @@
+[Unit]
+Description=Capture NBA odds snapshots for closing-line-value measurement
+Documentation=https://github.com/wippa-studios/Legit-NBA-Predictions/blob/master/ROADMAP.md
+# Closing-line value needs a trajectory, not a single scrape. This timer exists so
+# that one accumulates. Without it the odds_snapshots table stays empty and every
+# CLV question stays permanently unanswerable for the games that were never
+# captured -- which is exactly the failure mode this project already documented in
+# the upstream README.
+After=network-online.target
+
+[Service]
+Type=oneshot
+# Adjust the repository path and python interpreter to your checkout.
+WorkingDirectory=%h/Legit-NBA-Predictions
+ExecStart=%h/.cache/mlenv/bin/python -m src.Process-Data.Get_Odds_Line_Movement --sportsbook all
+# Snapshots are useless without a database, so create it if absent rather than
+# writing into a missing path and reporting success.
+ExecStartPre=/usr/bin/test -d %h/Legit-NBA_Predictions/Data || /usr/bin/mkdir -p %h/Legit-NBA_Predictions/Data
+# A non-zero exit is the monitoring signal. Do not mask it: a capture job that
+# "succeeds" while doing nothing is worse than one that is visibly broken.
+SuccessExitStatus=0
+TimeoutStartSec=300
+
+[Install]
+WantedBy=default.target
