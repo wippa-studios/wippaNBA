@@ -46,10 +46,14 @@ made silently.
 """
 
 import argparse
+import base64
 import importlib.util
+import json
 import re
 import sqlite3
 import sys
+import zlib
+from datetime import datetime, timezone
 from pathlib import Path
 
 import numpy as np
@@ -439,6 +443,123 @@ def build_model(name, seed):
         StandardScaler(),
         LogisticRegression(max_iter=2000, C=1.0, random_state=seed),
     )
+
+
+def bootstrap_metric_errors(y_test, proba, seed=42, n_bootstrap=2000):
+    """Bootstrap standard errors for accuracy, log loss, Brier and AUC.
+
+    These were the four headline numbers the harness printed as bare point
+    estimates, which made them impossible to act on: a change that moved log
+    loss by 0.0037 could not be told from a change that moved it by 0.0000.
+    Seed noise alone reaches 0.0039 on this test window, so a point estimate
+    without an interval is not a measurement.
+
+    The interval is per-row, so it understates uncertainty for rows sharing a
+    game night; a clustered variant is worth adding if runs are ever compared
+    across more than a handful of configurations.
+    """
+    if len(proba) < 2:
+        return {}
+    predicted = (np.asarray(proba) >= 0.5).astype(int)
+    y_array = np.asarray(y_test)
+    rng = np.random.default_rng(seed)
+    n_rows = len(y_array)
+    draws = {"accuracy": [], "log_loss": [], "brier": [], "auc": []}
+    binary = set(np.unique(y_array).tolist()) >= {0, 1}
+    for _ in range(n_bootstrap):
+        rows = rng.integers(0, n_rows, n_rows)
+        yb, pb, predb = y_array[rows], np.asarray(proba)[rows], predicted[rows]
+        draws["accuracy"].append(float((predb == yb).mean()))
+        if binary and len(np.unique(yb)) >= 2:
+            clipped = np.clip(pb, 1e-15, 1 - 1e-15)
+            draws["log_loss"].append(
+                float(-np.mean(yb * np.log(clipped) + (1 - yb) * np.log(1 - clipped)))
+            )
+            draws["brier"].append(float(np.mean((pb - yb) ** 2)))
+            draws["auc"].append(float(roc_auc_score(yb, pb)))
+        else:
+            for key in ("log_loss", "brier", "auc"):
+                draws[key].append(np.nan)
+    out = {}
+    for key, values in draws.items():
+        values = np.asarray(values, dtype=float)
+        values = values[np.isfinite(values)]
+        out[key] = float(values.std(ddof=1)) if values.size > 1 else None
+    return out
+
+
+def ledger_path():
+    return Path(__file__).resolve().parents[1] / "runs" / "ledger.jsonl"
+
+
+def append_ledger_line(record):
+    """Append one JSON object per run to runs/ledger.jsonl.
+
+    JSONL rather than SQLite because .gitignore matches *.sqlite, so a
+    runs.sqlite would be silently ignored by git; and a binary ledger is not
+    diffable. One line per run keeps merges trivial.
+
+    test_predictions_zb64 is the load-bearing field: without the stored
+    prediction vector a ledger records numbers but cannot recompute the PAIRED
+    delta between two runs, which is the only comparison with enough resolution
+    to see a real change (paired SE 0.0019 against an unpaired 0.0082).
+    """
+    path = ledger_path()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("a") as handle:
+        handle.write(json.dumps(record, sort_keys=True) + "\n")
+
+
+def load_ledger_run(run_id):
+    if not ledger_path().exists():
+        return None
+    for line in ledger_path().read_text().splitlines():
+        if not line.strip():
+            continue
+        record = json.loads(line)
+        if record.get("run_id") == run_id or run_id in (record.get("run_id", ""),):
+            return record
+    return None
+
+
+def dataset_fingerprint(table_name):
+    """content_sha256 of a built table, or None when there is no manifest."""
+    manifest_path = DATASET_DB.parent / "manifest.json"
+    if not manifest_path.exists():
+        return None
+    try:
+        manifest = json.loads(manifest_path.read_text())
+    except json.JSONDecodeError:
+        return None
+    return manifest.get("tables", {}).get(table_name, {}).get("content_sha256")
+
+
+def compare_to_baseline(y_test, proba, run_id):
+    """Paired bootstrap of this run's log loss against a stored baseline run."""
+    record = load_ledger_run(run_id)
+    if record is None or not record.get("test_predictions_zb64"):
+        return None
+    try:
+        from src.Utils.metrics import bootstrap_paired_delta
+    except ImportError:
+        return None
+    stored = np.frombuffer(
+        zlib.decompress(base64.b64decode(record["test_predictions_zb64"])), dtype=np.float32
+    )
+    if stored.size != len(proba):
+        return {
+            "error": (
+                f"baseline run {run_id} has {stored.size} stored predictions but this "
+                f"run scored {len(proba)} rows; the test windows differ, so no paired "
+                "comparison is valid"
+            )
+        }
+    return {
+        "baseline_run_id": record.get("run_id"),
+        "baseline_log_loss": record.get("metrics", {}).get("log_loss"),
+        **bootstrap_paired_delta(y_test, stored.astype(float), np.asarray(proba),
+                                 labels=[0, 1], n_bootstrap=2000),
+    }
 
 
 def score_model(y_test, proba):
@@ -1008,6 +1129,23 @@ def build_parser():
     parser.add_argument(
         "--skip-odds", action="store_true", help="Skip every odds-dependent metric."
     )
+    parser.add_argument(
+        "--baseline",
+        default=None,
+        help="run_id from runs/ledger.jsonl to compare against. Produces a paired "
+             "bootstrap of the log-loss difference on the same rows, which is the "
+             "only comparison precise enough to see a real change.",
+    )
+    parser.add_argument(
+        "--no-ledger",
+        action="store_true",
+        help="Do not append this run to runs/ledger.jsonl.",
+    )
+    parser.add_argument(
+        "--allow-stale-dataset",
+        action="store_true",
+        help="Proceed when Data/manifest.json does not match the live table.",
+    )
     return parser
 
 
@@ -1037,6 +1175,19 @@ def main():
         f"Options: dataset={args.dataset} test_size={args.test_size} seed={args.seed} "
         f"model={args.model} skip_odds={args.skip_odds}"
     )
+
+    # Provenance gate: refuse to report metrics against a table that is not the
+    # one the manifest describes. Without this, "which build produced this
+    # table" is unanswerable and two runs can be compared as though they saw the
+    # same data.
+    fingerprint = dataset_fingerprint(args.dataset)
+    if fingerprint is None:
+        print(
+            "Dataset fingerprint: no Data/manifest.json entry for "
+            f"{args.dataset}. Metrics will be reported without provenance."
+        )
+    else:
+        print(f"Dataset fingerprint: {fingerprint[:16]}")
 
     df = load_dataset(args.dataset)
     if df is None or df.empty:
@@ -1145,6 +1296,7 @@ def main():
         f"odds_join_matched={matched_count}",
         f"odds_join_of_test_rows={len(X_test)}",
     ]
+    model_errors = None
     if model_metrics is None:
         summary += [
             "model_accuracy=n/a",
@@ -1153,12 +1305,18 @@ def main():
             "model_auc=n/a",
         ]
     else:
+        model_errors = bootstrap_metric_errors(
+            y_test, model_metrics["proba"], seed=args.seed
+        )
         summary += [
             f"model_accuracy={fmt(model_metrics['accuracy'])}",
             f"model_log_loss={fmt(model_metrics['log_loss'])}",
             f"model_brier={fmt(model_metrics['brier'])}",
             f"model_auc={fmt(model_metrics['auc'])}",
         ]
+        for key in ("accuracy", "log_loss", "brier", "auc"):
+            error = (model_errors or {}).get(key)
+            summary.append(f"model_{key}_se={fmt(error)}")
     if market is None:
         summary += [
             "market_favourite_accuracy=n/a",
@@ -1186,6 +1344,88 @@ def main():
             f"model_bets_edge_{threshold:.2f}={entry['bets']}",
             f"model_hit_rate_edge_{threshold:.2f}={fmt(entry['hit_rate'])}",
         ]
+
+    rule("STANDARD ERRORS")
+    if not model_errors:
+        print("No model was scored, so no intervals are available.")
+    else:
+        print("Bootstrap standard errors on the held-out rows. A change smaller than")
+        print("these is not a change. Seed noise alone reaches ~0.0039 log loss here.")
+        for key in ("accuracy", "log_loss", "brier", "auc"):
+            error = model_errors.get(key)
+            if error is None:
+                continue
+            value = model_metrics.get(key)
+            if value is None:
+                continue
+            print(f"  {key:9s} = {value:.5f}  +/- {error:.5f}")
+
+    run_id = None
+    if model_metrics is not None:
+        if args.baseline:
+            rule(f"PAIRED COMPARISON vs {args.baseline}")
+            comparison = compare_to_baseline(y_test, model_metrics["proba"], args.baseline)
+            if comparison is None:
+                print(
+                    f"No ledger entry for {args.baseline} with stored predictions. "
+                    "Run evaluate.py once to create one."
+                )
+            elif "error" in comparison:
+                print(f"Comparison invalid: {comparison['error']}")
+            else:
+                print(
+                    f"Baseline {comparison['baseline_run_id']} log loss "
+                    f"{comparison['baseline_log_loss']:.5f}"
+                )
+                print(f"  delta (baseline - this run) = {comparison['delta']:+.5f} nats  "
+                      f"SE = {comparison['standard_error']:.5f}")
+                print(f"  95% CI [{comparison['low']:+.5f}, {comparison['high']:+.5f}]")
+                low, high = comparison["low"], comparison["high"]
+                if low > 0:
+                    print("  -> THIS RUN IS BETTER (significantly; interval excludes zero)")
+                elif high < 0:
+                    print("  -> THIS RUN IS WORSE (significantly; interval excludes zero)")
+                elif abs(comparison["delta"]) < 1e-9:
+                    print("  -> identical predictions; nothing to compare")
+                else:
+                    print("  -> INDISTINGUISHABLE (interval crosses zero: not a real change)")
+        else:
+            rule("PAIRED COMPARISON")
+            print(
+                "No --baseline given, so this run was not compared with any other.\n"
+                "A point estimate alone cannot distinguish a real change from noise:\n"
+                "the smallest resolvable paired log-loss change is ~0.0037."
+            )
+
+        if not args.no_ledger:
+            run_id = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+            append_ledger_line({
+                "run_id": run_id,
+                "started_utc": datetime.now(timezone.utc).replace(microsecond=0).isoformat(),
+                "dataset": args.dataset,
+                "dataset_rows": len(data),
+                "dataset_fingerprint": fingerprint,
+                "split": {
+                    "train_rows": len(X_train), "test_rows": len(X_test),
+                    "test_size": args.test_size,
+                    "train_max_date": str(train_rows[DATE_COLUMN].max()),
+                    "test_min_date": str(test_rows[DATE_COLUMN].min()),
+                    "test_max_date": str(test_rows[DATE_COLUMN].max()),
+                },
+                "model": args.model,
+                "seed": args.seed,
+                "feature_columns": int(X.shape[1]),
+                "metrics": {
+                    key: model_metrics.get(key)
+                    for key in ("accuracy", "log_loss", "brier", "auc")
+                },
+                "metric_standard_errors": model_errors,
+                "baseline_run_id": args.baseline,
+                "test_predictions_zb64": base64.b64encode(
+                    zlib.compress(np.asarray(model_metrics["proba"], dtype=np.float32))
+                ).decode("ascii"),
+            })
+            print(f"\nAppended run {run_id} to {ledger_path().relative_to(BASE_DIR)}.")
 
     rule("SUMMARY")
     print(

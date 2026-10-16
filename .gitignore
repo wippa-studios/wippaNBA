@@ -147,3 +147,10 @@ venv.bak/
 
 .idea
 .DS_Store
+
+# runs/ledger.jsonl is deliberately TRACKED: it is the record that lets a metric
+# be attributed to a change rather than to a different dataset or a different
+# seed. The *.sqlite rule above would have silently swallowed a runs.sqlite,
+# which is why the ledger is JSONL. See issue #4.
+!runs/
+!runs/ledger.jsonl
