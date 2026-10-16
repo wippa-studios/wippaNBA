@@ -52,15 +52,17 @@ These are measurements, not intentions. Re-running them is the first task below.
 | Finding | Measurement |
 |---|---|
 | The `68.9%` headline was target leakage | Trivial rule on contaminated columns scores 96.1% (2025), 100% (2026); chance is 50% |
-| Leak-free accuracy | ~63–65% vs a 57.2% always-bet-home baseline |
-| No edge at the closing line | −1.9% (correctly aligned) to −7% (across edge thresholds) |
-| The favourite itself loses money | 67.7% accuracy, −5.5% ROI, n=1,697 (SE ≈ 1.13pp) |
+| Leak-free accuracy | 0.657 vs a 0.547 always-bet-home baseline, over 1,722 held-out games |
+| **No demonstrated edge at the closing line** | Model ROI +1.5% to +8.3% across edge thresholds, standard errors ±4.4 to ±9.4 — inside one SE of zero everywhere, with the sign moving with the evaluation window |
+| **The market beats the model** | Closing-line favourite wins 0.681 to the model's 0.657 |
+| The favourite loses money, as it must | −5.46% ROI ±1.62 — that is the vig, and it is the one result here that is statistically solid |
 | The totals model has no signal | 0.497 accuracy vs 0.504 for always predicting "over" |
-| Class weighting broke calibration | mean P(home) 0.5079 vs a true 0.5694 |
-| Selection effect is real | 100 hyperparameter trials, best selected on a single 10% slice |
+| Class weighting broke calibration | mean P(home) 0.5079 vs a true 0.5694; the resulting model scores 0.5324 accuracy — identical to its own base rate — while a +8.7% edge sat unactioned |
+| Selection effect is real | 100 hyperparameter trials are worth ~2.50 standard errors at this sample size |
 
-The last row matters for everything below. **Any number produced by searching
-many configurations and reporting the best one is optimistic by construction.**
+All of the above reproduce with `python scripts/evaluate.py`. The last row
+matters for everything below. **Any number produced by searching many
+configurations and reporting the best one is optimistic by construction.**
 See Level 6.
 
 ---
@@ -73,6 +75,7 @@ Done in PR #1. Summary, for context:
 - Silent prediction bugs fixed (3-column permutation in the totals model, push-rendered-as-OVER, Flask labelling the winner as "home" and misattributing EV).
 - Leaked third-party API key removed; Werkzeug debug source disclosure closed; timeouts on every request and subprocess.
 - 81 tests passing under both `pytest` and `unittest`; CI on Python 3.10–3.11.
+  (Now 419 — see Levels 1 and 2.)
 
 **Standing hazard:** nothing has been retrained. `xgboost` and TensorFlow are
 absent from the review environment, so the XGBoost and NN paths were verified by
@@ -82,25 +85,45 @@ additionally carries the old totals column order and will fail **silently**.
 
 ---
 
-## Level 1 — Make measurement reproducible
+## Level 1 — Make measurement reproducible ✅ built, not yet wired
 
 **Why first:** without this, every subsequent level is unfalsifiable. It is also
 the cheapest thing on this list by a wide margin, and it is pure profit.
 
-### 1.1 Promote the evaluation harness
+**Done:** `scripts/evaluate.py` reproduces every figure in the README and in this
+document. It opens with a leakage gate that refuses to report accuracy on a
+contaminated dataset — verified to fire on the old leaky tables (89.5% of rows
+join a same-day price) and on a poisoned frame (the W-increment rule reaches
+83%). It reports baselines, model metrics, the closing-line favourite, and ROI
+across edge thresholds with standard errors, and it degrades explicitly rather
+than scoring a partial odds join.
 
-The scripts that produced the measurements above live outside the repository and
-will bit-rot immediately. Move them in as `scripts/evaluate.py`.
+**Not done:** nothing invokes it. It is not in CI, and no training run calls it.
+Until that is fixed, a regression in the model can land without anyone noticing
+that the number moved. That wiring is the first thing still outstanding here.
 
-- Rebuild the dataset leak-free by construction; never accept a caller-supplied
-  dataset without asserting its as-of correctness.
-- Train on a chronological split. Report **log loss, Brier, calibration error,
-  ROI, and CLV**.
-- Refuse to report on a partial odds join — the pattern is already implemented
-  in `src/Train-Models/training_reporting.py`; reuse it.
+Also still outstanding at this level: dataset and model manifests, so a model
+file can be traced to the exact dataset, seed and column order that produced it.
 
-**Gate:** `python scripts/evaluate.py` reproduces the figures in this document
-from committed data, with no manual steps.
+### 1.1 Promote the evaluation harness ✅
+
+The scripts that produced the measurements above lived outside the repository and
+would have bit-roted immediately. They are now `scripts/evaluate.py`, documented
+in `scripts/README.md`.
+
+- The dataset is rebuilt leak-free by construction and its as-of correctness is
+  asserted before any accuracy is reported.
+- Training is on a chronological split. Reported: **log loss, Brier, AUC,
+  accuracy, the closing-line favourite baseline, and ROI with standard errors**.
+- A partial odds join is refused rather than scored.
+
+**Gate — met:** `python scripts/evaluate.py` reproduces the figures in this
+document from committed data, with no manual steps.
+
+**Remaining:** calibration error and CLV are implemented as modules
+(`src/Utils/metrics.py`, `Get_Odds_Line_Movement.py`) but are not yet reported by
+the harness. CLV in particular cannot be, until intraday snapshots accumulate —
+there is no historical data to compute it from.
 
 ### 1.2 Leakage assertion as a permanent gate
 
