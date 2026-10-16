@@ -1,5 +1,54 @@
+# Runtime dependencies for the data-processing / training / prediction pipeline.
+#
+# ---------------------------------------------------------------------------
+# SUPPORTED PYTHON VERSIONS: 3.9, 3.10 and 3.11 ONLY.
+# ---------------------------------------------------------------------------
+# This ceiling is deliberate, not an oversight.
+#
+# tensorflow==2.14.0 only publishes cp39/cp310/cp311 wheels. Its own metadata
+# declares `requires-python >=3.9`, which is wrong, so on Python 3.12 or 3.13
+# pip believes the requirement is satisfiable, falls back to building the sdist
+# from source, and fails. pandas==2.1.1 and scikit-learn==1.3.1 have no cp313
+# wheels either, so a contributor on 3.13 cannot install this repo at all.
+# The same bound is declared as `requires-python = ">=3.9,<3.12"` in
+# pyproject.toml so packaging metadata tells the truth up front.
+#
+# WHY TENSORFLOW HAS NOT SIMPLY BEEN BUMPED to 2.16+/2.19:
+#   * src/Train-Models/NN_Model_ML.py and NN_Model_UO.py call
+#     `tf.keras.optimizers.legacy.Adam`. The `legacy` optimizer namespace was
+#     REMOVED outright in Keras 3 (TF 2.16+).
+#   * `tf.keras.utils.normalize` changed semantics across the TF 2.16 boundary,
+#     which would silently alter the features the networks train on.
+#   * The committed Models/NN_Models/*.keras artifacts were written by Keras 2
+#     and are not guaranteed to load under Keras 3.
+# Migrating to TF 2.16+ is therefore a code-and-artifact migration project, not
+# a pin bump. Until that migration lands, treat the Python 3.11 ceiling as a
+# real constraint and re-evaluate both pins together.
+#
+# ---------------------------------------------------------------------------
+# Notes on individual entries
+# ---------------------------------------------------------------------------
+# numpy is bounded rather than hard-pinned because two of the pins above pull
+# it in opposite directions: tensorflow 2.14.0 requires numpy>=1.23.5, while
+# scikit-learn 1.3.1 requires numpy<2.0. The interval below is the
+# intersection those pins can actually satisfy.
+#
+# requests, numpy and joblib are all imported directly by the source but were
+# only ever resolving transitively (via tensorboard, pandas and scikit-learn):
+#   requests -> src/Utils/tools.py, Flask/app.py
+#   numpy    -> 10 files, e.g. src/Predict/XGBoost_Runner.py,
+#               src/Process-Data/Create_Games.py, src/Train-Models/*.py
+#   joblib   -> src/Train-Models/XGBoost_Model_ML.py,
+#               src/Train-Models/XGBoost_Model_UO.py,
+#               src/Predict/XGBoost_Runner.py
+# sbrscrape==0.0.10 declares NO dependencies at all, so it cannot be relied on
+# to supply anything indirectly. These three are now explicit.
 colorama==0.4.6
 pandas==2.1.1
+numpy>=1.23.5,<2.0
+requests==2.32.4
+joblib==1.5.2
+nba-api==1.11.4
 sbrscrape==0.0.10
 tensorflow==2.14.0
 #tensorflow-metal==1.1.0

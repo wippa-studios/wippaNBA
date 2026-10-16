@@ -1,7 +1,8 @@
 import argparse
+import contextlib
 import re
 import sqlite3
-from datetime import datetime
+from datetime import date, datetime
 from pathlib import Path
 
 import pandas as pd
@@ -31,12 +32,30 @@ DEFAULT_DATASETS = [
 
 
 def get_date(date_string):
-    match = re.search(r"(\d+)-\d+-(\d\d)(\d\d)", str(date_string))
-    if not match:
+    if isinstance(date_string, datetime):
+        return date_string
+    if isinstance(date_string, date):
+        return datetime(date_string.year, date_string.month, date_string.day)
+
+    text = str(date_string).strip()
+    if not text:
         return None
-    year1, month, day = match.groups()
-    year = year1 if int(month) > 8 else int(year1) + 1
-    return datetime.strptime(f"{year}-{month}-{day}", DATE_FORMAT)
+
+    # Legacy odds tables store the season key plus MMDD, e.g. "2007-08-1030".
+    match = re.search(r"(\d+)-\d+-(\d\d)(\d\d)", text)
+    if match:
+        year1, month, day = match.groups()
+        year = year1 if int(month) > 8 else int(year1) + 1
+        try:
+            return datetime.strptime(f"{year}-{month}-{day}", DATE_FORMAT)
+        except ValueError:
+            return None
+
+    # Modern odds tables store plain ISO dates, e.g. "2025-01-15".
+    try:
+        return datetime.strptime(text[:10], DATE_FORMAT)
+    except ValueError:
+        return None
 
 
 def clamp_days_rest(days):
@@ -58,12 +77,24 @@ def add_days_rest_to_dataset(con, dataset):
     days_rest_home = []
     days_rest_away = []
 
+    # Parse every date before writing anything. An unparsed row used to be
+    # written back with a fabricated rest value, flattening the Days_Rest
+    # columns of a real table, so refuse the whole dataset instead.
+    parsed_dates = [get_date(raw_date) for raw_date in data["Date"].tolist()]
+    unparsed = sum(1 for value in parsed_dates if value is None)
+    if unparsed:
+        raise ValueError(
+            f"Refusing to update {dataset}: could not parse the Date value for "
+            f"{unparsed} of {len(parsed_dates)} rows. The table was left untouched."
+        )
+
+    # iterrows below walks the rows in order, so sort chronologically first. The
+    # stable sort keeps same-day games in their original order.
+    data = data.assign(_parsed_date=parsed_dates)
+    data.sort_values("_parsed_date", kind="mergesort", inplace=True)
+
     for _, row in data.iterrows():
-        current_date = get_date(row["Date"])
-        if current_date is None:
-            days_rest_home.append(9)
-            days_rest_away.append(9)
-            continue
+        current_date = row["_parsed_date"]
 
         home_team = row["Home"]
         away_team = row["Away"]
@@ -83,15 +114,19 @@ def add_days_rest_to_dataset(con, dataset):
         days_rest_home.append(home_games_rested)
         days_rest_away.append(away_games_rested)
 
+    data.drop(columns=["_parsed_date"], inplace=True)
     data["Days_Rest_Home"] = days_rest_home
     data["Days_Rest_Away"] = days_rest_away
     data.to_sql(dataset, con, if_exists="replace", index=False)
 
 
 def main(datasets):
-    with sqlite3.connect(DB_PATH) as con:
-        for dataset in tqdm(datasets):
-            add_days_rest_to_dataset(con, dataset)
+    # contextlib.closing closes the handle; the inner `with con` keeps the
+    # original commit/rollback semantics across the datasets processed here.
+    with contextlib.closing(sqlite3.connect(DB_PATH)) as con:
+        with con:
+            for dataset in tqdm(datasets):
+                add_days_rest_to_dataset(con, dataset)
 
 
 if __name__ == "__main__":

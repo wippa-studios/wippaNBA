@@ -1,4 +1,5 @@
 import argparse
+import contextlib
 import os
 import random
 import sqlite3
@@ -154,9 +155,18 @@ def append_game_rows(game_rows, date_pointer, game, sportsbook, teams_last_playe
     })
 
 
-def collect_odds_for_dates(dates, sportsbook, teams_last_played):
+def collect_odds_for_dates(dates, sportsbook, teams_last_played, existing_by_date=None):
     df_data = []
     for date_pointer in dates:
+        if existing_by_date and date_pointer in existing_by_date:
+            # Replay the games already stored for this date so the rest days of
+            # the dates we are filling stay consistent with the full history.
+            # This has to happen in date order, next to the dates being filled.
+            for home_team, away_team in existing_by_date[date_pointer]:
+                teams_last_played[home_team] = date_pointer
+                teams_last_played[away_team] = date_pointer
+            continue
+
         print("Getting odds data:", date_pointer)
         sb = fetch_scoreboard(date_pointer)
         if not sb or not hasattr(sb, "games") or not sb.games:
@@ -214,38 +224,68 @@ def main(sportsbook="fanduel", backfill=False, season=None, today=None, db_path=
     if today is None:
         today = datetime.today().date()
 
-    with sqlite3.connect(db_path) as con:
-        if backfill:
-            season_items = config["get-odds-data"].items()
-            if season:
-                season_items = [
-                    (key, value) for key, value in season_items if key == season
-                ]
-                if not season_items:
-                    print("Season not found in config:", season)
-                    return
-            for season_key, value in season_items:
-                backfill_season(con, season_key, value, sportsbook, today)
-            return
+    # contextlib.closing closes the handle; the inner `with con` keeps the
+    # original commit/rollback semantics, including on the early returns below.
+    with contextlib.closing(sqlite3.connect(db_path)) as con:
+        with con:
+            if backfill:
+                season_items = config["get-odds-data"].items()
+                if season:
+                    season_items = [
+                        (key, value) for key, value in season_items if key == season
+                    ]
+                    if not season_items:
+                        raise SystemExit(f"Season not found in config: {season}")
+                for season_key, value in season_items:
+                    backfill_season(con, season_key, value, sportsbook, today)
+                return
 
-        season_key, value, start_date, end_date = select_current_season(config, today)
-        if not season_key:
-            print("No current season found for today:", today)
-            return
+            season_key, value, start_date, end_date = select_current_season(config, today)
+            if not season_key:
+                raise SystemExit(
+                    f"No current season found for today: {today}. "
+                    "Update the get-odds-data season ranges in config.toml."
+                )
 
-        fetch_end = min(today, end_date)
-        existing_dates = get_existing_dates(con, season_key)
-        latest_date = max(existing_dates) if existing_dates else None
-        fetch_start = start_date if latest_date is None else latest_date + timedelta(days=1)
-        if fetch_start > fetch_end:
-            print("No new odds dates to fetch. Latest date:", latest_date)
-            return
+            fetch_end = min(today, end_date)
+            existing_dates = get_existing_dates(con, season_key)
 
-        teams_last_played = get_teams_last_played(con, season_key, fetch_start)
-        df_data = collect_odds_for_dates(iter_dates(fetch_start, fetch_end), sportsbook, teams_last_played)
-        if df_data:
-            df = pd.DataFrame(df_data)
-            df.to_sql(season_key, con, if_exists="append", index=False)
+            # A date can be absent while later dates are present: a failed scoreboard
+            # fetch or a game missing this sportsbook's odds drops that date entirely.
+            # Resuming from the latest stored date alone would skip over those holes
+            # forever, so fetch every missing date in the season instead of assuming
+            # the range is contiguous.
+            missing_dates = [
+                date_pointer
+                for date_pointer in iter_dates(start_date, fetch_end)
+                if date_pointer not in existing_dates
+            ]
+            if not missing_dates:
+                latest_date = max(existing_dates) if existing_dates else None
+                print("No new odds dates to fetch. Latest date:", latest_date)
+                return
+
+            if len(missing_dates) < len(existing_dates):
+                print(
+                    f"Found {len(missing_dates)} missing odds dates in season "
+                    f"{season_key} between {missing_dates[0]} and {missing_dates[-1]}."
+                )
+
+            # Seed the rest-day state from the rows stored before the first date we
+            # are about to fetch. collect_odds_for_dates then walks the range in
+            # date order, replaying the games already stored and filling only the
+            # dates that are missing.
+            existing_by_date = get_existing_games_by_date(con, season_key, start_date, fetch_end)
+            teams_last_played = get_teams_last_played(con, season_key, missing_dates[0])
+            df_data = collect_odds_for_dates(
+                iter_dates(missing_dates[0], fetch_end),
+                sportsbook,
+                teams_last_played,
+                existing_by_date=existing_by_date,
+            )
+            if df_data:
+                df = pd.DataFrame(df_data)
+                df.to_sql(season_key, con, if_exists="append", index=False)
 
 
 if __name__ == "__main__":

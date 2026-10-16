@@ -56,6 +56,48 @@ coverage.xml
 local_settings.py
 db.sqlite3
 
+# ---------------------------------------------------------------------------
+# This project's own generated data + model artifacts
+# ---------------------------------------------------------------------------
+# IMPORTANT: the files matching these rules are ALREADY TRACKED in git --
+# Data/dataset.sqlite, Data/OddsData.sqlite, Data/TeamData.sqlite and every
+# file under Models/. They are deliberately NOT removed from the index here.
+# The committed dataset is what makes the project runnable straight out of the
+# box (`python main.py -xgb` works on a fresh clone); untracking it would
+# break every existing user and is a product decision for the maintainer, not
+# a cleanup a packaging fix should make unilaterally.
+#
+# These rules only stop FUTURE accidental commits. `.gitignore` has no effect
+# on files already in the index, so nothing needs `git rm --cached` here --
+# and it must not be run.
+#
+# They matter because the repository is already ~132 MB of tracked data on top
+# of a ~434 MB .git: running the pipeline and then `git add -A` would commit
+# another ~128 MB of freshly regenerated binaries.
+#
+# Note: the stock `db.sqlite3` line above is the Django convention and never
+# matched this project, which uses `*.sqlite`. That is the pattern below.
+*.sqlite
+*.sqlite-journal
+*.sqlite-wal
+*.sqlite-shm
+*.db
+
+# Serialized models / fitted artifacts
+*.pkl
+*.pickle
+*.joblib
+*.keras
+*.h5
+Models/XGBoost_Models/*.json
+
+# Coverage output (htmlcov/, .coverage, coverage.xml are already ignored by the
+# stock block above -- repeated here only to keep this section self-contained)
+coverage.xml
+.coverage.*
+htmlcov/
+.pytest_cache/
+
 # Flask stuff:
 instance/
 .webassets-cache

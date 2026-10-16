@@ -1,0 +1,98 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "nba-machine-learning-sports-betting"
+version = "0.1.0"
+description = "Scrape NBA odds and box-score data, train ML/DL models on it, and predict spreads, totals and moneyline value."
+readme = "README.md"
+requires-python = ">=3.9,<3.12"
+# No `license` field on purpose: this repository does not currently ship a
+# LICENSE file, and inventing a license in packaging metadata is a legal call
+# for the maintainer, not a packaging detail this fix should decide.
+
+# Mirrors requirements.txt 1:1. The lower bound of 3.9 and, critically, the
+# <3.12 upper bound are not arbitrary: tensorflow==2.14.0 only ships
+# cp39/cp310/cp311 wheels but declares `requires-python >=3.9`, so pip happily
+# attempts an sdist build on 3.12/3.13 and fails. See the long comment at the
+# top of requirements.txt for why the TensorFlow pin cannot simply be bumped.
+dependencies = [
+    "colorama==0.4.6",
+    "pandas==2.1.1",
+    "numpy>=1.23.5,<2.0",
+    "requests==2.32.4",
+    "joblib==1.5.2",
+    "sbrscrape==0.0.10",
+    "tensorflow==2.14.0",
+    "xgboost==2.0.0",
+    "tqdm==4.66.1",
+    "flask==3.0.0",
+    "scikit-learn==1.3.1",
+    "toml==0.10.2",
+]
+
+[project.optional-dependencies]
+# The test suite itself is written with stdlib `unittest` assertions, but
+# pytest is how it is meant to be invoked (and how coverage is measured), so
+# it is a first-class part of development setup.
+dev = [
+    "pytest>=7.0",
+    "coverage>=7.0",
+]
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = [
+    "src",
+    "src.*",
+    "Flask",
+    "Flask.*",
+]
+# `src/Process-Data` and `src/Train-Models` contain HYPHENS, so they are not
+# valid Python identifiers and can never be imported as ordinary packages.
+# They are excluded here EXPLICITLY rather than by luck: setuptools' PEP 420
+# namespace discovery does not reject them, so a wheel build succeeds and
+# happily ships two un-importable directories into site-packages. That is
+# verified behaviour, not a guess, and it is why the exclusion is stated rather
+# than assumed. Renaming those directories is intentionally out of scope for
+# this packaging fix -- it is tracked as its own change. Until then, scripts
+# that live there are executed by path, which is exactly what the three
+# `spec_from_file_location` tests in Tests/ do.
+#
+# `Tests` is excluded on purpose so the test suite is never installed as part
+# of the distribution.
+exclude = [
+    "src.Process-Data",
+    "src.Process-Data.*",
+    "src.Train-Models",
+    "src.Train-Models.*",
+    "Tests",
+    "Tests.*",
+    "scripts",
+    "scripts.*",
+    "Data",
+    "Data.*",
+    "Models",
+    "Models.*",
+    "Screenshots",
+    "Screenshots.*",
+]
+
+[tool.pytest.ini_options]
+# `pythonpath` makes the repo root importable so `import src.Utils...` resolves
+# for both `pytest Tests/` and the bare `pytest` entry point (the `python -m
+# pytest` form only ever worked because cwd was implicitly on sys.path).
+# Requires pytest >= 7.0. conftest.py performs the same insertion for anyone
+# pinned to an older pytest.
+pythonpath = ["."]
+testpaths = ["Tests"]
+
+[tool.coverage.run]
+source = ["src"]
+omit = [
+    # Hyphenated directories are not importable, so coverage cannot instrument
+    # them by module name without a source= rewrite that is not worth the churn.
+    "*/Process-Data/*",
+    "*/Train-Models/*",
+]

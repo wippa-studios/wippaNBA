@@ -1,0 +1,67 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+# Cancel superseded runs on the same ref (e.g. rapid pushes to a PR branch).
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  test:
+    name: pytest + unittest (Python ${{ matrix.python-version }})
+    runs-on: ubuntu-latest
+
+    strategy:
+      fail-fast: false
+      matrix:
+        # Must stay in lockstep with requires-python = ">=3.9,<3.12" in
+        # pyproject.toml. Python 3.12/3.13 cannot be added until the
+        # tensorflow 2.14 pin is replaced -- see the header comment in
+        # requirements.txt. Adding 3.12 here without doing that migration
+        # would produce a permanently red job.
+        python-version: ["3.9", "3.10", "3.11"]
+
+    # NOTE ON CI COST: `pip install -r requirements.txt` pulls TensorFlow on
+    # every matrix leg, and TensorFlow is by far the slowest step here --
+    # realistically most of this job's wall time. It is installed because the
+    # intent is to exercise the real requirements, not a reduced test subset.
+    # Worth knowing: none of the tests import tensorflow or xgboost, so a
+    # lighter `requirements-test.txt` would cut this matrix down to seconds.
+    # That is deliberately NOT done here -- keeping CI honest about installing
+    # the real dependency set is worth the minutes for now.
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: pip
+          cache-dependency-path: requirements.txt
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          # Test tooling, as declared in [project.optional-dependencies].dev.
+          # Installed by name rather than via `pip install .[dev]` so a
+          # packaging hiccup can never mask a genuine test failure.
+          pip install "pytest>=7.0" "coverage>=7.0"
+
+      # The suite must stay runnable through BOTH entry points. These diverge
+      # in ways that are easy to regress: `python -m pytest` puts the cwd on
+      # sys.path implicitly and therefore hides a broken bare `pytest`, while
+      # `unittest discover -s Tests -t .` additionally requires Tests/ to be a
+      # real package. Running both here is what caught the original
+      # "ModuleNotFoundError: No module named 'src'" collection failure.
+      - name: Run tests (pytest)
+        run: python -m pytest Tests/ -q
+
+      - name: Run tests (bare pytest entry point)
+        run: pytest Tests/ -q
+
+      - name: Run tests (unittest discovery)
+        run: python -m unittest discover -s Tests -t .

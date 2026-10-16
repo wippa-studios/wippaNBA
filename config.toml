@@ -1,4 +1,42 @@
+# The NBA stats endpoint treats DateFrom and DateTo as INCLUSIVE: a scrape for
+# a date D returns season-to-date totals through the end of D.
+#
+# Do NOT "fix" DateTo to D. A snapshot named D already contains the games played
+# on D, so the stats for a game dated D carry that game's own result, and every
+# *_RANK derived from it. src/Process-Data/Create_Games.py therefore joins each
+# game's odds row against the newest COMPLETE snapshot STRICTLY BEFORE the game
+# date. Changing DateTo to D without also changing that join re-introduces
+# target leakage: W/L/GP/W_PCT/PTS/PLUS_MINUS and all 27 *_RANK columns would
+# once again encode the outcome being predicted. The two have to move together.
+#
+# Placeholders are filled by Get_Data.py as {0}=month, {1}=day, {2}=DateFrom
+# year, {3}=DateTo year, {4}=Season.
 data_url = "https://stats.nba.com/stats/leaguedashteamstats?Conference=&DateFrom=10%2F01%2F{2}&DateTo={0}%2F{1}%2F{3}&Division=&GameScope=&GameSegment=&LastNGames=0&LeagueID=00&Location=&MeasureType=Base&Month=0&OpponentTeamID=0&Outcome=&PORound=0&PaceAdjust=N&PerMode=PerGame&Period=0&PlayerExperience=&PlayerPosition=&PlusMinus=N&Rank=N&Season={4}&SeasonSegment=&SeasonType=Regular+Season&ShotClockRange=&StarterBench=&TeamID=0&TwoWay=0&VsConference=&VsDivision="
+
+# Live-prediction settings, read by main.py. Season rollover is ONE block edit
+# instead of three literals baked into main.py: without these keys main.py used
+# a season that expires in June, a scores feed path that 404s in October and a
+# schedule CSV that raises FileNotFoundError.
+#
+# Nothing here is fatal if it goes stale or goes missing. main.py falls back to
+# the newest season key under [get-data] and derives scores_year from the
+# season's start year, so an untouched block still tracks a season that has
+# been added to [get-data]. The one failure that stays silent is season itself:
+# stats.nba.com answers a wrong Season= with a full, plausible frame of the
+# WRONG season, which is why main.py prints the season it used.
+[prediction]
+    # NBA stats season string: the value {4} fills in for Season= in the
+    # data_url template above. Must match a season key under [create-games] and
+    # [get-data]; the stats team index in src/Utils/Dictionaries.py is
+    # season-specific too.
+    season = "2025-26"
+    # Path segment of the data.nba.com scores feed:
+    # .../mobile_teams/nba/<scores_year>/scores/00_todays_scores.json
+    # This is the season's START year, not the end year.
+    scores_year = "2025"
+    # Schedule CSV. Its timestamps are UTC; days-rest is computed from them
+    # date-only and against games strictly before the predicted date.
+    schedule_file = "Data/nba-2025-UTC.csv"
 
 [get-data]
     [get-data.2007-08]
