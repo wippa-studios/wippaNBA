@@ -35,7 +35,7 @@ from __future__ import annotations
 import glob
 import os
 import re
-from functools import lru_cache
+from functools import lru_cache, wraps
 
 import numpy as np
 import pandas as pd
@@ -70,6 +70,29 @@ TEAM_COORDS = {
 _EARTH_RADIUS_MI = 3958.8
 
 
+def _cached_copy(fn):
+    """Cache a loader's result, but hand every caller a fresh copy.
+
+    A bare @lru_cache returns the SAME mutable DataFrame object to every caller in
+    the process. One caller doing `df.drop(columns=..., inplace=True)` - or
+    `df["x"] = ...` - then silently corrupts the cache for every later caller.
+
+    That is not hypothetical: it produced order-dependent failures across
+    independent model test files, where a suite passed in isolation and failed
+    when run alongside its neighbours. Caching the CSV read is still worth it;
+    returning a shared mutable frame is not.
+    """
+    cached = lru_cache(maxsize=None)(fn)
+
+    @wraps(fn)
+    def wrapper(*args, **kwargs):
+        return cached(*args, **kwargs).copy()
+
+    wrapper.cache_clear = cached.cache_clear
+    wrapper.cache_info = cached.cache_info
+    return wrapper
+
+
 # --------------------------------------------------------------------------- #
 # Loaders
 # --------------------------------------------------------------------------- #
@@ -87,7 +110,7 @@ def _parse_date(s: pd.Series) -> pd.Series:
     return out
 
 
-@lru_cache(maxsize=None)
+@_cached_copy
 def load_team_games(season_type: str = "Regular Season") -> pd.DataFrame:
     """One row per team per game, Base box score. GAME_ID is str.
 
@@ -109,7 +132,7 @@ def load_team_games(season_type: str = "Regular Season") -> pd.DataFrame:
     return df.reset_index(drop=True)
 
 
-@lru_cache(maxsize=None)
+@_cached_copy
 def load_team_advanced(season_type: str = "Regular Season") -> pd.DataFrame:
     """Per-game team Advanced measures: OFF_RATING, DEF_RATING, NET_RATING, PACE, TS_PCT."""
     df = _read_measures("team_gamelogs/advanced_*.csv", season_type)
@@ -118,7 +141,7 @@ def load_team_advanced(season_type: str = "Regular Season") -> pd.DataFrame:
     return df[[c for c in keep if c in df.columns]].copy()
 
 
-@lru_cache(maxsize=None)
+@_cached_copy
 def load_team_fourfactors(season_type: str = "Regular Season") -> pd.DataFrame:
     """Per-game team Four Factors."""
     df = _read_measures("team_gamelogs/four_factors_*.csv", season_type)
@@ -126,13 +149,13 @@ def load_team_fourfactors(season_type: str = "Regular Season") -> pd.DataFrame:
                    errors="ignore")
 
 
-@lru_cache(maxsize=None)
+@_cached_copy
 def load_player_advanced(season_type: str = "Regular Season") -> pd.DataFrame:
     """Per-game player Advanced: MIN, ratings, TS_PCT, USG_PCT."""
     return _read_measures("player_gamelogs/advanced_*.csv", season_type)
 
 
-@lru_cache(maxsize=None)
+@_cached_copy
 def load_player_usage(season_type: str = "Regular Season") -> pd.DataFrame:
     """Per-game player Usage: MIN, USG_PCT, PCT_PTS."""
     return _read_measures("player_gamelogs/usage_*.csv", season_type)
@@ -151,7 +174,7 @@ def _read_measures(pattern: str, season_type: str) -> pd.DataFrame:
     return df.reset_index(drop=True)
 
 
-@lru_cache(maxsize=None)
+@_cached_copy
 def load_schedule() -> pd.DataFrame:
     """Cleaned league schedule: finished NBA games only, current franchises only."""
     df = pd.concat(
@@ -171,7 +194,7 @@ def load_schedule() -> pd.DataFrame:
 # Canonical game table - the single artefact every model joins against
 # --------------------------------------------------------------------------- #
 
-@lru_cache(maxsize=None)
+@_cached_copy
 def build_games(season_type: str = "Regular Season") -> pd.DataFrame:
     """One row per game: date, home, away, scores, and the binary label.
 
