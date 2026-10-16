@@ -10,22 +10,71 @@ because it is one of the things that differs between the two entry points.
 Note the split helpers cut a numpy matrix, not a frame: unlike the logistic
 regression trainers, the boosters are fed a positional float matrix whose column
 order is written next to the saved model as a features JSON.
+
+TWO DIMENSIONS ARE NOT SEARCHED ANY MORE
+----------------------------------------
+``num_boost_round`` was sampled from U{300, 2500} per trial. It was pure noise:
+``train_model`` already passes ``early_stopping_rounds=60``, so the validation
+fold decides when to stop and the sampled cap only ever mattered for the trials
+that never early-stopped. Two trials that differed only in the cap were scored
+as different configurations, which is the same defect as varying the seed.
+
+``max_delta_step`` was sampled from 0-10 per trial. It exists to control the
+weight update for extreme class imbalance, and there is no extreme class
+imbalance here -- ``--class-weights`` defaults to ``none`` and the moneyline
+label splits 57/43. It is therefore sampled only when class weighting is
+actually switched on, where it does have a job.
+
+Both are noise dimensions: at this sample size the selection effect of a search
+is about 2.5 standard errors, and a dimension that carries no signal only makes
+the winner's curse worse.
 """
 
 import numpy as np
 import pandas as pd
 import xgboost as xgb
 from sklearn.metrics import log_loss
-from sklearn.model_selection import TimeSeriesSplit
 
-from training_common import DATE_COLUMN
+from training_common import (
+    DATE_COLUMN,
+    STABLE_SORT_KIND,
+    recency_weighted_fold_mean,
+    snap_cut_to_date_boundary,
+    walk_forward_folds,
+)
+
+# The boosting budget is a CAP, not a search dimension. 2500 was the top of the
+# range that used to be sampled; keeping the top means early stopping is what
+# resolves the budget in every trial, instead of the sampled cap deciding it for
+# the trials that happened not to stop early.
+DEFAULT_NUM_BOOST_ROUND = 2500
+
+
+def _snap(position, dates):
+    """Move a split point to a date-group boundary, if the dates were supplied.
+
+    Plain row counts put whole slates on both sides of a cut; mean 6.42 rows share
+    one snapshot date here and the largest group is 40. See
+    ``training_common.snap_cut_to_date_boundary``.
+    """
+    if dates is None:
+        return int(position)
+    return snap_cut_to_date_boundary(dates, position)
 
 
 def prepare_data(df, target_column, drop_columns):
+    """Sort by snapshot date and select the positional feature matrix.
+
+    The sort is a stable merge sort, not pandas' default quicksort, which is not
+    stable: rows sharing a snapshot date (a same-day slate, mean 6.42 rows, max
+    40) came out in a different order under it, so a train/test boundary could
+    land inside a group and the split could not be reproduced from the stored
+    table alone.
+    """
     data = df.copy()
     if DATE_COLUMN in data.columns:
         data[DATE_COLUMN] = pd.to_datetime(data[DATE_COLUMN], errors="coerce")
-        data = data.sort_values(DATE_COLUMN)
+        data = data.sort_values(DATE_COLUMN, kind=STABLE_SORT_KIND)
     y = data[target_column].astype(int).to_numpy()
     # This list IS the column order the model is fed, so X is selected from it
     # rather than recomputed: the two cannot drift apart, and the list is what
@@ -35,19 +84,19 @@ def prepare_data(df, target_column, drop_columns):
     return X, y, feature_names, data
 
 
-def split_train_test(X, y, test_size=0.1):
+def split_train_test(X, y, test_size=0.1, dates=None):
     n = len(X)
     if n == 0:
         raise ValueError("Empty dataset.")
-    test_start = int(n * (1 - test_size))
+    test_start = _snap(int(n * (1 - test_size)), dates)
     return X[:test_start], y[:test_start], X[test_start:], y[test_start:]
 
 
-def split_train_calib(X, y, calib_size=0.1):
+def split_train_calib(X, y, calib_size=0.1, dates=None):
     n = len(X)
     if n == 0:
         raise ValueError("Empty dataset.")
-    calib_start = int(n * (1 - calib_size))
+    calib_start = _snap(int(n * (1 - calib_size)), dates)
     return X[:calib_start], y[:calib_start], X[calib_start:], y[calib_start:]
 
 
@@ -75,7 +124,18 @@ def compute_sample_weights(y, num_classes, mode):
     return np.array([class_weights[label] for label in y])
 
 
-def sample_params(rng, seed, num_classes):
+def sample_params(rng, seed, num_classes, class_weights="none"):
+    """One random configuration.
+
+    ``seed`` is the RUN's seed and must be the same for every trial. Passing
+    ``seed + trial`` -- which is what both entry points used to do -- made two
+    trials that differed only in seed look like two different configurations to
+    the search, so the search selected on seed luck. The seed is a fixed property
+    of the run, not a hyperparameter.
+
+    ``max_delta_step`` is included only when class weighting is on; see the
+    module docstring.
+    """
     eta = 10 ** rng.uniform(np.log10(0.003), np.log10(0.3))
     params = {
         "max_depth": int(rng.integers(2, 13)),
@@ -86,7 +146,6 @@ def sample_params(rng, seed, num_classes):
         "colsample_bynode": float(rng.uniform(0.5, 1.0)),
         "min_child_weight": int(rng.integers(1, 21)),
         "gamma": float(rng.uniform(0.0, 10.0)),
-        "max_delta_step": int(rng.integers(0, 11)),
         "max_bin": int(rng.integers(128, 1025)),
         "lambda": float(10 ** rng.uniform(np.log10(0.1), np.log10(10.0))),
         "alpha": float(10 ** rng.uniform(np.log10(0.01), np.log10(5.0))),
@@ -96,8 +155,11 @@ def sample_params(rng, seed, num_classes):
         "seed": seed,
         "tree_method": "hist",
     }
-    num_boost_round = int(rng.integers(300, 2501))
-    return params, num_boost_round
+    if class_weights != "none":
+        params["max_delta_step"] = int(rng.integers(0, 11))
+    else:
+        params["max_delta_step"] = 0
+    return params, DEFAULT_NUM_BOOST_ROUND
 
 
 def train_model(
@@ -130,11 +192,36 @@ class BoosterWrapper:
 
 
 def walk_forward_cv_loss(
-    X, y, params, num_boost_round, n_splits, num_classes, class_weights="none"
+    X,
+    y,
+    params,
+    num_boost_round,
+    n_splits,
+    num_classes,
+    class_weights="none",
+    fold_rows=None,
+    half_life_folds=1.0,
+    dates=None,
 ):
-    tscv = TimeSeriesSplit(n_splits=n_splits)
+    """Recency-weighted walk-forward log loss over the training block.
+
+    Returns ``(weighted_mean, per_fold_losses)``. Both are wanted: the weighted
+    mean is what the search selects on, and the per-fold list is what gets
+    printed beside it. Per-fold log loss standard deviation across the old
+    five-fold geometry was 0.0094 -- larger than any effect the search could
+    resolve -- so a single number without its folds is not interpretable.
+
+    Folds come from ``training_common.walk_forward_folds``, whose windows are
+    capped at one season by default and are configurable. The returned mean
+    weights recent folds above old ones; see
+    ``training_common.recency_weighted_fold_mean`` for why. Passing ``dates``
+    snaps every fold boundary to a date-group boundary.
+    """
+    folds = walk_forward_folds(
+        len(X), n_splits, fold_rows=fold_rows, dates=dates
+    )
     losses = []
-    for train_idx, val_idx in tscv.split(X):
+    for train_idx, val_idx in folds:
         model = train_model(
             X[train_idx],
             y[train_idx],
@@ -146,6 +233,12 @@ def walk_forward_cv_loss(
             class_weights,
         )
         val_probs = model.predict(xgb.DMatrix(X[val_idx]))
-        loss = log_loss(y[val_idx], val_probs, labels=list(range(num_classes)))
-        losses.append(loss)
-    return float(np.mean(losses)) if losses else None
+        losses.append(
+            log_loss(y[val_idx], val_probs, labels=list(range(num_classes)))
+        )
+    if not losses:
+        return None, []
+    weighted, per_fold, _weights = recency_weighted_fold_mean(
+        losses, half_life_folds=half_life_folds
+    )
+    return weighted, per_fold

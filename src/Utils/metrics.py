@@ -38,7 +38,10 @@ this module's metrics it is the loudest thing in the report:
 WHAT IS IN HERE
 ===============
 ``log_loss_score``            strictly proper score, the headline number.
+``per_row_log_loss``          the same loss one row at a time.
+``log_loss_standard_error``   the SE of ``log_loss_score``, for selection risk.
 ``brier_score``               mean squared probability error, multi-class aware.
+``bootstrap_paired_delta``    does a calibrator help, by how much, +/- how much SE.
 ``calibration_curve_data``    THE binning implementation. Everything below is a
                               view over this one function, so the ECE a caller
                               prints and the curve a caller plots cannot disagree.
@@ -589,6 +592,118 @@ def reliability_curve(y_true, y_prob, n_bins=10, strategy="uniform", labels=None
         curve["observed_frequency"],
         curve["counts"],
     )
+
+
+def per_row_log_loss(y_true, y_prob, labels=None):
+    """One log loss per row. Lower is better; the mean of it is ``log_loss_score``.
+
+    Exposed because the AVERAGE of a loss hides everything the calibration
+    question is actually about. ``log_loss_score`` answers "how good is this
+    model"; ``per_row_log_loss`` answers "on which games is it wrong", which is
+    the only way to tell a calibrator that fixed the tail from one that shifted
+    everything by a constant.
+
+    Returned as a float64 array of length ``len(y_true)``.
+    """
+    indices, _classes, probabilities = _validate_inputs(y_true, y_prob, labels)
+    if probabilities.shape[0] == 0:
+        return np.zeros(0, dtype=float)
+    if probabilities.ndim == 1:
+        matrix = np.column_stack([1.0 - probabilities, probabilities])
+    else:
+        matrix = probabilities
+    matrix = np.clip(matrix, PROBABILITY_EPSILON, 1.0 - PROBABILITY_EPSILON)
+    rows = np.arange(indices.shape[0])
+    return -np.log(matrix[rows, indices])
+
+
+def log_loss_standard_error(y_true, y_prob, labels=None):
+    """Standard error of ``log_loss_score``, as ``sd / sqrt(n)``.
+
+    This is the number ``report_selection_risk`` needs, and it is why that
+    function could not be called from the trainers before: a selection effect
+    expressed in standard errors is meaningless without a standard error to
+    multiply.
+
+    The per-row losses are not identically distributed -- one 0.01 confidence
+    miss on a 99% call costs more than a 1% miss -- so this is the sample
+    standard deviation over rows, not a model-based one. It is an approximation
+    like everything else here: with n = 1,722 test rows it is good to a few
+    percent, and it says nothing about fold-to-fold variation, which is
+    reported separately by the trainers.
+    """
+    losses = per_row_log_loss(y_true, y_prob, labels)
+    if losses.size < 2:
+        return float("nan")
+    return float(np.std(losses, ddof=1) / np.sqrt(losses.size))
+
+
+def bootstrap_paired_delta(
+    y_true,
+    prob_a,
+    prob_b,
+    labels=None,
+    n_bootstrap=1000,
+    seed=42,
+    confidence=0.95,
+):
+    """Bootstrap the PAIRED log-loss difference ``a - b`` with its standard error.
+
+    THE QUESTION THIS ANSWERS. A calibrator changed the log loss by -0.00008 on
+    one run and +0.00214 on an independent replication. Both numbers are
+    indistinguishable from "no effect", and the only way to show that is to put
+    a standard error next to the point estimate.
+
+    WHY IT MUST BE PAIRED. The same games score both models, so the per-row
+    differences are far smaller and far less variable than either model's loss
+    on its own. Resampling the two independently -- the obvious wrong thing --
+    would report a standard error several times too large and hide a real effect.
+    So each bootstrap replicate indexes the SAME rows for both.
+
+    Returns a dict with ``delta`` (the observed mean difference, negative means
+    ``a`` is better), ``standard_error``, ``low`` / ``high`` (the percentile
+    interval at ``confidence``), and ``n_bootstrap``.
+
+    Deterministic in ``seed``, so a printed number can be reproduced.
+    """
+    losses_a = per_row_log_loss(y_true, prob_a, labels)
+    losses_b = per_row_log_loss(y_true, prob_b, labels)
+    if losses_a.shape != losses_b.shape:
+        raise ValueError(
+            f"prob_a and prob_b must score the same {losses_a.size} rows, got "
+            f"{losses_a.size} and {losses_b.size}"
+        )
+    if losses_a.size < 2:
+        return {
+            "delta": float("nan"),
+            "standard_error": float("nan"),
+            "low": float("nan"),
+            "high": float("nan"),
+            "n_bootstrap": 0,
+        }
+    if isinstance(n_bootstrap, bool) or not isinstance(n_bootstrap, (int, np.integer)):
+        raise ValueError(f"n_bootstrap must be a positive integer; got {n_bootstrap!r}")
+    if n_bootstrap < 1:
+        raise ValueError(f"n_bootstrap must be a positive integer; got {n_bootstrap!r}")
+    if not 0.0 < float(confidence) < 1.0:
+        raise ValueError(f"confidence must be in (0, 1); got {confidence!r}")
+
+    differences = losses_a - losses_b
+    rng = np.random.default_rng(seed)
+    n_rows = differences.size
+    replicates = np.empty(int(n_bootstrap), dtype=float)
+    for index in range(int(n_bootstrap)):
+        rows = rng.integers(0, n_rows, n_rows)
+        replicates[index] = differences[rows].mean()
+
+    tail = (1.0 - float(confidence)) / 2.0
+    return {
+        "delta": float(differences.mean()),
+        "standard_error": float(np.std(replicates, ddof=1)),
+        "low": float(np.quantile(replicates, tail)),
+        "high": float(np.quantile(replicates, 1.0 - tail)),
+        "n_bootstrap": int(n_bootstrap),
+    }
 
 
 # ---------------------------------------------------------------------------

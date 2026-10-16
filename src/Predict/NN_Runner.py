@@ -3,6 +3,7 @@ import json
 import math
 import re
 import sqlite3
+import sys
 from pathlib import Path
 
 import numpy as np
@@ -23,7 +24,27 @@ BASE_DIR = Path(__file__).resolve().parents[2]
 MODEL_DIR = BASE_DIR / "Models"
 LEGACY_MODEL_DIR = MODEL_DIR / "NN_Models"
 DATASET_DB = BASE_DIR / "Data" / "dataset.sqlite"
-DATASET_TABLE = "dataset_2012-24_new"
+
+# The one dataset table inference reads, shared with the trainers rather than
+# spelled out here. src/Train-Models has a HYPHEN and can never be imported as a
+# package, so its shared modules only resolve when the directory is on sys.path
+# -- the same convention the six training scripts use. This used to hard-code
+# "dataset_2012-24_new", a same-day-join table that carries the target inside
+# its features, while XGBoost_Runner named a different one. One name, one source.
+TRAIN_MODELS_DIR = BASE_DIR / "src" / "Train-Models"
+if str(TRAIN_MODELS_DIR) not in sys.path:
+    sys.path.insert(0, str(TRAIN_MODELS_DIR))
+try:
+    from training_common import DEFAULT_DATASET as DATASET_TABLE
+except ImportError as _exc:  # pragma: no cover - only in a broken checkout
+    # Deliberately NOT a second literal. A fallback name is a name that can drift
+    # from the trainers' one, which is the whole defect being fixed here.
+    raise RuntimeError(
+        f"Could not load the shared dataset default from {TRAIN_MODELS_DIR}. "
+        "Inference reads the same table the trainers train on, so guessing a name "
+        "here would reintroduce exactly the disagreement this import removes."
+    ) from _exc
+
 ML_PATTERN = re.compile(r"Trained-Model-ML-(\d+(?:\.\d+)?)")
 OU_PATTERN = re.compile(r"Trained-Model-OU-(\d+(?:\.\d+)?)")
 
@@ -154,7 +175,9 @@ def _dataset_columns():
     if not DATASET_DB.exists():
         return None
     try:
-        con = sqlite3.connect(str(DATASET_DB))
+        # Read-only: inference never writes, and a read-write handle on the
+        # shipped database is one stray statement away from corrupting it.
+        con = sqlite3.connect(f"file:{DATASET_DB}?mode=ro", uri=True)
         try:
             return [row[1] for row in con.execute(f'PRAGMA table_info("{DATASET_TABLE}")')]
         finally:
