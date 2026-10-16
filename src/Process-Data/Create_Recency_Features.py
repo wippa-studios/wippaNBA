@@ -157,6 +157,7 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 import toml
+from collections import Counter
 from numpy.lib.stride_tricks import sliding_window_view
 
 BASE_DIR = Path(__file__).resolve().parents[2]
@@ -181,12 +182,14 @@ DEFAULT_HALFLIFE_GAMES = 10.0
 # dispersion or a trend is estimated from something other than one slump.
 DEFAULT_WINDOWS = (5, 10, 20)
 
-# A complete leaguedashteamstats snapshot holds one row per team, 30. Mirrors
-# EXPECTED_TEAM_ROWS in src/Process-Data/Create_Games.py, the enforcing copy
-# there; a short snapshot is dropped for the same reason it is dropped there --
-# the endpoint omits teams that have not played yet, so early-season tables are
-# short and must not be read as "that team scored zero".
-EXPECTED_TEAM_ROWS = 30
+# A complete leaguedashteamstats snapshot holds one row per team. The count is
+# DERIVED from the snapshots by load_team_snapshots() (mode of the observed row
+# counts) rather than hardcoded. This module used to keep its own
+# EXPECTED_TEAM_ROWS = 30, which was a second copy of a bug already fixed in
+# Create_Games: at 31 teams it rejected every snapshot and silently produced an
+# empty feature set. The floor below is the only constant worth keeping -- it
+# catches a snapshot store that is truncated wholesale rather than per-date.
+MIN_PLAUSIBLE_TEAM_ROWS = 20
 
 DATE_COLUMN = "Date"
 TEAM_COLUMN = "Team"
@@ -1181,14 +1184,22 @@ def parse_snapshot_date(value):
         return None
 
 
-def load_team_snapshots(db_path=TEAM_DB_PATH, expected_team_rows=EXPECTED_TEAM_ROWS):
+def load_team_snapshots(db_path=TEAM_DB_PATH, expected_team_rows=None):
     """Usable dated snapshots as ``{date: DataFrame}`` indexed by team name.
 
     Opened READ-ONLY (``mode=ro``) because this function has no business writing
-    to a committed database, and the guarantee is better than the intention. A
-    snapshot is usable only with all ``expected_team_rows`` rows:
-    ``leaguedashteamstats`` omits teams that have not played yet, so early-season
-    tables are short and are dropped rather than read as "that team scored zero".
+    to a committed database, and the guarantee is better than the intention.
+
+    The league size is DERIVED from the snapshots rather than assumed, by the
+    same mode-of-row-counts rule Create_Games uses. This module previously kept
+    its own hardcoded ``EXPECTED_TEAM_ROWS = 30``, which meant a second copy of
+    a bug already fixed elsewhere: at 31 teams it would reject every snapshot
+    and silently produce an empty feature set. Deriving it costs one extra cheap
+    COUNT(*) pass and makes the two builders agree by construction.
+
+    A snapshot is usable only with the full complement: leaguedashteamstats
+    omits teams that have not played yet, so early-season tables are short and
+    are dropped rather than read as "that team scored zero".
 
     The values are the endpoint's PER-GAME AVERAGES, which ``extract_game_logs``
     multiplies back up by ``GP`` before differencing anything.
@@ -1196,10 +1207,29 @@ def load_team_snapshots(db_path=TEAM_DB_PATH, expected_team_rows=EXPECTED_TEAM_R
     snapshots = {}
     with contextlib.closing(sqlite3.connect(f"file:{db_path}?mode=ro", uri=True)) as con:
         cursor = con.execute("SELECT name FROM sqlite_master WHERE type='table'")
+        dated = []
         for (name,) in cursor.fetchall():
             snapshot_date = parse_snapshot_date(name)
             if snapshot_date is None:
                 continue
+            dated.append((snapshot_date, name))
+
+        if expected_team_rows is None:
+            counts = [
+                con.execute(f'SELECT COUNT(*) FROM "{name}"').fetchone()[0]
+                for _, name in dated
+            ]
+            positive = [count for count in counts if count > 0]
+            if not positive:
+                return {}
+            expected_team_rows = Counter(positive).most_common(1)[0][0]
+            if expected_team_rows < MIN_PLAUSIBLE_TEAM_ROWS:
+                raise ValueError(
+                    f"Derived league size of {expected_team_rows} is implausible "
+                    f"(minimum {MIN_PLAUSIBLE_TEAM_ROWS}); snapshot tables look corrupt."
+                )
+
+        for snapshot_date, name in dated:
             frame = pd.read_sql_query(f'SELECT * FROM "{name}"', con)
             if "TEAM_NAME" not in frame.columns or len(frame.index) != expected_team_rows:
                 continue
@@ -1484,7 +1514,10 @@ def main(argv=None):
         return None
 
     snapshots = load_team_snapshots()
-    print(f"Usable snapshots: {len(snapshots)} complete {EXPECTED_TEAM_ROWS}-team tables.")
+    print(
+        f"Usable snapshots: {len(snapshots)} complete tables "
+        f"(league size derived from the data)."
+    )
     logs, stats = extract_game_logs(
         snapshots, games, season_starts=season_starts_from_config()
     )

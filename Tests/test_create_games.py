@@ -24,13 +24,64 @@ class TestCreateGames(unittest.TestCase):
         self.assertIs(create_games.get_team_index_map("2015-16"), create_games.team_index_14)
         self.assertIs(create_games.get_team_index_map("bad-key"), create_games.team_index_current)
 
-    def test_select_odds_table(self):
+    def test_select_odds_tables_returns_every_candidate_not_just_the_first(self):
+        """All existing candidates come back so the caller can union them.
+
+        Regression test for the precedence bug: the scraper writes to the bare
+        season key while the original lookup preferred "odds_<season>_new", so
+        for two of the three configured seasons the scraper's output went to a
+        table the builder never read -- which also made the --backfill fix
+        inert, since backfilled rows landed in the unread table.
+        """
         with sqlite3.connect(":memory:") as con:
             con.execute('CREATE TABLE "odds_2024-25_new" (Date TEXT)')
             con.execute('CREATE TABLE "2023-24" (Date TEXT)')
-            self.assertEqual(create_games.select_odds_table(con, "2024-25"), "odds_2024-25_new")
-            self.assertEqual(create_games.select_odds_table(con, "2023-24"), "2023-24")
-            self.assertIsNone(create_games.select_odds_table(con, "2022-23"))
+            con.execute('CREATE TABLE "odds_2019-20_new" (Date TEXT)')
+            con.execute('CREATE TABLE "2019-20" (Date TEXT)')
+
+            self.assertEqual(
+                create_games.select_odds_tables(con, "2024-25"), ["odds_2024-25_new"]
+            )
+            self.assertEqual(create_games.select_odds_tables(con, "2023-24"), ["2023-24"])
+            self.assertEqual(
+                create_games.select_odds_tables(con, "2019-20"),
+                ["odds_2019-20_new", "2019-20"],
+            )
+            self.assertEqual(create_games.select_odds_tables(con, "2022-23"), [])
+
+    def test_load_odds_for_season_unions_and_deduplicates(self):
+        with sqlite3.connect(":memory:") as con:
+            pd.DataFrame({"Date": ["2024-01-01", "2024-01-02"],
+                          "Home": ["A", "C"], "Away": ["B", "D"],
+                          "Points": [200, 210]}).to_sql("odds_2019-20_new", con, index=False)
+            pd.DataFrame({"Date": ["2024-01-01", "2024-01-03"],
+                          "Home": ["A", "E"], "Away": ["B", "F"],
+                          "Points": [200, 220]}).to_sql("2019-20", con, index=False)
+
+            combined = create_games.load_odds_for_season(
+                con, ["odds_2019-20_new", "2019-20"], con
+            )
+            # 4 rows across the two tables; 2024-01-01 is in both -> 3 games.
+            self.assertEqual(len(combined.index), 3)
+            self.assertEqual(
+                sorted(combined["Date"]), ["2024-01-01", "2024-01-02", "2024-01-03"]
+            )
+
+    def test_derive_expected_team_rows_uses_the_mode_not_a_constant(self):
+        """League size comes from the data, so 31 teams cannot break it."""
+        counts = {f"2024-01-{d:02d}": 30 for d in range(1, 29)}
+        counts.update({"2024-02-01": 0, "2024-02-02": 6, "2024-02-03": 28})
+        self.assertEqual(create_games.derive_expected_team_rows(counts), 30)
+
+        counts31 = {f"2024-03-{d:02d}": 31 for d in range(1, 20)}
+        counts31["2024-04-01"] = 12
+        self.assertEqual(create_games.derive_expected_team_rows(counts31), 31)
+
+        # Implausible data must raise rather than silently yield zero snapshots.
+        with self.assertRaises(ValueError):
+            create_games.derive_expected_team_rows({"2024-01-01": 3})
+        with self.assertRaises(ValueError):
+            create_games.derive_expected_team_rows({"2024-01-01": 0})
 
     def test_build_game_features(self):
         team_df = pd.DataFrame(
@@ -41,10 +92,50 @@ class TestCreateGames(unittest.TestCase):
             }
         )
         index_map = {"Team A": 0, "Team B": 1}
-        features = create_games.build_game_features(team_df, "Team A", "Team B", index_map)
+        features = create_games.build_game_features(team_df, "Team A", "Team B", index_map, 30)
         self.assertIsNotNone(features)
         self.assertIn("TEAM_NAME", features.index)
         self.assertIn("TEAM_NAME.1", features.index)
+
+    def test_build_game_features_resolves_by_name_not_position(self):
+        """A stale cross-season snapshot must not mis-attribute a team.
+
+        Regression test. The original .iloc[index_map[team]] lookup shifted by
+        one when a franchise was missing from the frame, so a Cleveland game was
+        written out carrying Dallas's record -- 21 rows measured on
+        dataset_2012-26. Resolving by canonical name is immune to row order and
+        to franchises joining or leaving.
+        """
+        # One team absent, exactly as in a real prior-season snapshot.
+        names = [f"Team {i}" for i in range(30) if i != 2]
+        team_df = pd.DataFrame(
+            {"TEAM_ID": range(29), "TEAM_NAME": names, "STAT_A": range(100, 129)}
+        )
+        stale_map = {f"Team {i}": i for i in range(30)}
+
+        features = create_games.build_game_features(team_df, "Team 5", "Team 9", stale_map, 29)
+        self.assertIsNotNone(features)
+        self.assertEqual(features["TEAM_NAME"], "Team 5")
+        self.assertEqual(features["TEAM_NAME.1"], "Team 9")
+        # Team 5 sits at position 4 in this frame (Team 2 is absent), so the
+        # correct STAT_A is 104. Positional lookup would have returned 105 --
+        # which is Team 6's row, i.e. the wrong team's record entirely.
+        self.assertEqual(features["STAT_A"], 104)
+        self.assertEqual(features["STAT_A.1"], 108)
+
+    def test_build_game_features_handles_alias_spellings(self):
+        team_df = pd.DataFrame(
+            {"TEAM_ID": range(30), "TEAM_NAME": [f"Team {i}" for i in range(30)],
+             "STAT_A": range(30)}
+        )
+        df_alias = team_df.copy()
+        df_alias.loc[12, "TEAM_NAME"] = "Los Angeles Clippers"
+        index_map = {"LA Clippers": 12, "Los Angeles Clippers": 12}
+        features = create_games.build_game_features(
+            df_alias, "LA Clippers", "Team 3", index_map, 30
+        )
+        self.assertIsNotNone(features)
+        self.assertEqual(features["STAT_A"], 12)
 
     def test_fetch_team_table_missing(self):
         with sqlite3.connect(":memory:") as con:
