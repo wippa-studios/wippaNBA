@@ -25,7 +25,7 @@ from boosting_training import (
     BoosterWrapper,
     prepare_data,
     sample_params,
-    split_train_calib,
+    split_train_es_calib,
     split_train_test,
     train_model,
     walk_forward_cv_loss,
@@ -205,14 +205,15 @@ def main():
         print("No valid parameter set found.")
         return
 
-    X_train, y_train, X_calib, y_calib = split_train_calib(
+    # Four segments, not three. See boosting_training.split_train_es_calib.
+    X_train, y_train, X_es, y_es, X_calib, y_calib = split_train_es_calib(
         X_train_val, y_train_val, dates=snapshot_dates.iloc[: len(X_train_val)]
     )
     best_model = train_model(
         X_train,
         y_train,
-        X_calib,
-        y_calib,
+        X_es,
+        y_es,
         best["params"],
         best["num_boost_round"],
         NUM_CLASSES,
