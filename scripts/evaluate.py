@@ -1066,13 +1066,80 @@ def run_integrity_gate(data, odds, seed, use_odds):
 # ---------------------------------------------------------------------------
 
 
-def build_odds_join(test_rows, odds):
+def canonical_team_coverage(test_rows, odds, known_frame=None):
+    """Fail loudly when either side of the join names a franchise we do not know.
+
+    The odds tables and the dataset spell franchises differently -- "LA Clippers"
+    against "Los Angeles Clippers" -- and that mismatch cost 81 dataset rows before
+    canonicalisation. The failure mode is silent: a name that does not canonicalise
+    simply does not match, the row drops out of the join, and the only symptom is a
+    slightly lower coverage percentage with nothing pointing at the cause.
+
+    So this canonicalises both sides and reports coverage explicitly, and exits
+    non-zero if either side contains a name outside the franchises the dataset
+    itself knows. A newly-introduced alias therefore fails the run loudly instead of
+    quietly costing rows.
+
+    `known_frame` should be the FULL dataset, not just the held-out window. Deriving
+    the vocabulary from the test rows alone produces false positives: the odds tables
+    span every season, so a franchise that happens not to appear in the test window
+    would be reported as unknown even though it is perfectly well known.
+
+    Returns a dict describing what was seen. Raises SystemExit on an unknown name.
+    """
+    try:
+        from src.Utils.Dictionaries import FRANCHISE_ALIASES, canonical_team_name
+    except Exception as exc:  # pragma: no cover - import-failure path
+        print(
+            f"Canonical team coverage NOT reported: could not load "
+            f"src/Utils/Dictionaries.py ({exc or type(exc).__name__})."
+        )
+        return {"checked": False}
+
+    def _names(frame):
+        for col in (HOME_TEAM, AWAY_TEAM):
+            if col in frame.columns:
+                for n in frame[col].astype(str):
+                    if n and n.lower() != "nan":
+                        yield n
+
+    known = {canonical_team_name(n) for n in _names(known_frame if known_frame is not None
+                                                     else test_rows)}
+    known |= {canonical_team_name(n) for n in _names(test_rows)}
+    known |= {canonical_team_name(n) for n in FRANCHISE_ALIASES}
+    known |= {canonical_team_name(v) for v in FRANCHISE_ALIASES.values()}
+
+    odds_names = set()
+    for col in ("Home", "Away"):
+        if col in odds.columns:
+            odds_names |= {canonical_team_name(n) for n in odds[col].astype(str)
+                           if n and n.lower() != "nan"}
+    unknown_odds = sorted(odds_names - known)
+    print(
+        f"Canonical team coverage: {len(known)} franchises after canonicalisation; "
+        f"{len(unknown_odds)} odds-side name(s) outside that set."
+    )
+    if unknown_odds:
+        raise SystemExit(
+            f"Odds tables name {len(unknown_odds)} franchise(s) the dataset does not "
+            f"know: {', '.join(unknown_odds)}. Add them to FRANCHISE_ALIASES in "
+            f"src/Utils/Dictionaries.py rather than letting the rows drop out of the "
+            f"join silently."
+        )
+    return {"checked": True, "franchises": len(known), "unknown": []}
+
+
+def build_odds_join(test_rows, odds, known_frame=None):
     """Match the test rows to closing prices, or explain why no ROI is possible.
 
     Returns (matched_frame_or_None, offset, matched_count, reason). `reason` is
     empty when the join can be scored; otherwise it explains, in one clause, why
     no figure may be printed from it.
+
+    `known_frame` is the full dataset, used only to build the franchise vocabulary
+    for the canonical coverage check. It does not affect which rows are scored.
     """
+    canonical_team_coverage(test_rows, odds, known_frame=known_frame)
     counts = alignment_match_counts(test_rows, odds)
     offset = max(counts, key=lambda key: counts[key])
     matched_count = counts[offset]
@@ -1359,7 +1426,8 @@ def main():
     join_note = "odds metrics were skipped (--skip-odds)"
     priced_fraction = None
     if odds is not None and not odds.empty:
-        matched, offset, matched_count, join_note = build_odds_join(test_rows, odds)
+        matched, offset, matched_count, join_note = build_odds_join(
+            test_rows, odds, known_frame=data)
         priced_fraction = matched_count / len(test_rows) if len(test_rows) else None
         if join_note:
             print(f"NOTE: {join_note}.")
