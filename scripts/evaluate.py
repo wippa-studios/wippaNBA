@@ -562,6 +562,105 @@ def compare_to_baseline(y_test, proba, run_id):
     }
 
 
+def report_confidence_buckets(y_test, model_p, market, matched, profit_fn):
+    """Accuracy, calibration and market-relative accuracy by confidence decile.
+
+    WHY THIS EXISTS. Overall accuracy is close to useless for a betting model.
+    The closing favourite already wins ~68% against the model's ~66%, so the
+    model only adds value if it knows WHERE it is right. This separates
+    confidence from accuracy so the two are not conflated.
+
+    Measured on the held-out window: confidence is genuinely informative
+    (Spearman +0.199 between confidence and correctness; top decile 0.856
+    against bottom decile 0.517), and the probabilities are close to calibrated
+    (top decile mean predicted 0.734 against 0.724 actual). But the model does
+    not beat the favourite in 9 of the 10 deciles.
+
+    The comparison is a DECIMAL SWEEP, so quoting the best decile is selection.
+    Every decile is printed.
+    """
+    confidence = np.maximum(model_p, 1 - model_p)
+    model_correct = (model_p > 0.5) == y_test
+    fav_correct = (market > 0.5) == y_test
+    edges = np.quantile(confidence, np.linspace(0, 1, 11))
+    edges[0] -= 1e-9
+    edges[-1] += 1e-9
+    bucket = np.digitize(confidence, edges[1:-1])
+
+    rule("4b. CONFIDENCE BUCKETS (is confidence informative, and does it beat the market?)")
+    print(f"{'bucket':>6} {'confidence':>15} {'n':>5} {'mean pred':>10} {'actual':>8} "
+          f"{'model acc':>10} {'fav acc':>9} {'delta':>8}")
+    for b in range(int(bucket.max()) + 1):
+        m = bucket == b
+        if not m.sum():
+            continue
+        print(
+            f"{b:>6} {confidence[m].min():6.3f}-{confidence[m].max():.3f} {int(m.sum()):>5} "
+            f"{model_p[m].mean():10.4f} {y_test[m].mean():8.4f} "
+            f"{model_correct[m].mean():10.4f} {fav_correct[m].mean():9.4f} "
+            f"{model_correct[m].mean() - fav_correct[m].mean():+8.4f}"
+        )
+    ordered = np.argsort(confidence)
+    rho = float(np.corrcoef(
+        np.argsort(np.argsort(confidence[ordered])),
+        np.argsort(np.argsort(model_correct[ordered].astype(float))),
+    )[0, 1])
+    print(f"\nSpearman(confidence, correctness) = {rho:+.4f}")
+    print("Positive means high confidence does predict being right. It does NOT mean")
+    print("the model beats the market -- read the delta column for that.")
+
+
+def report_agreement_split(y_test, model_p, market, matched, profit_fn):
+    """ROI split by whether the model's pick matches the market's.
+
+    This is where any edge has to live. On games where the model agrees with the
+    market the ROI is the bookmaker's margin and nothing else. All of the
+    model's behaviour is in the disagreements, and there the model is right
+    LESS often than the market while being paid a much better price.
+
+    Measured on the held-out window: agreement is 83.4% of games at -4.49% ROI
+    (the vig); disagreements are 16.6% at +6.06% +/- 7.77pp, which is 0.78
+    standard errors and therefore not evidence of anything. The finer split by
+    claimed edge swings from +12% to -17% to +34% on 59-127 bets, which is the
+    clearest illustration available of why single figures need intervals.
+    """
+    model_pick = (model_p > 0.5).astype(int)
+    market_pick = (market > 0.5).astype(int)
+    agree = model_pick == market_pick
+
+    def roi_for(mask, picks):
+        """(roi, stderr, hit_rate, bets, profit) for the picks inside `mask`."""
+        if not mask.sum():
+            return None
+        prices = np.where(
+            picks[mask] == 1,
+            matched["ML_Home"][mask].to_numpy(),
+            matched["ML_Away"][mask].to_numpy(),
+        )
+        return flat_bet(prices, picks[mask], y_test[mask], profit_fn)
+
+    rule("5b. AGREEMENT WITH THE MARKET (where the model's picks actually come from)")
+    print(f"{'segment':34} {'bets':>6} {'hit':>7} {'ROI':>9} {'SE':>8} {'95% CI':>20}")
+    for label, mask, picks in (
+        ("model agrees with market", agree, model_pick),
+        ("model DISAGREES with market", ~agree, model_pick),
+        ("market's own pick, on disagreements", ~agree, market_pick),
+    ):
+        result = roi_for(mask, picks)
+        if result is None:
+            continue
+        roi, stderr, hit, bets, _ = result
+        if roi is None:
+            continue
+        print(f"{label:34} {bets:>6} {hit:>7.4f} {roi:>+8.2f}% {stderr:>7.2f}pp "
+              f"[{roi - 1.96 * stderr:>+7.2f},{roi + 1.96 * stderr:>+7.2f}]")
+    print(f"\nDisagreement rate: {(~agree).mean():.1%} of games with a closing line.")
+    print("On disagreements the model is right LESS often than the market, yet can")
+    print("still show positive ROI, because it is backing underdogs at long prices.")
+    print("That is the only mechanism here that could produce an edge; it is not")
+    print("yet distinguishable from zero.")
+
+
 def score_model(y_test, proba):
     """Accuracy, log loss, Brier and AUC, each guarded against a degenerate set."""
     predicted = (np.asarray(proba) >= 0.5).astype(int)
@@ -1269,6 +1368,15 @@ def main():
                 profit_fn,
                 implied_fn,
             )
+            if model_metrics is not None and market is not None:
+                market_p = market_home_probabilities(matched, implied_fn)
+                if market_p is None:
+                    print("\nConfidence buckets: de-vigged market probabilities "
+                          "unavailable for these rows; skipping.")
+                else:
+                    model_p = model_metrics["proba"][matched["_row"].to_numpy()]
+                    report_confidence_buckets(truth, model_p, market_p, matched, profit_fn)
+                    report_agreement_split(truth, model_p, market_p, matched, profit_fn)
 
     summary = [
         f"dataset={args.dataset}",
