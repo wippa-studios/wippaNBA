@@ -30,29 +30,46 @@ data_headers = {
     "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.0.1 Safari/605.1.15"
 }
 
+# Bound on every outbound stats.nba.com/data.nba.com call.
+REQUEST_TIMEOUT_SECONDS = 60
+
+
+class DataFetchError(RuntimeError):
+    """Raised when an upstream NBA endpoint cannot be read."""
+
 
 def get_json_data(url):
-    raw_data = requests.get(url, headers=data_headers)
     try:
-        json = raw_data.json()
+        raw_data = requests.get(url, headers=data_headers, timeout=REQUEST_TIMEOUT_SECONDS)
+        raw_data.raise_for_status()
+        result_sets = raw_data.json().get('resultSets')
     except Exception as e:
-        print(e)
-        return {}
-    return json.get('resultSets')
+        raise DataFetchError(f"failed to read stats response from {url}") from e
+    if not result_sets:
+        raise DataFetchError(f"stats response from {url} contained no resultSets")
+    return result_sets
 
 
 def get_todays_games_json(url):
-    raw_data = requests.get(url, headers=games_header)
-    json = raw_data.json()
-    return json.get('gs').get('g')
+    try:
+        raw_data = requests.get(url, headers=games_header, timeout=REQUEST_TIMEOUT_SECONDS)
+        raw_data.raise_for_status()
+        games = raw_data.json().get('gs')
+    except Exception as e:
+        raise DataFetchError(f"failed to read games response from {url}") from e
+    if not isinstance(games, dict) or 'g' not in games:
+        raise DataFetchError(f"games response from {url} is missing the 'gs.g' payload")
+    return games['g']
 
 
 def to_data_frame(data):
-    try:
-        data_list = data[0]
-    except Exception as e:
-        print(e)
-        return pd.DataFrame(data={})
+    if not isinstance(data, (list, tuple)) or not data:
+        raise DataFetchError("expected a non-empty resultSets list")
+    data_list = data[0]
+    if not isinstance(data_list, dict):
+        raise DataFetchError("expected the first resultSet to be an object")
+    if 'headers' not in data_list or 'rowSet' not in data_list:
+        raise DataFetchError("resultSet is missing headers or rowSet")
     return pd.DataFrame(data=data_list.get('rowSet'), columns=data_list.get('headers'))
 
 

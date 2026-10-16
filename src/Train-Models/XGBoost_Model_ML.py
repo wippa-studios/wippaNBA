@@ -1,144 +1,50 @@
 import argparse
-import sqlite3
-from pathlib import Path
+import json
 
 import joblib
 import numpy as np
-import pandas as pd
 import xgboost as xgb
-from sklearn.calibration import CalibratedClassifierCV
 from sklearn.metrics import accuracy_score, log_loss
-from sklearn.model_selection import TimeSeriesSplit
 
-BASE_DIR = Path(__file__).resolve().parents[2]
-DATASET_DB = BASE_DIR / "Data" / "dataset.sqlite"
+import os
+import sys
+
+# This directory is named with a hyphen, so it is not an importable package.
+# The shared modules below are siblings, which means they only resolve when
+# this script runs with the repository root on sys.path -- e.g.
+# `python -m src.Train-Models.Logistic_Regression_ML`. Adding the script's own
+# directory keeps `python src/Train-Models/Logistic_Regression_ML.py` working too.
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+
+from boosting_training import (
+    BoosterWrapper,
+    prepare_data,
+    sample_params,
+    split_train_calib,
+    split_train_test,
+    train_model,
+    walk_forward_cv_loss,
+)
+from training_common import (
+    BASE_DIR,
+    MONEYLINE_NUM_CLASSES,
+    MONEYLINE_TARGET,
+    drop_columns_for,
+    format_param,
+    load_dataset,
+)
+from training_reporting import make_calibrated_estimator, report_closing_line
+
+
 MODEL_DIR = BASE_DIR / "Models" / "XGBoost_Models"
 
 DEFAULT_DATASET = "dataset_2012-26"
-TARGET_COLUMN = "Home-Team-Win"
-DATE_COLUMN = "Date"
-DROP_COLUMNS = [
-    "index",
-    "Score",
-    "Home-Team-Win",
-    "TEAM_NAME",
-    "Date",
-    "index.1",
-    "TEAM_NAME.1",
-    "Date.1",
-    "OU-Cover",
-    "OU",
-]
-NUM_CLASSES = 2
-
-
-def load_dataset(dataset_name):
-    with sqlite3.connect(DATASET_DB) as con:
-        return pd.read_sql_query(f'SELECT * FROM "{dataset_name}"', con)
-
-
-def prepare_data(df):
-    data = df.copy()
-    if DATE_COLUMN in data.columns:
-        data[DATE_COLUMN] = pd.to_datetime(data[DATE_COLUMN], errors="coerce")
-        data = data.sort_values(DATE_COLUMN)
-    y = data[TARGET_COLUMN].astype(int).to_numpy()
-    X = data.drop(columns=DROP_COLUMNS, errors="ignore").astype(float).to_numpy()
-    return X, y
-
-
-def split_train_test(X, y, test_size=0.1):
-    n = len(X)
-    if n == 0:
-        raise ValueError("Empty dataset.")
-    test_start = int(n * (1 - test_size))
-    return X[:test_start], y[:test_start], X[test_start:], y[test_start:]
-
-
-def split_train_calib(X, y, calib_size=0.1):
-    n = len(X)
-    if n == 0:
-        raise ValueError("Empty dataset.")
-    calib_start = int(n * (1 - calib_size))
-    return X[:calib_start], y[:calib_start], X[calib_start:], y[calib_start:]
-
-
-
-def compute_sample_weights(y, num_classes):
-    counts = np.bincount(y, minlength=num_classes)
-    total = len(y)
-    class_weights = {
-        cls: (total / (num_classes * count)) if count else 1.0
-        for cls, count in enumerate(counts)
-    }
-    return np.array([class_weights[label] for label in y])
-
-
-def sample_params(rng, seed):
-    eta = 10 ** rng.uniform(np.log10(0.003), np.log10(0.3))
-    params = {
-        "max_depth": int(rng.integers(2, 13)),
-        "eta": float(eta),
-        "subsample": float(rng.uniform(0.5, 1.0)),
-        "colsample_bytree": float(rng.uniform(0.5, 1.0)),
-        "colsample_bylevel": float(rng.uniform(0.5, 1.0)),
-        "colsample_bynode": float(rng.uniform(0.5, 1.0)),
-        "min_child_weight": int(rng.integers(1, 21)),
-        "gamma": float(rng.uniform(0.0, 10.0)),
-        "max_delta_step": int(rng.integers(0, 11)),
-        "max_bin": int(rng.integers(128, 1025)),
-        "lambda": float(10 ** rng.uniform(np.log10(0.1), np.log10(10.0))),
-        "alpha": float(10 ** rng.uniform(np.log10(0.01), np.log10(5.0))),
-        "objective": "multi:softprob",
-        "num_class": NUM_CLASSES,
-        "eval_metric": ["mlogloss", "merror"],
-        "seed": seed,
-        "tree_method": "hist",
-    }
-    num_boost_round = int(rng.integers(300, 2501))
-    return params, num_boost_round
-
-
-def train_model(X_train, y_train, X_val, y_val, params, num_boost_round):
-    dtrain = xgb.DMatrix(X_train, label=y_train, weight=compute_sample_weights(y_train, num_classes=NUM_CLASSES))
-    dval = xgb.DMatrix(X_val, label=y_val)
-    model = xgb.train(
-        params,
-        dtrain,
-        num_boost_round=num_boost_round,
-        evals=[(dtrain, "train"), (dval, "val")],
-        early_stopping_rounds=60,
-        verbose_eval=False,
-    )
-    return model
-
-
-def format_param(value, precision=3):
-    formatted = f"{value:.{precision}f}" if isinstance(value, float) else str(value)
-    return formatted.replace(".", "p")
-
-
-class BoosterWrapper:
-    def __init__(self, booster, num_class):
-        self.booster = booster
-        self.classes_ = np.arange(num_class)
-
-    def fit(self, X, y):
-        return self
-
-    def predict_proba(self, X):
-        return self.booster.predict(xgb.DMatrix(X))
-
-
-def walk_forward_cv_loss(X, y, params, num_boost_round, n_splits):
-    tscv = TimeSeriesSplit(n_splits=n_splits)
-    losses = []
-    for train_idx, val_idx in tscv.split(X):
-        model = train_model(X[train_idx], y[train_idx], X[val_idx], y[val_idx], params, num_boost_round)
-        val_probs = model.predict(xgb.DMatrix(X[val_idx]))
-        loss = log_loss(y[val_idx], val_probs, labels=list(range(NUM_CLASSES)))
-        losses.append(loss)
-    return float(np.mean(losses)) if losses else None
+NUM_CLASSES = MONEYLINE_NUM_CLASSES
+TARGET_COLUMN = MONEYLINE_TARGET
+# OU stays out of this list on purpose, so it is a feature here exactly as it is
+# for XGBoost_Model_UO and NN_Model_UO: the runner feeds every totals model the
+# same input width and order. See training_common.drop_columns_for.
+DROP_COLUMNS = drop_columns_for(TARGET_COLUMN)
 
 
 def main():
@@ -153,6 +59,16 @@ def main():
         choices=["sigmoid", "isotonic", "none"],
         help="Calibration method for probabilities.",
     )
+    # Default "none" because the product prices expected value straight off these
+    # probabilities: rebalancing the training classes pushes the base rate off
+    # (measured mean P(home) 0.508 vs a true 0.569) and calibration matters more
+    # than balanced accuracy here.
+    parser.add_argument(
+        "--class-weights",
+        default="none",
+        choices=["none", "inverse", "balanced"],
+        help="Training-time class weighting; rebalancing costs probability calibration.",
+    )
     args = parser.parse_args()
 
     MODEL_DIR.mkdir(parents=True, exist_ok=True)
@@ -162,7 +78,7 @@ def main():
         print(f"No rows found for dataset {args.dataset}.")
         return
 
-    X, y = prepare_data(df)
+    X, y, feature_names, data = prepare_data(df, TARGET_COLUMN, DROP_COLUMNS)
     X_train_val, y_train_val, X_test, y_test = split_train_test(X, y)
 
     rng = np.random.default_rng(args.seed)
@@ -173,8 +89,16 @@ def main():
     }
 
     for trial in range(1, args.trials + 1):
-        params, num_boost_round = sample_params(rng, seed=args.seed + trial)
-        val_loss = walk_forward_cv_loss(X_train_val, y_train_val, params, num_boost_round, args.splits)
+        params, num_boost_round = sample_params(rng, seed=args.seed + trial, num_classes=NUM_CLASSES)
+        val_loss = walk_forward_cv_loss(
+            X_train_val,
+            y_train_val,
+            params,
+            num_boost_round,
+            args.splits,
+            NUM_CLASSES,
+            args.class_weights,
+        )
         if val_loss is None:
             continue
 
@@ -197,16 +121,16 @@ def main():
         y_calib,
         best["params"],
         best["num_boost_round"],
+        NUM_CLASSES,
+        args.class_weights,
     )
 
     calibrator = None
     if args.calibration == "none":
         probabilities = best_model.predict(xgb.DMatrix(X_test))
     else:
-        calibrator = CalibratedClassifierCV(
-            BoosterWrapper(best_model, NUM_CLASSES),
-            method=args.calibration,
-            cv="prefit",
+        calibrator = make_calibrated_estimator(
+            BoosterWrapper(best_model, NUM_CLASSES), args.calibration
         )
         calibrator.fit(X_calib, y_calib)
         probabilities = calibrator.predict_proba(X_test)
@@ -218,6 +142,16 @@ def main():
     print(f"Best val log loss: {best['val_loss']:.4f}")
     print(f"Test accuracy: {accuracy:.4f}")
     print(f"Test log loss: {test_loss:.4f}")
+
+    # The test rows are the tail of the sorted frame, taken by the length of the
+    # test matrix rather than by recomputing the split point, so the rows cannot
+    # drift out of step with y_test.
+    test_rows = data.tail(len(X_test))
+    report_closing_line(
+        test_rows,
+        home_win_truth=test_rows["Home-Team-Win"].astype(int).to_numpy(),
+        moneyline_picks=y_pred,
+    )
 
     params = best["params"]
     model_name = (
@@ -239,6 +173,12 @@ def main():
     model_path = MODEL_DIR / model_name
     best_model.save_model(str(model_path))
     print(f"Saved model: {model_path}")
+
+    # The model is a positional matrix, so nothing in the .json records which
+    # columns produced it. This is the exact list X was built from.
+    features_path = MODEL_DIR / f"{model_path.stem}_features.json"
+    features_path.write_text(json.dumps(feature_names, indent=2))
+    print(f"Saved feature order: {features_path}")
 
     if calibrator is not None:
         calibration_path = MODEL_DIR / f"{model_path.stem}_calibration.pkl"

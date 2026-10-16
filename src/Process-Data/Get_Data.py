@@ -1,4 +1,5 @@
 import argparse
+import contextlib
 import os
 import random
 import sqlite3
@@ -13,7 +14,7 @@ import toml
 BASE_DIR = Path(__file__).resolve().parents[2]
 sys.path.insert(1, os.fspath(BASE_DIR))
 
-from src.Utils.tools import get_json_data, to_data_frame  # noqa: E402
+from src.Utils.tools import DataFetchError, get_json_data, to_data_frame  # noqa: E402
 
 CONFIG_PATH = BASE_DIR / "config.toml"
 DB_PATH = BASE_DIR / "Data" / "TeamData.sqlite"
@@ -55,10 +56,15 @@ def get_table_dates(con):
 
 def fetch_data(url, date_pointer, start_year, season_key):
     for attempt in range(1, MAX_RETRIES + 1):
-        raw_data = get_json_data(
-            url.format(date_pointer.month, date_pointer.day, start_year, date_pointer.year, season_key)
-        )
-        df = to_data_frame(raw_data)
+        try:
+            raw_data = get_json_data(
+                url.format(date_pointer.month, date_pointer.day, start_year, date_pointer.year, season_key)
+            )
+            df = to_data_frame(raw_data)
+        except DataFetchError as e:
+            # Upstream failure: fall through to the backoff and retry, as before.
+            print(f"Attempt {attempt} for {date_pointer} failed: {e}")
+            df = pd.DataFrame(data={})
         if not df.empty:
             return df
         if attempt < MAX_RETRIES:
@@ -105,53 +111,57 @@ def main(config=None, db_path=DB_PATH, today=None, backfill=False, season=None):
     if today is None:
         today = datetime.today().date()
 
-    with sqlite3.connect(db_path) as con:
-        existing_dates = set(get_table_dates(con))
-        if backfill:
-            season_items = config["get-data"].items()
-            if season:
-                season_items = [
-                    (key, value) for key, value in season_items if key == season
-                ]
-                if not season_items:
-                    print("Season not found in config:", season)
-                    return
+    # contextlib.closing closes the handle; the inner `with con` keeps the
+    # original commit/rollback semantics, including on the early returns below.
+    with contextlib.closing(sqlite3.connect(db_path)) as con:
+        with con:
+            existing_dates = set(get_table_dates(con))
+            if backfill:
+                season_items = config["get-data"].items()
+                if season:
+                    season_items = [
+                        (key, value) for key, value in season_items if key == season
+                    ]
+                    if not season_items:
+                        raise SystemExit(f"Season not found in config: {season}")
 
-            for season_key, value in season_items:
-                backfill_season(con, url, season_key, value, existing_dates, today)
-            return
+                for season_key, value in season_items:
+                    backfill_season(con, url, season_key, value, existing_dates, today)
+                return
 
-        season_key, value, start_date, end_date = select_current_season(config, today)
-        if not season_key:
-            print("No current season found for today:", today)
-            return
+            season_key, value, start_date, end_date = select_current_season(config, today)
+            if not season_key:
+                raise SystemExit(
+                    f"No current season found for today: {today}. "
+                    "Update the get-data season ranges in config.toml."
+                )
 
-        fetch_end = min(today, end_date)
-        season_dates = [
-            date_value for date_value in existing_dates
-            if start_date <= date_value <= fetch_end
-        ]
-        latest_date = max(season_dates) if season_dates else None
-        fetch_start = start_date if latest_date is None else latest_date + timedelta(days=1)
+            fetch_end = min(today, end_date)
+            season_dates = [
+                date_value for date_value in existing_dates
+                if start_date <= date_value <= fetch_end
+            ]
+            latest_date = max(season_dates) if season_dates else None
+            fetch_start = start_date if latest_date is None else latest_date + timedelta(days=1)
 
-        if fetch_start > fetch_end:
-            print("No new dates to fetch. Latest date:", latest_date)
-            return
+            if fetch_start > fetch_end:
+                print("No new dates to fetch. Latest date:", latest_date)
+                return
 
-        for date_pointer in iter_dates(fetch_start, fetch_end):
-            print("Getting data:", date_pointer)
-            df = fetch_data(url, date_pointer, value["start_year"], season_key)
-            if df.empty:
-                print("No data returned for:", date_pointer)
-                continue
+            for date_pointer in iter_dates(fetch_start, fetch_end):
+                print("Getting data:", date_pointer)
+                df = fetch_data(url, date_pointer, value["start_year"], season_key)
+                if df.empty:
+                    print("No data returned for:", date_pointer)
+                    continue
 
-            table_name = date_pointer.strftime("%Y-%m-%d")
-            df["Date"] = table_name
-            df.to_sql(table_name, con, if_exists="replace", index=False)
+                table_name = date_pointer.strftime("%Y-%m-%d")
+                df["Date"] = table_name
+                df.to_sql(table_name, con, if_exists="replace", index=False)
 
-            time.sleep(random.randint(MIN_DELAY_SECONDS, MAX_DELAY_SECONDS))
+                time.sleep(random.randint(MIN_DELAY_SECONDS, MAX_DELAY_SECONDS))
 
-            # TODO: Add tests
+                # TODO: Add tests
 
 
 if __name__ == "__main__":
