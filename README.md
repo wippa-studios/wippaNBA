@@ -214,21 +214,44 @@ Leakage was worth roughly **+2.8 points of accuracy and +6 points of phantom ROI
 
 ### 2. The model does not beat the market
 
-The original had no market baseline anywhere. On rebuilt, leak-free data over
-1,722 held-out games:
+The original had no market baseline anywhere. Measured on **4,076 games** that have
+both an out-of-fold prediction and a closing line — from `scripts/closing_line.py`:
 
-| strategy | accuracy | flat-bet ROI | SE |
-|---|---|---|---|
-| model | 0.657 | +1.5% to +8.3% | ±4.4 to ±9.4 |
-| **closing-line favourite** | **0.681** | **−5.46%** | ±1.62 |
-| always bet home | 0.547 | — | — |
+| scorer | log loss ↓ | Brier ↓ | AUC ↑ | accuracy |
+|---|---|---|---|---|
+| always bet home | 0.68704 | 0.24695 | 0.5000 | 0.5552 |
+| **market (closing ML, de-vigged)** | **0.59940** | **0.20634** | **0.7337** | **0.6813** |
+| model | 0.62903 | 0.21927 | 0.6944 | 0.6411 |
+| model + availability | 0.62693 | 0.21827 | 0.6979 | 0.6455 |
 
-The market wins outright: 68.1% against 65.7%. The model's own ROI is
-**indistinguishable from zero** — every threshold sits within about one standard
-error, earlier measurements came out negative, and the sign depends on the window.
-The honest conclusion is not "the model loses money"; it is that **no edge is
-demonstrated in either direction.** The favourite's −5.46% ±1.62 *is* solid — that
-is the vig, which is what an efficient market should charge.
+**The market wins decisively, and this is not a null.** Model + availability trails
+by 0.02753 nats, CI [−0.03445, −0.02059], |z| = 7.78 — the interval excludes zero on
+the market's side. That is what an efficient market looks like against a model built
+on the same public information.
+
+Bet at the posted price, flat, whenever the model's probability exceeds a threshold:
+
+| strategy | bets | ROI | SE | \|z\| |
+|---|---|---|---|---|
+| model + availability, thr 0.55 | 722 | +9.01% | ±5.51% | 1.64 |
+| model, thr 0.55 | 750 | +8.58% | ±5.56% | 1.54 |
+| model + availability, thr 0.60 | 550 | +3.24% | ±6.51% | 0.50 |
+| every other threshold | 401–574 | −0.28% to +2.15% | — | ≤ 0.29 |
+
+Nothing reaches the |z| > 3 bar this project applies to selection effects
+(Vandenbruaene et al. 2022, *J Sports Econ* 23(7): 628 implementations, the null of
+unprofitability never rejected). Six configurations were scored and **all six are
+printed**, because the best of many noisy estimates is biased upward — a positive
+point estimate at one threshold is not evidence of anything.
+
+The honest conclusion is not "the model loses money". It is that **no edge is
+demonstrated in either direction.** What *is* solid is the market's side: a 4% book
+maker beats this model by more than seven standard errors, and the measured
+overround of **+3.98%** (p5–p95 2.96%–5.00%) is exactly the vig the favourite pays.
+
+Availability improves prediction — 0.62903 → 0.62693, AUC 0.6944 → 0.6979 — and
+changes none of that. That is the shape of this project in one line: a real,
+reproducible improvement to probability estimates that the market already exceeds.
 
 ### 3. The totals model has no signal
 
