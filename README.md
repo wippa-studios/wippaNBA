@@ -106,6 +106,48 @@ pick-no-edge line.
 straddling zero. The cause is structural: a batch fit over five seasons reports
 where a team **was**, while the next game depends on where it **is**.
 
+### The one thing that is not a null
+
+Almost everything measured in this project came back flat. These did not:
+
+| mechanism | delta | 95% CI | what it means |
+|---|---|---|---|
+| **player-level expected minutes** | **+0.00382** | **[+0.00230, +0.00547]** | real, and small |
+| *actual minutes (a leak)* | *+0.01089* | *[+0.00746, +0.01432]* | *not available before tip-off* |
+| *roster size alone (leak control)* | *+0.00109* | *[-0.00073, +0.00299]* | *straddles zero* |
+| schedule block (7 cols) | −0.00194 | [−0.00349, −0.00043] | removing it hurts |
+| rank columns (52 cols) | +0.00065 | [−0.00039, +0.00166] | null |
+| rebound block | +0.00040 | [−0.00026, +0.00104] | null |
+| recency weighting (halflife 5, 2) | worse | excludes zero | halflife 10 is already optimal |
+
+**Availability is the first mechanism here whose interval excludes zero for the right
+reason.** Summing each player's expected minutes over the squad that played the
+team's *previous* game — known before tip-off whatever happens tonight — improves log
+loss by 0.00382 nats. Team-level season averages cannot express it, because a team is
+not one number.
+
+**Only about a third of it is honestly available.** Substituting *actual* minutes is
+worth +0.01089, roughly three times more. Those minutes are known only after the
+game, so that number is a leak and it is not quoted as a result anywhere. The middle
+row exists to make that falsifiable: roster size alone, carrying no minutes
+information, returns +0.00109 with an interval straddling zero — so the gain is not
+"how many people dressed". The remaining two thirds is injury news, in-game injury
+and ejection: information that does not exist before the game, which caps what any
+model here can achieve.
+
+**None of this is a betting edge, and the table above does not yet include it.** These
+are log-loss improvements — the quality of a probability estimate. Whether any of it
+survives the closing line is a separate question, answered by the market section
+below, and the answer there is still no. The models in the table are the committed
+artifacts, which predate the availability feature; `availability_features` is in the
+shared layer and the artifacts are being retrained against it.
+
+**The schedule block is the other surprise.** Rest days, back-to-backs, 3-in-4 and
+travel distance — seven columns, none of them a measure of team quality — are the
+cheapest feature block in the set and the only one whose removal is measurably
+harmful. Every effort in this project has gone into team *quality*, and that side is
+mostly flat; the signal is in when a team plays and where it travelled to get there.
+
 ### Compared with the original model
 
 | | data | rows | validation | log loss | AUC |
