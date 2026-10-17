@@ -49,6 +49,7 @@ whether they make money.
 - [Usage](#usage) — NBA-data models · original betting pipeline · Flask app
 - [Verifying and testing](#verifying-and-testing)
 - [Results](#results)
+- [The experiment log](#the-experiment-log-17-pre-registered-runs)
 - [The one thing that is not a null](#the-one-thing-that-is-not-a-null)
 - [The feature search](#the-feature-search-four-candidates-pre-registered)
 - [The player-Elo block](#the-player-elo-block-a-strong-result-that-was-a-leak)
@@ -271,7 +272,7 @@ meaningful signal. That guard lives centrally in `src/DataProviders/nba_data.py`
 which raises `unittest.SkipTest` — so there is exactly one place where "needs data"
 is decided.
 
-#### Current state: 1,039 passing, 0 failing
+#### Current state: 1,104 passing, 0 failing
 
 35 files, measured individually:
 
@@ -375,6 +376,68 @@ model above predicts from basketball information alone and is then scored agains
 the closing line separately, because a model that reads the price cannot be used to
 evaluate the price. And **the totals/under-overs models** live under
 `src/Train-Models/` in the original pipeline, not here.
+
+### The experiment log: 17 pre-registered runs
+
+`scripts/run_experiments.py`, all on identical walk-forward folds (6,600 out-of-fold
+rows). Log loss is the ranking metric; accuracy is reported and **not** ranked.
+Every run is in `results/experiments.jsonl`. Selection cost of the winner is
+printed by the script — a best-of-N is the maximum of N draws.
+
+| experiment | feats | model | log loss | vs base | AUC | train−test gap |
+|---|---|---|---|---|---|---|
+| **E14-home-split-only** | **43** | logistic | **0.61831** | **−0.00084** | 0.7093 | +0.0017 |
+| E31-drop-player-elo | 53 | logistic | 0.61835 | −0.00080 | 0.7095 | +0.0013 |
+| E13-drop-opp-chars | 53 | logistic | 0.61892 | −0.00023 | 0.7080 | +0.0008 |
+| E42-ridge | 59 | L2 logistic (ridge proxy) | 0.61894 | −0.00021 | 0.7078 | +0.0016 |
+| E01-baseline-logistic-C0.1 | 59 | logistic C=0.1 | 0.61897 | −0.00018 | 0.7080 | +0.0008 |
+| **E00-baseline-logistic** | 59 | logistic | **0.61915** | — | 0.7080 | +0.0003 |
+| E12-drop-sos | 57 | logistic | 0.61919 | +0.00004 | 0.7080 | +0.0002 |
+| E41-logistic-pca20 | 59 | logistic + PCA(20) | 0.61920 | +0.00005 | 0.7078 | +0.0031 |
+| E11-drop-opp-adjusted | 57 | logistic | 0.61923 | +0.00008 | 0.7079 | +0.0002 |
+| E10-drop-home-split | 53 | logistic | 0.62006 | **+0.00091** | 0.7068 | +0.0005 |
+| E15-schedule-only | 37 | logistic | 0.62020 | +0.00105 | 0.7067 | +0.0016 |
+| E20-rf-full | 59 | random forest | 0.62267 | +0.00352 | 0.7042 | **−0.1102** |
+| E21-histgb-full | 59 | HistGradientBoosting | 0.62790 | +0.00875 | 0.6952 | **−0.0567** |
+| E22-xgb-full | 59 | XGBoost | 0.63081 | +0.01166 | 0.6898 | **−0.0971** |
+| E40-gaussian-nb-pca20 | 59 | Gaussian NB + PCA(20) | 0.64389 | +0.02474 | 0.6940 | +0.0044 |
+
+**The best model is a 43-column logistic regression, and 16 of the 59 columns are
+what is wrong with the 59-column version.** E14 uses *fewer* features and scores
+*better*. The sixteen columns it drops — opponent-adjusted margin, strength of
+schedule, the three never-read `OPP_*` pairs, and the six player-Elo aggregates —
+are worth **negative 0.00084 nats**, which is to say they actively cost accuracy.
+Every one of them was individually measured and every one came back null or worse,
+and here they are together in the only test that matters: removing them all.
+
+**The ablation that confirms the one real finding.** E10 removes the per-team
+home/away split and costs **+0.00091** — the largest penalty of any ablation in the
+table, and the only one whose sign is clearly the wrong way. That is the
+difference between a feature that replicated at three seeds and two fold counts
+and one that did not.
+
+**Every tree model loses, and every tree model overfits.** Random forest
++0.00352, HistGB +0.00875, XGBoost +0.01166. The train−test gaps are −0.110,
+−0.057 and −0.097: they fit the training folds and gain nothing. Linear models sit
+at +0.0003 to +0.0017, which is no overfitting at all. On 13,199 rows of smooth
+team-strength signal there is nothing for a tree to find that a straight line in
+the right basis does not already have.
+
+**Two results from the external survey both lose here**, and one of them was
+briefly recorded as a win. `logistic + PCA(20)` was logged at 0.61605 against plain
+logistic's 0.61835 in an earlier run — but that run used a 59-column frame whose
+extra six columns were the **leaking** player-Elo block. On the clean frame PCA(20)
+scores **0.61920 and loses** to plain logistic's 0.61915. The contaminated log is
+archived at `results/archive/experiments-leaky-frame.jsonl` rather than deleted,
+and the entry is recorded here rather than quietly corrected. `RidgeClassifier`
+could not be scored at all — it has no `predict_proba`, and a linear model that
+cannot produce a probability cannot be compared on this project's metric — so
+E42 is L2 logistic, which is the same estimator under a logit link.
+
+**Do not read the winner's margin as an effect.** Best − median across the 17 runs
+is −0.00026 nats, and the top five are separated by less than 0.0007. The clear
+signals in this table are the *direction and size* of the three tree models and the
+E10 ablation, not the ordering among the linear models.
 
 ### Pipeline A: model comparison
 
@@ -840,6 +903,26 @@ zone defence crossed with opponent shot mix — turned out to be untestable:
 categories are 100% NaN. Its first correlation reading (+0.691) had also used the
 wrong season key, so it was reading the same leak this project warns about. Both
 are recorded in the document rather than quietly dropped.
+
+### Stint-level rotations: the one table nothing has read
+
+`rotations/` held a single season because `GameRotation` died after 25 consecutive
+errors. **It answers again** — `IN_TIME_REAL`, `OUT_TIME_REAL`, `PLAYER_PTS`,
+`PT_DIFF`, `USG_PCT` per stint. A partial re-download has banked **38,410 stint
+rows across 602 games of 2020-21** (3.01 stints per player-game, `PT_DIFF` 99.9%
+populated) before NBA began refusing with 60-second timeouts on every subsequent
+request.
+
+This matters more than any feature block, because `src/Models/player_ratings.py`
+states that its plus-minus model *"needs `GameRotation` to build the design
+matrix"* and is *"not true RAPM"*. **The RAPM null recorded here is therefore a null
+for a proxy, not for RAPM**, and should be read that way until real stint data
+exists.
+
+602 games is 4.6% of the dataset. A RAPM fitted on that would be thin, and
+reporting it as a result would repeat the mistake this page keeps documenting. The
+backfill is resumable and is tracked in issue #34; the fix for the timeouts is
+probably a longer `--sleep`.
 
 ### Against other repos
 

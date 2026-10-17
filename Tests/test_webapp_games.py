@@ -26,6 +26,7 @@ in the opposite order, so a reordering upstream cannot silently swap the teams.
 """
 
 import importlib.util
+import re
 import unittest
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -75,9 +76,9 @@ LINE_SCORE_COLUMNS = [
     "wins", "losses", "score", "seed", "inBonus", "timeoutsRemaining",
 ]
 
-# Eastern Daylight Time behind UTC. Every fixture game is an October one, which
-# is what the live payloads checked against were, so a single offset is enough
-# to make `gameEt` a genuinely wrong timestamp to parse.
+# How far behind UTC the Eastern wall clock sits on the fixture dates. The exact
+# seasonal value is irrelevant -- what matters is that `gameEt` names a DIFFERENT
+# instant from `gameTimeUTC`, which is the whole trap.
 ET_UTC_OFFSET_HOURS = 4
 
 
@@ -129,7 +130,8 @@ def line_row(game_id, team_id, city, name, tricode, wins, losses, score):
     }
 
 
-# A completed game: Phoenix beat nobody, Detroit won at home.
+# A completed game, taken from a live 2026-01-15 payload: Detroit won at home
+# 108-105.
 FINAL_HEADER = game_header(
     "0022500579", "20260115/PHXDET", 3, "Final", "2026-01-16T00:00:00Z",
     period=4, game_clock="00:00.0",
@@ -191,7 +193,7 @@ class WebappGamesTestCase(unittest.TestCase):
     def tearDown(self):
         webapp.fetch_games.cache_clear()
 
-    def serve(self, query="", headers=None, lines=None, header_rows=None):
+    def serve(self, query="", headers=None):
         """GET /games with the upstream stubbed, returning the test response."""
         return self.client.get(f"/games{query}", headers=headers)
 
@@ -319,6 +321,35 @@ class TestGamesRoute(WebappGamesTestCase):
         self.serve()
         self.serve("?date=2026-02-01")
         self.assertEqual(len(calls), 2)
+
+    def test_each_failure_reaches_the_page_as_its_own_status(self):
+        """The status and the wording must agree.
+
+        A quiet night off, a blocked burst and a dead upstream all have to be
+        told apart here; a page that reports one of them as another is the
+        failure mode this repo's PredictionBoard side channel exists to prevent.
+
+        Each case gets its OWN date rather than sharing one and clearing the
+        cache between them. The cache is keyed on (date, ttl bucket), so distinct
+        dates make the cases independent by construction rather than by a
+        cache_clear() that has to be remembered -- and this test was caught
+        relying on one, failing only when the whole suite ran it in one process.
+        """
+        cases = (
+            ("2026-01-01", header_frame(FINAL_HEADER), line_frame(*FINAL_LINES),
+             None, "ok"),
+            ("2026-01-02", header_frame(), line_frame(), None, "no_games"),
+            ("2026-01-03", None, None,
+             webapp.ScoreboardUnavailable("blocked", 403), "rate_limited"),
+            ("2026-01-04", None, None,
+             webapp.ScoreboardUnavailable("broken"), "unavailable"),
+            ("2026-01-05", header_frame(dict(FINAL_HEADER, gameId="")),
+             line_frame(*FINAL_LINES), None, "degraded"),
+        )
+        for day, headers, lines, error, expected in cases:
+            with self.subTest(expected=expected):
+                stub_scoreboard(webapp, headers, lines, error=error)
+                self.assertEqual(board_status_for(self.serve(f"?date={day}")), expected)
 
     def test_two_timezones_share_one_upstream_call(self):
         """The cached board is timezone-independent, so a second viewer in
@@ -774,22 +805,18 @@ class TestOrdering(unittest.TestCase):
 
 
 def board_status_for(response):
-    """Recover the board status from the copy the page actually shows.
+    """The board status the page was rendered with, read off data-status.
 
-    Deliberately reads the rendered text rather than the internal status slug:
-    what this checks is that each status reaches the visitor as distinct wording,
-    which is the whole point of GAMES_NOTICES.
+    Read from the markup rather than from the route's return value so this
+    checks what actually shipped, and paired with the copy assertions above:
+    each status must reach the visitor as distinct wording, not just as a
+    distinct class name.
     """
     body = response.get_data(as_text=True)
-    if "Partial slate" in body:
-        return "degraded"
-    if "No games scheduled" in body:
-        return "no_games"
-    if "rate limiting" in body:
-        return "rate_limited"
-    if "temporarily unavailable" in body:
-        return "unavailable"
-    return "ok"
+    match = re.search(r'<section class="section" data-status="(\w+)">', body)
+    if match is None:
+        raise AssertionError(f"no data-status in the rendered page:\n{body[:800]}")
+    return match.group(1)
 
 
 if __name__ == "__main__":

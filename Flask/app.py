@@ -539,10 +539,11 @@ def scoreboard_status_code(endpoint):
 def scoreboard_tables(game_date, timeout=SCOREBOARD_TIMEOUT_SECONDS, proxy=None):
     """The two ScoreboardV3 tables this page reads, as pandas DataFrames.
 
-    Raises ScoreboardUnavailable for anything the endpoint got wrong and lets a
-    real transport error (requests.Timeout, ConnectionError) propagate, so the
-    caller can tell "NBA said no" from "we never reached NBA" from the type
-    alone.
+    Raises ScoreboardUnavailable for anything that went wrong, carrying the HTTP
+    status when a response ever arrived. A timeout, a reset connection and a 403
+    all arrive here the same way but are told apart by `status_code`: None means
+    the request never got an answer, 403 means this host is being blocked, and
+    the page words those differently.
 
     get_request is switched off in the constructor and issued by hand so the
     failure can still be attributed. Constructing with get_request=True raises
@@ -742,6 +743,9 @@ def build_scoreboard_game(header, lines):
         "status_text": entry_text(header.get("gameStatusText")),
         "status": status,
         "status_label": label,
+        # The raw timing fields the endpoint returns for a game in progress. Kept
+        # even though the card shows status_text instead: gameStatusText is a
+        # pre-rendered string and these are the numbers behind it.
         "period": entry_number(header.get("period"), integer=True),
         "game_clock": entry_text(header.get("gameClock")),
         "tipoff": tipoff,
@@ -901,12 +905,6 @@ def format_tipoff(tipoff, zone):
     return local.isoformat(), f"{label} {local.tzname() or local.strftime('%Z%z')}"
 
 
-def format_clock(clock):
-    """An NBA game clock as the endpoint writes it, or None when there is none."""
-    text = entry_text(clock)
-    return text if text else None
-
-
 @app.route("/games")
 def games():
     """The NBA slate for one date, rendered server-side from the cached scoreboard.
@@ -953,10 +951,7 @@ def games():
     cards = []
     for game in board.values():
         tipoff_iso, tipoff_label = format_tipoff(game["tipoff"], zone)
-        cards.append(dict(game,
-                          tipoff_iso=tipoff_iso,
-                          tipoff_label=tipoff_label,
-                          game_clock=format_clock(game["game_clock"])))
+        cards.append(dict(game, tipoff_iso=tipoff_iso, tipoff_label=tipoff_label))
 
     # A failed fetch answers 503, the same way index() does for an unreadable
     # prediction run: the page renders its message, but a crawler or a monitor

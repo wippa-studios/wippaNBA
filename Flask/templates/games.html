@@ -41,7 +41,7 @@
         </header>
 
         <main>
-            <section class="section">
+            <section class="section" data-status="{{ status }}">
                 <div class="section-header">
                     <div>
                         <div class="eyebrow">Schedule</div>
@@ -77,6 +77,10 @@
                     <p>{{ degraded_note }}. Everything else on this page is real.</p>
                 </div>
                 {% elif not games %}
+                {# Unreachable by construction -- a slate with no cards always
+                   arrives as no_games or degraded, both of which carry a notice
+                   above -- but kept so an unexpected combination renders a
+                   sentence rather than a blank page. #}
                 <div class="games-notice reveal is-visible" role="status">
                     <h3 class="games-notice-title">No games scheduled</h3>
                     <p>NBA reports no games on this date. Try the day before or after.</p>
@@ -86,15 +90,21 @@
                 {% endif %}
 
                 {% for game in games %}
+                {# `reveal is-visible`, not `reveal` as on the board page: this card IS the
+                   content, and a schedule that stays invisible until an
+                   IntersectionObserver fires is a schedule that never appears at
+                   all if the script is blocked, fails, or is slow. #}
                 <article class="game-card schedule-card reveal is-visible" data-delay="{{ loop.index0 * 40 }}">
                     <div class="game-header">
                         <div class="matchup">
                             <span class="schedule-status status-chip status-{{ game.status }}">
                                 {{ game.status_label }}
                             </span>
-                            {% if game.status == 'live' and game.game_clock %}
-                            <span class="schedule-clock">{{ game.status_text }} &middot; {{ game.game_clock }}</span>
-                            {% elif game.status_text %}
+                            {# gameStatusText is the endpoint's own wording and is
+                               worth showing verbatim: "Final/OT", "Q3 04:12" and
+                               "7:00 pm ET" are all things this page must not
+                               reconstruct. #}
+                            {% if game.status_text %}
                             <span class="schedule-clock">{{ game.status_text }}</span>
                             {% endif %}
                         </div>
