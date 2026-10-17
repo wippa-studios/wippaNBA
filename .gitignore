@@ -154,3 +154,7 @@ venv.bak/
 # which is why the ledger is JSONL. See issue #4.
 !runs/
 !runs/ledger.jsonl
+
+# The 382 MB NBA download. A local symlink or a real copy both belong here:
+# committing either would add hundreds of megabytes to the repository.
+data/
