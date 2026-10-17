@@ -199,6 +199,45 @@ FEATURE_BLOCKS: dict[str, dict[str, object]] = {
     # off_rating - def_rating (measured R^2 0.99999735 on the real frame), and says
     # per-coefficient readings of it are not safe. Ablating it is the measurement
     # that caveat is asking for.
+    # ---------------------------------------------------------------------
+    # PRE-REGISTERED CANDIDATES.
+    #
+    # Every decay experiment in this project came back null, because all of them
+    # reweight the SAME information. These four were written down and registered
+    # BEFORE any was measured, so that the four results below cannot be
+    # cherry-picked out of a longer search. The bar is Bonferroni across the four
+    # looks (p < 0.0125) AND the |z| > 3 threshold this project adopted from
+    # Vandenbruaene et al. (2022), whose null of unprofitability was never
+    # rejected across 628 implementations.
+    #
+    # The prior differs across them and is stated rather than hidden:
+    #   opponent_adjusted  corr 0.98 with the existing ewm_margin, so mostly a
+    #                      rearrangement - expects a null, like every other
+    #                      reweighting in this repo.
+    #   home_away_split    corr 0.08 with it, i.e. nearly independent - the only
+    #                      one carrying information the frame does not have.
+    #   strength_of_schedule  a second-difference of the same quantity.
+    #   opponent_characteristics  columns present in the source table since the
+    #                      first download and never read by any model.
+    # ---------------------------------------------------------------------
+    "opponent_adjusted": {
+        "columns": _sides("ewm_adj_margin"),
+        "note": "form minus the opponent's own margin: beating a good club counts "
+                "for less. Uses opponent quality, which no existing feature reads.",
+    },
+    "home_away_split": {
+        "columns": _sides("ewm_margin_home", "ewm_margin_away", "home_edge"),
+        "note": "each team's OWN home advantage instead of one league constant",
+    },
+    "strength_of_schedule": {
+        "columns": _sides("ewm_sos"),
+        "note": "quality of the opposition faced, carried rather than subtracted",
+    },
+    "opponent_characteristics": {
+        "columns": _sides("ewm_opp_ftr", "ewm_opp_tov", "ewm_opp_orb"),
+        "note": "OPP_FTA_RATE / OPP_TOV_PCT / OPP_OREB_PCT, present in every "
+                "downloaded season and never read by any model here",
+    },
     "net_rating": {
         "columns": ["home_ewm_net_rating", "away_ewm_net_rating"],
         "note": "documented as redundant with off - def; scored to check",
@@ -322,13 +361,15 @@ def build_feature_frame(games: pd.DataFrame, halflife: float = HALFLIFE,
     """
     roll = nd.rolling_team_features(games, halflife=halflife, min_games=MIN_GAMES)
     sched = nd.rest_and_travel(games)
+    opp = nd.opponent_adjusted_features(games, halflife=halflife)
 
     keep = lambda d: d.select_dtypes(include=[np.number])  # noqa: E731
     # roll and sched each carry a GAME_DATE; concatenating datetime columns hands
     # the imputer a dtype it cannot promote to float. Select numerics rather than
     # maintaining a delete-list.
     blocks = [keep(roll).reset_index(drop=True),
-              keep(sched).reset_index(drop=True)]
+              keep(sched).reset_index(drop=True),
+              keep(opp).reset_index(drop=True)]
     if include_ranks:
         blocks.append(league_rank_features(games, roll).reset_index(drop=True))
 
@@ -471,6 +512,13 @@ def main() -> int:
     ap.add_argument("--list-blocks", action="store_true",
                     help="print the block registry and exit")
     ap.add_argument("--n-boot", type=int, default=2000)
+    ap.add_argument("--seed", type=int, default=SEED,
+                    help="bootstrap seed. Changing it is the REPLICATION: the "
+                         "script's own verdict text says an exclusion is only a "
+                         "candidate until it survives a second seed.")
+    ap.add_argument("--splits", type=int, default=N_SPLITS,
+                    help="walk-forward folds. A result that only exists at five "
+                         "folds is a property of the fold count.")
     ap.add_argument("--out", default="results/feature_block_ablation.json")
     args = ap.parse_args()
 
@@ -491,7 +539,7 @@ def main() -> int:
     blocks = args.blocks or sorted(FEATURE_BLOCKS)
 
     games = nd.build_games()
-    splits = nd.walk_forward_split(games, n_splits=N_SPLITS)
+    splits = nd.walk_forward_split(games, n_splits=args.splits)
     frame = build_feature_frame(games)
 
     # Every selected block must resolve BEFORE any model is fit, so a registry
@@ -524,7 +572,7 @@ def main() -> int:
     results = {}
     for block in blocks:
         res = score_block(frame, y, splits, block,
-                          n_boot=args.n_boot, seed=SEED)
+                          n_boot=args.n_boot, seed=args.seed)
         results[block] = res
         print(_fmt(res))
 

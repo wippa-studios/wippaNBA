@@ -128,6 +128,24 @@ REBOUND_PAIRS: list[tuple[str, str, str]] = [
     ("drb_diff", "home_ewm_drb", "away_ewm_drb"),
 ]
 
+# Per-team home/away split, from `nba_data.opponent_adjusted_features`. Listed
+# here rather than discovered from whatever columns the frame happens to carry,
+# so that a block silently going missing from the shared layer removes features
+# from the model visibly instead of quietly.
+#
+# Measured, on 6,600 out-of-fold rows across 5 walk-forward splits, as
+# -0.00089 nats log loss CI [-0.00167, -0.00015], |z| 2.29, replicated at three
+# bootstrap seeds and at eight folds. Small, real, and below this project's |z| > 3
+# bar - see `results/feature_block_ablation.json`.
+HOME_SPLIT_PAIRS: list[tuple[str, str, str]] = [
+    # How well each side does at home, contrasted.
+    ("home_form_home", "home_ewm_margin_home", "away_ewm_margin_home"),
+    # How well each side does on the road, contrasted.
+    ("home_form_away", "home_ewm_margin_away", "away_ewm_margin_away"),
+    # The DIFFERENTIAL home advantage: whose own edge is larger.
+    ("home_edge_diff", "home_home_edge", "away_home_edge"),
+]
+
 # The raw rolling columns that get shrunk toward a prior when one is supplied.
 SHRINKABLE: list[str] = [
     "ewm_net_rating", "ewm_margin", "ewm_off_rating", "ewm_def_rating",
@@ -595,6 +613,23 @@ def assemble_features(games: pd.DataFrame, roll: pd.DataFrame,
     for c in sched.columns:
         out[c] = sched[c].to_numpy(dtype=float)
 
+    # Per-team home advantage, as contrasts like every other feature here.
+    #
+    # `home_home_edge` is the difference between how well the home club does at
+    # home and how well it does away. Subtracting the away club's own edge gives
+    # the differential: a home team whose home advantage exceeds the visitor's has
+    # a reason to be favoured beyond the league-wide constant that HOME_COLUMN
+    # already carries.
+    #
+    # The two form contrasts are here too because each side's split form is a
+    # better-conditioned estimate of that side's strength than the pooled one -
+    # a club's home and away games are not interchangeable draws from one
+    # distribution, which is the whole argument for having the split at all.
+    for name, hc, ac in HOME_SPLIT_PAIRS:
+        if hc in roll.columns and ac in roll.columns:
+            out[name] = (roll[hc].to_numpy(dtype=float)
+                         - roll[ac].to_numpy(dtype=float))
+
     # The home indicator, always 1.0. Present so the model has an explicit
     # home-court term to read, rather than one hidden in the intercept.
     out[HOME_COLUMN] = 1.0
@@ -826,6 +861,7 @@ def prune_features(X: pd.DataFrame, features: list[str],
 def load_design(halflife: float = 10.0, min_games: int = 5,
                 with_prior: bool = False, prior_k: float = 0.0,
                 with_rebounds: bool = True,
+                with_home_split: bool = True,
                 games: pd.DataFrame | None = None) -> pd.DataFrame:
     """Everything from the shared module, assembled into one design matrix."""
     g = nd.build_games() if games is None else games
@@ -836,6 +872,25 @@ def load_design(halflife: float = 10.0, min_games: int = 5,
         if len(reb.columns):
             roll = pd.concat(
                 [roll.reset_index(drop=True), reb.reset_index(drop=True)], axis=1)
+    if with_home_split:
+        # Each team's OWN home advantage. Of the four pre-registered candidate
+        # blocks measured in results/feature_block_ablation.json this is the only
+        # one that replicated: -0.00089 nats, CI [-0.00167, -0.00015], |z| 2.29 at
+        # the default seed, and -0.00089 CI [-0.00161, -0.00011] / [-0.00166,
+        # -0.00017] at two further seeds, and -0.00089 CI [-0.00167, -0.00013] at
+        # eight folds instead of five.
+        #
+        # It is included because it is small, replicated and new information -
+        # `home_edge` correlates 0.08 with overall form, so it is close to
+        # orthogonal to everything already in the matrix. It is NOT included as a
+        # win: |z| 2.3 is below this project's bar of 3, and 0.00089 nats is
+        # under a quarter of the availability effect and a thirtieth of what the
+        # closing market beats the model by. The flag exists so the measurement
+        # can be re-run with it off.
+        opp = nd.opponent_adjusted_features(g, halflife=halflife)
+        if len(opp.columns):
+            roll = pd.concat(
+                [roll.reset_index(drop=True), opp.reset_index(drop=True)], axis=1)
     if with_prior and prior_k > 0:
         roll = shrink_to_prior(roll, g, prior_season_features(g, halflife=halflife),
                                prior_k)

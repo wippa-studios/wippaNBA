@@ -432,8 +432,15 @@ def rolling_team_features(games: pd.DataFrame, halflife: float = 10.0,
         on=["GAME_ID", "TEAM_ABBREVIATION"], how="left")
     ff = load_team_fourfactors()
     ff = ff[ff["GAME_ID"].isin(keep_ids)]
-    ffc = [c for c in ("EFG_PCT", "FTA_RATE", "TM_TOV_PCT", "OPP_EFG_PCT",
-                       "ORB_PCT") if c in ff.columns]
+    # OPP_* is the opponent's own characteristic, as this team faced it: the
+    # eFG%, free-throw rate, turnover rate and offensive-rebound share of the
+    # club across the table. Only OPP_EFG_PCT was ever read. The other three sit
+    # in the same table, under the same header, in every downloaded season, and
+    # no model in this repo has ever seen them - the same silent absence as
+    # ORB_PCT/DRB_PCT, one column over.
+    ffc = [c for c in ("EFG_PCT", "FTA_RATE", "TM_TOV_PCT", "ORB_PCT",
+                       "OPP_EFG_PCT", "OPP_FTA_RATE", "OPP_TOV_PCT",
+                       "OPP_OREB_PCT") if c in ff.columns]
     if ffc:
         m = m.merge(ff[["GAME_ID", "TEAM_ABBREVIATION"] + ffc].drop_duplicates(
             subset=["GAME_ID", "TEAM_ABBREVIATION"]),
@@ -465,7 +472,11 @@ def rolling_team_features(games: pd.DataFrame, halflife: float = 10.0,
                       ("PACE", "ewm_pace"), ("TS_PCT", "ewm_ts_pct"),
                       ("EFG_PCT", "ewm_efg"), ("TM_TOV_PCT", "ewm_tov"),
                       ("FTA_RATE", "ewm_ftr"), ("OREB_PCT", "ewm_orb"),
-                      ("DREB_PCT", "ewm_drb")]:
+                      ("DREB_PCT", "ewm_drb"),
+                      ("OPP_EFG_PCT", "ewm_opp_efg"),
+                      ("OPP_FTA_RATE", "ewm_opp_ftr"),
+                      ("OPP_TOV_PCT", "ewm_opp_tov"),
+                      ("OPP_OREB_PCT", "ewm_opp_orb")]:
         if col in m.columns:
             m[name] = _ewm_by_team(m, col, halflife)
 
@@ -625,6 +636,150 @@ def availability_features(games: pd.DataFrame, halflife: float = 15.0) -> pd.Dat
     out["away_expected_minutes_diff"] = (
         -out["home_expected_minutes_diff"])
     return out.drop(columns=["GAME_ID"]).reset_index(drop=True)
+
+
+def opponent_adjusted_features(games: pd.DataFrame,
+                               halflife: float = 10.0) -> pd.DataFrame:
+    """Team form adjusted for WHO the team played, plus a per-team home/away split.
+
+    WHY THIS IS NOT ANOTHER TRANSFORMATION OF WHAT IS ALREADY THERE
+    --------------------------------------------------------------
+    Every decay experiment in this project failed: halflife 5 and 2 are worse than
+    halflife 10, and the static season average is far worse. Those all reweight the
+    SAME numbers. This block uses a quantity the existing feature set never reads
+    at all — the quality of the opposition.
+
+    `ewm_margin` is a team's raw past margin. A team that went 20-10 mostly against
+    weak clubs has a better raw margin than one that went 20-10 against strong
+    ones, and the feature cannot tell the difference. That is not a weighting
+    choice; it is missing information, and no decay speed recovers it.
+
+    Three blocks, all strictly causal:
+
+    ``adj_margin``
+        Each past game contributes that team's margin MINUS its opponent's own
+        margin to date. Beating a good team therefore contributes less than
+        beating a bad one, and the exponentially-weighted mean of the result is a
+        form estimate relative to the competition actually faced.
+
+    ``sos`` (strength of schedule)
+        The exponentially-weighted mean of the opponents faced. Carried as its own
+        feature rather than only being subtracted away, because "this team has run
+        a gauntlet" and "this team has had an easy run" are separately informative.
+
+    ``home_edge``
+        The team's OWN home advantage — its home form minus its away form. The
+        existing feature set has a single constant home indicator for every team
+        in the league; the real quantity varies, and some teams genuinely play
+        differently at home.
+
+    Causality is the same construction as `_ewm_by_team`: shift WITHIN each team
+    before weighting. Every opponent quantity is itself a trailing value, so using
+    it introduces no future information. Verified by truncating the future, which
+    must change nothing here either.
+
+    WHAT THE HALFLIFE MEANS ON THE SPLIT COLUMNS - read before interpreting them
+    -------------------------------------------------------------------------
+    ``ewm_margin_home`` is built by setting the away rows to NaN and passing the
+    column through the same `_ewm_by_team`. pandas' ``ewm`` runs with
+    ``ignore_na=False`` by default, which means a NaN position contributes nothing
+    to the weighted mean but STILL consumes decay. So the split columns are not an
+    EWMA over home games with halflife 10; they are an EWMA whose halflife is
+    counted in ALL games, and since roughly half a team's games are home games the
+    effective halflife is about 20 *home games*, not 10.
+
+    This is stated rather than fixed because changing it would invalidate the
+    measured numbers, and because it is a defensible choice rather than a defect:
+    a halflife measured in games played answers "how recently has this been true,
+    counting the games this team did not play", which is a reasonable thing to
+    want. But it does mean ``ewm_margin_home`` and ``ewm_margin_away`` carry a
+    wider window and more noise than a reader would assume from the parameter -
+    measured sd 6.29 and 5.84 against 5.46 for the pooled ``ewm_margin`` on the same
+    games. That is the reason they are noisier, and it is worth knowing before
+    treating them as sharper estimates of home form than they are.
+    """
+    gp = games[["GAME_ID", "GAME_DATE", "home", "away", "home_pts", "away_pts"]]
+    h = gp.rename(columns={"home": "team", "away": "opp"})[
+        ["GAME_ID", "GAME_DATE", "team", "opp", "home_pts", "away_pts"]]
+    h["is_home"] = True
+    h["margin"] = h["home_pts"] - h["away_pts"]     # the home team's own margin
+    h["opp_margin"] = -h["margin"]                  # ...so the opponent's is the negation
+    a = gp.rename(columns={"away": "team", "home": "opp"})[
+        ["GAME_ID", "GAME_DATE", "team", "opp", "home_pts", "away_pts"]]
+    a["is_home"] = False
+    a["margin"] = a["away_pts"] - a["home_pts"]     # the away team's own margin
+    a["opp_margin"] = -a["margin"]
+    m = pd.concat([h, a], ignore_index=True)
+
+    # Each row's margin is signed FROM THAT ROW'S OWN TEAM'S POINT OF VIEW. An
+    # earlier version computed `home_pts - away_pts` for both rows, which is
+    # correct for the home team and exactly negated for the away one. It did not
+    # raise, and the column names and dtypes all looked right; it surfaced only
+    # as a sanity check failing - the per-team home advantage came out at zero,
+    # because averaging a right-signed series against a left-signed one cancels.
+    m = m.sort_values(["team", "GAME_DATE"]).reset_index(drop=True)
+
+    # Opponent strength AT THE TIME: the opponent's own trailing mean margin.
+    # This is the one place that could leak, so it is built with the same
+    # shift-within-team discipline and then re-keyed back onto this row.
+    #
+    # The frame is keyed on `opp`, not `team`, because it is one row per
+    # (game, OPPONENT). `_ewm_by_team` groups by a column literally named
+    # `team`, so the opponent frame is given one and renamed afterwards - the
+    # grouping discipline has to be identical to the primary frame or the two are
+    # not comparable, and a separate hand-rolled variant is exactly the kind of
+    # duplication that drifts.
+    opp_long = m[["GAME_ID", "opp", "GAME_DATE", "opp_margin"]].rename(
+        columns={"opp": "team", "opp_margin": "opp_margin_to_date"})
+    opp_long = opp_long.sort_values(["team", "GAME_DATE"]).reset_index(drop=True)
+    opp_long["opp_margin_to_date"] = _ewm_by_team(opp_long, "opp_margin_to_date",
+                                                 halflife)
+    opp_long = opp_long.rename(columns={"team": "opp"})
+    m = m.merge(opp_long[["GAME_ID", "opp", "opp_margin_to_date"]],
+                on=["GAME_ID", "opp"], how="left")
+
+    # Margin relative to the opposition faced, and the opposition itself.
+    m["adj_margin"] = m["margin"] - m["opp_margin_to_date"]
+    m["opp_quality"] = m["opp_margin_to_date"]
+
+    # Home and away form separately, then the team's OWN home advantage. The
+    # two are split on a strictly-past flag and weighted within each side.
+    m["home_adj"] = np.where(m["is_home"], m["adj_margin"], np.nan)
+    m["away_adj"] = np.where(~m["is_home"], m["adj_margin"], np.nan)
+    m["home_raw"] = np.where(m["is_home"], m["margin"], np.nan)
+    m["away_raw"] = np.where(~m["is_home"], m["margin"], np.nan)
+
+    m["games_played"] = m.groupby("team").cumcount()
+    for col, name in (("adj_margin", "ewm_adj_margin"),
+                      ("opp_quality", "ewm_sos"),
+                      ("home_adj", "ewm_adj_home"),
+                      ("away_adj", "ewm_adj_away"),
+                      ("home_raw", "ewm_margin_home"),
+                      ("away_raw", "ewm_margin_away")):
+        m[name] = _ewm_by_team(m, col, halflife)
+    m["home_edge"] = m["ewm_margin_home"] - m["ewm_margin_away"]
+
+    # `games_played` is deliberately NOT emitted here. `rolling_team_features`
+    # already produces it under the same names, and two sources writing one
+    # feature means whichever is concatenated second is silently dropped - which
+    # source wins becomes a property of list order rather than of the data.
+    keep = ["GAME_ID", "team", "ewm_adj_margin", "ewm_sos",
+            "ewm_adj_home", "ewm_adj_away", "ewm_margin_home", "ewm_margin_away",
+            "home_edge"]
+    hside = m[m.is_home][keep].rename(columns={c: f"home_{c}" for c in keep
+                                               if c not in ("GAME_ID", "team")})
+    aside = m[~m.is_home][keep].rename(columns={c: f"away_{c}" for c in keep
+                                                if c not in ("GAME_ID", "team")})
+    out = games[["GAME_ID", "home", "away"]].reset_index(drop=True).merge(
+        hside, left_on=["GAME_ID", "home"], right_on=["GAME_ID", "team"], how="left")
+    out = out.merge(aside, left_on=["GAME_ID", "away"], right_on=["GAME_ID", "team"],
+                    how="left", suffixes=("", "_a"))
+    out = out.drop(columns=[c for c in ("team", "team_a") if c in out.columns])
+    if len(out) != len(games):
+        raise AssertionError(
+            f"opponent_adjusted_features produced {len(out)} rows for "
+            f"{len(games)} games - join fanned out")
+    return out.drop(columns=["GAME_ID", "home", "away"]).reset_index(drop=True)
 
 
 def rest_and_travel(games: pd.DataFrame) -> pd.DataFrame:

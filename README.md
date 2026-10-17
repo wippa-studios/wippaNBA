@@ -34,10 +34,10 @@ whether they make money.
 | | |
 |---|---|
 | **The original 68.9% headline was target leakage** | Season-to-date stats were scraped with the game's own result already included. Rebuilt without the leak, accuracy is ~48% on the affected rows. |
-| **The market beats the model decisively** | On 4,076 games with both a prediction and a closing line: market log loss **0.5994** vs the model's **0.6269**, a gap of 0.0275 with the interval entirely on the market's side (\|z\| = 7.78). That is a loss, not a tie. |
+| **The market beats the model decisively** | On 4,076 games with both a prediction and a closing line: market log loss **0.5994** vs the model + availability at **0.6258**, a gap of 0.0264 with the interval entirely on the market's side (|z| = 7.36). That is a loss, not a tie. |
 | **Betting selectively does not rescue it** | The parameter-free rule — bet wherever the model beats the posted price, **both sides considered** — places 3,440 bets and returns **−10.80%**. Not one of six margins is positive. |
 | **Almost everything measured here is a null** | Player ratings, 52 rank columns, gradient boosting, recency weighting, the rebound block: every interval straddles zero. See [the one thing that is not](#the-one-thing-that-is-not-a-null). |
-| **The best model is the simplest sensible one** | Logistic regression (log loss 0.6193) beats XGBoost, HistGradientBoosting and margin/total models. |
+| **The best model is the simplest sensible one** | Logistic regression (log loss 0.6190) beats XGBoost, HistGradientBoosting and margin/total models. |
 | **Do not use the committed model files** | They were trained on the leaked dataset and must be retrained. |
 
 ### Contents
@@ -228,9 +228,9 @@ meaningful signal. That guard lives centrally in `src/DataProviders/nba_data.py`
 which raises `unittest.SkipTest` — so there is exactly one place where "needs data"
 is decided.
 
-#### Current state: 1,001 passing, 0 failing
+#### Current state: 1,020 passing, 0 failing
 
-31 files, measured individually:
+33 files, measured individually:
 
 | test file | tests | what it protects |
 |---|---|---|
@@ -254,6 +254,7 @@ is decided.
 | `test_snapshot_provenance.py` | 14 | that a repeated price is never counted as a trajectory |
 | `test_edge_betting.py` | 13 | the parameter-free betting rule and its pricing control |
 | `test_feature_selection_errors.py` | 13 | that an empty feature list is an error, not a crash |
+| `test_opponent_adjusted.py` | 12 | opponent-quality features: causality, and the margin sign convention |
 | `test_closing_line.py` | 11 | American-odds conversion, de-vigging, and row alignment |
 | `test_create_games.py` | 11 | dataset assembly |
 | `test_boosting_splits.py` | 10 | the 4-way split for gradient boosting |
@@ -261,6 +262,7 @@ is decided.
 | `test_availability.py` | 8 | that availability stays strictly causal and bounded |
 | `test_expected_value.py` | 8 | EV arithmetic |
 | `test_get_odds_data.py` | 8 | odds scraping |
+| `test_data_guard.py` | 7 | that missing *or partial* data skips instead of crashing a loader |
 | `test_recency_ablation.py` | 6 | the recency null stays a null |
 | `test_dataset_manifest.py` | 5 | dataset provenance |
 | `test_get_data.py` | 5 | team-stats scraping |
@@ -268,8 +270,20 @@ is decided.
 
 **Every guard in this table was added because something was measured to be wrong,
 and several exist because a test caught a bug I introduced in the same commit.**
-Three examples worth knowing about:
+Four examples worth knowing about:
 
+- `test_data_guard.py` exists because the guard that skips the suite when the NBA
+  data is absent checked for a *directory*, not for files. An empty `game_logs/`
+  passed it, every glob then returned nothing, and CI failed with
+  `ValueError: No objects to concatenate` — the exact failure the guard was written
+  to prevent, reached by the one route it did not cover. A partial download failed
+  the same way.
+- `test_opponent_adjusted.py` exists because the first version of the
+  opponent-quality block computed `home_pts - away_pts` for **both** rows of the
+  long frame — right for the home team, exactly negated for the away one. Nothing
+  raised and every column looked plausible. It surfaced only as a sanity check
+  failing: the per-team home advantage came out at −0.07, because averaging a
+  right-signed series against a left-signed one cancels.
 - `test_snapshot_provenance.py` exists because `--at` labelled one real price with
   three timestamps, which reported as 100% coverage and a CLV of exactly 0.0 —
   indistinguishable from "the line held".
@@ -336,7 +350,7 @@ python -m src.Models.player_ratings    # player-level ratings
 | margin + total → Φ(m̂/σ) | 0.6204 | 0.2156 | 0.7074 | 0.6562 |
 | XGBoost | 0.6233 | 0.2167 | 0.7030 | 0.6562 |
 | HistGradientBoosting | 0.6236 | 0.2169 | 0.7026 | 0.6526 |
-| **logistic regression (canonical)** | **0.6193** | **0.2150** | **0.7089** | **0.6570** |
+| **logistic regression (canonical)** | **0.6190** | **0.2148** | **0.7093** | **0.6567** |
 
 **What the table actually says.** Four results matter more than the ranking.
 
@@ -395,7 +409,8 @@ Almost every mechanism measured in this project came back flat. These did not.
 | *roster size alone (leak control)* | *+0.00109* | *[-0.00073, +0.00299]* | *straddles zero* |
 | rebound block | +0.00040 | [−0.00026, +0.00104] | null |
 | rank columns (52 cols) | +0.00065 | [−0.00039, +0.00166] | null |
-| schedule block (7 cols) | −0.00194 | [−0.00349, −0.00043] | **lead, not a finding** |
+| schedule block (7 cols) | −0.00203 | [−0.00358, −0.00051] | **lead, not a finding** |
+| per-team home/away split (6 cols) | −0.00089 | [−0.00167, −0.00015] | **replicated, below the bar** |
 | recency weighting (halflife 5, 2) | worse | excludes zero | halflife 10 is already optimal |
 
 **Availability is the first mechanism here whose interval excludes zero for the
@@ -412,23 +427,94 @@ interval straddling zero — so the gain is not "how many people dressed". The
 remaining two thirds is injury news, in-game injury and ejection, which does not
 exist before the game and caps what any model here can achieve.
 
-**The schedule block is a lead, not a finding, and the arithmetic says so.** Six
-blocks were scored. At |z| = 2.49 the two-sided p is 0.0128; a Bonferroni
-threshold for six looks is 0.0083, so it **does not survive multiple-comparison
-correction**, and it does not clear the |z| > 3 bar this project applies to
-selection effects (Vandenbruaene et al. 2022, *J Sports Econ* 23(7) — the null of
-unprofitability survived across 628 implementations). Rest days, back-to-backs,
-3-in-4 and travel distance are the cheapest block in the set and the only one whose
-removal has an interval entirely below zero, so it is worth a pre-registered
-follow-up. It is not a discovery, and presenting it as one would be exactly the
-error the rest of this page exists to prevent.
+**The schedule block is a lead, not a finding, and the arithmetic says so.** Ten
+blocks are now scored against one full frame. At |z| = 2.59 the one-sided p is
+0.005, which sits exactly on a Bonferroni threshold of 0.05/10 for ten looks
+rather than comfortably inside it, and it still does not clear the |z| > 3 bar
+this project applies to selection effects (Vandenbruaene et al. 2022, *J Sports
+Econ* 23(7) — the null of unprofitability survived across 628 implementations).
+Rest days, back-to-backs, 3-in-4 and travel distance are the cheapest block in the
+set and the only one whose removal has a clearly negative interval, so it is worth
+a pre-registered follow-up. It is not a discovery, and presenting it as one would
+be exactly the error the rest of this page exists to prevent.
+
+### The feature search: four candidates, pre-registered
+
+Every decay experiment in this project failed, because all of them reweight the
+*same* numbers the model already has. Faster and slower windows, ranks, four
+factors, rebounds — all transformations. So the next round had to bring
+information the frame did not already contain, and the four candidates were
+**written into the block registry before any was measured**, so that the results
+below cannot be cherry-picked out of a longer search. Reproduce with:
+
+```bash
+python scripts/feature_block_ablation.py --seed 42  --splits 5
+python scripts/feature_block_ablation.py --seed 137 --splits 5
+python scripts/feature_block_ablation.py --seed 2718 --splits 5
+python scripts/feature_block_ablation.py --seed 42 --splits 8
+```
+
+Δ = loss(full) − loss(minus block), so **negative means the block earns its
+place**.
+
+| candidate | the new information | Δ | 95% CI | \|z\| | verdict |
+|---|---|---|---|---|---|
+| opponent-adjusted form | beating a good club counts for less | −0.00004 | [−0.00014, +0.00005] | 0.92 | null |
+| **home/away split** | **each team's *own* home advantage** | **−0.00089** | **[−0.00167, −0.00015]** | **2.29** | **replicated** |
+| strength of schedule | quality of opposition faced | −0.00008 | [−0.00015, −0.00000] | 2.01 | **died in replication** |
+| opponent characteristics | three `OPP_*` columns never read | +0.00000 | [−0.00061, +0.00060] | 0.01 | null |
+
+**One of four is real, and it is small.** The per-team home/away split is the only
+candidate that replicated. Measured −0.00089 nats at three bootstrap seeds
+(−0.00089 [−0.00161, −0.00011] and [−0.00166, −0.00017]) and at eight folds
+instead of five (−0.00089 [−0.00167, −0.00013]) — the point estimate does not move.
+It is worth having, and it is in the canonical model, where it moves log loss from
+0.61956 to **0.61897**.
+
+**It is also plainly below the bar, and both readings matter.** |z| ≈ 2.3 does not
+clear |z| > 3, and one-sided p ≈ 0.011 does not clear a Bonferroni threshold of
+0.005 for ten looks. And the size does not matter: 0.00089 nats is under a
+quarter of the availability effect and about a thirtieth of what the closing
+market beats this model by. It is a real feature, reported at its real size.
+
+**One caveat on how to read the split columns.** They are built by blanking the
+away rows and passing the column through the shared EWMA, and pandas' `ewm` decays
+across NaN positions. So `ewm_margin_home` is not an EWMA over home games with
+halflife 10 — its halflife counts *all* a team's games, making the effective window
+about 20 home games. It is a defensible choice, but it means the split columns are
+noisier than a reader would assume (sd 6.29 and 5.84 against 5.46 for the pooled
+`ewm_margin`), which is part of why the gain is small. Documented in the function.
+
+**Strength of schedule is the instructive failure.** At five folds it excluded
+zero and the script called it a keeper — −0.00008, |z| = 2.01. At eight folds it
+became +0.00000 [−0.00008, +0.00009], |z| = 0.11, **a clean null with the sign
+flipped**. A result that exists only at one fold count is a property of the fold
+count. The script's own verdict text says an exclusion is a candidate for a
+second angle rather than a settled result; this is what following that advice
+looks like, and it is why that sentence is in the code.
+
+**Opponent-adjusted form was a null, exactly as predicted.** Its correlation with
+the `ewm_margin` it adjusts is 0.98 — it is largely a rearrangement of information
+the frame already had, written down as a prior before measuring. The prior was
+right. What made `home/away split` different is visible in the same diagnostic:
+`home_edge` correlates **0.08** with overall form, so it is close to orthogonal to
+everything else in the matrix. New information and a rearrangement look identical
+in a column list; only the correlation distinguishes them, and only after the fact.
+
+**Opponent characteristics is the silent-absence bug again.** `OPP_FTA_RATE`,
+`OPP_TOV_PCT` and `OPP_OREB_PCT` sit in the same table, under the same header, in
+every downloaded season — and no model in this repo had ever read them. Only
+`OPP_EFG_PCT` was used. It is structurally the same defect as the rebound
+percentages that were missing from every model until `src/Utils/features.py` was
+asked to name them, and the result is the same: +0.00000. They are now in the
+frame and in the registry, so they are measured rather than invisible.
 
 ### Compared with the original model
 
 | | data | rows | validation | log loss | AUC |
 |---|---|---|---|---|---|
 | original logistic regression | scraped odds | 17,356 | chronological 90/10 | 0.6189 | 0.7084 |
-| logistic regression (this fork) | NBA game logs | 13,199 | 5× walk-forward | 0.6193 | 0.7089 |
+| logistic regression (this fork) | NBA game logs | 13,199 | 5× walk-forward | 0.6190 | 0.7093 |
 
 **These two numbers are not a like-for-like comparison, and the near-identical values
 are a coincidence rather than a result.** Different games, different coverage,
@@ -447,13 +533,37 @@ the legacy dataset.
 |---|---|---|---|---|
 | always bet home | 0.68704 | 0.24695 | 0.5000 | 0.5552 |
 | **market (closing ML, de-vigged)** | **0.59940** | **0.20634** | **0.7337** | **0.6813** |
-| model | 0.62903 | 0.21927 | 0.6944 | 0.6411 |
-| model + availability | 0.62693 | 0.21827 | 0.6979 | 0.6455 |
+| model | 0.62777 | 0.21868 | 0.6964 | 0.6470 |
+| model + availability | 0.62581 | 0.21771 | 0.6998 | 0.6528 |
 
 **The market wins decisively, and this is not a null.** Model + availability trails
-by 0.02753 nats, CI [−0.03445, −0.02059], |z| = 7.78 — the interval excludes zero
+by 0.02641 nats, CI [−0.03339, −0.01932], |z| = 7.36 — the interval excludes zero
 on the market's side. What an efficient market looks like against a model built on
-the same public information.
+the same public information. The market row is unchanged from the previous
+measurement, which is the useful part: same prices, same games, so the movement
+below is entirely the model.
+
+**The feature work moved this number the wrong way, by an amount worth naming.**
+Adding the home/away split improved the *canonical* model from 0.61956 to 0.61897,
+but this comparison's own scorer went from 0.62693 to 0.62581 for availability and
+the plain model went 0.62903 → 0.62777, leaving the gap at 0.02641 against
+0.02753 before. The split did not help *here*.
+
+That is not a contradiction, and the reason is in `scripts/closing_line.py`: it
+builds its **own** feature frame rather than calling
+`logreg_rolling.load_design`, so it feeds the raw per-side columns instead of the
+contrasts the canonical model uses, and the sixteen new columns arrive without the
+differencing that makes them informative. It is also the fourth time in this repo
+that a duplicated feature definition drifted independently — after the drop lists
+(#14, #28), the availability block (#30) and `margin_sweep`. The block was added
+here explicitly, and the discrepancy is recorded rather than papered over by
+reporting only the flattering half.
+
+The honest summary is that the split is worth about 0.0006 nats on the model that
+differences its features, and nothing measurable on the one that does not. Either
+way the market is 0.026 nats ahead — roughly **7×** the availability effect, the
+best prediction improvement this project has found, and about **30×** the split's
+own.
 
 #### Being selective does not help — including backing underdogs
 
@@ -494,6 +604,39 @@ is a broken price, not an edge.
 **Conclusion: no demonstrated betting edge, in either direction.** What *is* solid
 is the market's side, and the availability result below is a genuine improvement to
 *prediction* that a 4% bookmaker already exceeds.
+
+#### A number in the committed output that looks good, and why it is not one
+
+`scripts/closing_line.py` also prints a threshold sweep, and two of its cells look
+like an edge:
+
+| threshold | bets | model ROI | \|z\| | model + availability ROI | \|z\| |
+|---|---|---|---|---|---|
+| 0.55 | 815 | +11.76% | 2.22 | +13.54% | 2.54 |
+| 0.60 | 638 | +6.19% | 1.02 | +3.52% | 0.59 |
+| 0.65 | 478 | −2.11% | 0.30 | +0.07% | 0.01 |
+
+**This is the failure mode this project exists to avoid, printed by its own
+script, and it is recorded here rather than left in `results/closing_line.json`
+for someone to find later.** Three things disqualify it, and none of them is
+"the number is small":
+
+1. **It is threshold-swept.** Three thresholds, and the two largest are the two
+   lowest thresholds — the part of the sweep where you bet most often and so have
+   the least room to be wrong about the price. Picking the best of three is a
+   multiple-comparisons problem, and the script's own verdict text says so.
+2. **Neither clears |z| > 3.** 2.22 and 2.54 are the bar this project adopted from
+   Vandenbruaene et al. (2022), whose null of unprofitability survived 628
+   implementations.
+3. **It contradicts the parameter-free rule measured on more games.** The
+   breakeven table above places 3,440 bets across 4,076 games and returns
+   **−10.80%**. The sweep here places 815 on a subset of the same games and returns
+   +13.54%. One of the two is selection. Given that the untuned rule loses and the
+   tuned rule wins, the tuned number is the one that should be believed least.
+
+The threshold sweep is left in the script because deleting the output that
+disagrees with the conclusion is worse than publishing it with the reasoning
+attached.
 
 ---
 
@@ -687,9 +830,9 @@ for games already played.
    `python scripts/closing_line.py`.
 2. **The model is worse than the market it is trying to beat**, and the gap is now
    measured rather than inferred from accuracy. On 4,076 games with both a prediction
-   and a closing line: market log loss **0.59940** against the model's **0.62693**, a
-   gap of 0.02753 with CI [−0.03445, −0.02059] — the interval excludes zero on the
-   market's side, |z| = 7.78.
+   and a closing line: market log loss **0.59940** against model + availability's
+   **0.62581**, a gap of 0.02641 with CI [−0.03339, −0.01932] — the interval excludes
+   zero on the market's side, |z| = 7.36.
 3. **Accuracy is not profitability, and log loss is closer to profitability than
    accuracy is.** The market has both the best accuracy (0.6813) *and* the best log
    loss (0.59940); a model could beat it on one and still lose money on the other.

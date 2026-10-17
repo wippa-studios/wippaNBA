@@ -298,7 +298,14 @@ class TestFeaturesAreStrictlyCausal(unittest.TestCase):
     def test_no_feature_column_comes_from_a_snapshot_table(self):
         """``snapshots/`` is a season-end aggregate; in-season features must not
         touch it. Every design column has to be one this module derives from the
-        shared per-game builders, by construction."""
+        shared per-game builders, by construction.
+
+        This guard earns its keep on every feature block that gets added. The
+        per-team home/away split failed it the moment it landed — three columns
+        with no declared origin — which is the correct outcome: a new feature that
+        nobody had to declare where it came from is exactly how a snapshot-fed or
+        otherwise leaking column gets in unnoticed.
+        """
         g = real_games()
         sched_cols = set(lr.rest_features(g.reset_index(drop=True),
                                           nd.rest_and_travel(g).reset_index(drop=True)
@@ -306,6 +313,7 @@ class TestFeaturesAreStrictlyCausal(unittest.TestCase):
         allowed = ({n for n, _, _ in lr.RATING_PAIRS}
                    | {n for n, _, _ in lr.MATCHUP_PAIRS}
                    | {n for n, _, _ in lr.REBOUND_PAIRS}
+                   | {n for n, _, _ in lr.HOME_SPLIT_PAIRS}
                    | {"pace_mean", lr.HOME_COLUMN}
                    | sched_cols)
         produced = set(real_design().columns)

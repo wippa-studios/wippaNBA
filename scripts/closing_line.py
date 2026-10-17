@@ -179,6 +179,17 @@ def model_probs(games: pd.DataFrame, splits, with_availability: bool) -> tuple[n
     sched = nd.rest_and_travel(games)
     keep = lambda d: d.select_dtypes(include=[np.number])  # noqa: E731
     parts = [keep(roll).reset_index(drop=True), keep(sched).reset_index(drop=True)]
+    # The per-team home/away split. Added here explicitly rather than by calling
+    # `logreg_rolling.load_design`, because this function also has to switch
+    # availability on and off and needs its own frame for that.
+    #
+    # That is a duplicated feature definition, which is how the drop lists (#14,
+    # #28), the availability block (#30) and `margin_sweep` have each drifted
+    # independently. It has now happened a fourth time: the split was added to the
+    # canonical model and this file would have silently kept comparing the market
+    # against the OLD model. Listed here so the omission is visible.
+    parts.append(keep(nd.opponent_adjusted_features(
+        games, halflife=10.0)).reset_index(drop=True))
     if with_availability:
         parts.append(nd.availability_features(games).reset_index(drop=True))
     X = pd.concat(parts, axis=1)
