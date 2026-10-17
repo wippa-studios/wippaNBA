@@ -387,6 +387,24 @@ incompatible days-rest formulas existed across training and inference.
 Each of these is built and tested. None is wired into the runtime yet — that is
 the next deliberate step, tracked in [ROADMAP.md](ROADMAP.md).
 
+### Measurement scripts
+
+Four scripts exist to answer questions rather than to produce artifacts. Each
+reports a **paired bootstrap interval** and never a bare point estimate, because
+almost every effect measured on this data is of order 0.001–0.003 nats and a point
+estimate at that scale is noise dressed as a finding.
+
+```bash
+python scripts/closing_line.py            # does any of this beat the closing line?
+python scripts/availability.py            # is the availability effect attainable honestly?
+python scripts/feature_block_ablation.py  # does each feature block earn its place?
+python scripts/recency_followup.py        # does recency weighting help?
+```
+
+`closing_line.py` is the one that settles the question the rest of this work exists
+to inform. Its answer is no, and it prints every betting configuration it scored
+rather than the best one.
+
 | Module | What it is for |
 |---|---|
 | `scripts/evaluate.py` | One command that reproduces every number in this README. Opens with a **leakage gate** that refuses to report accuracy on a contaminated dataset, then reports baselines, model metrics, the closing-line favourite, and ROI with standard errors. Degrades explicitly rather than scoring a partial odds join. |
