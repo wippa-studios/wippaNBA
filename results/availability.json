@@ -1,0 +1,40 @@
+{
+  "n_games": 13199,
+  "baseline_log_loss": 0.6195216141022644,
+  "arms": {
+    "control_roster_size_only": {
+      "delta": 0.0010909236667463462,
+      "ci_lo": -0.0007332543366108917,
+      "ci_hi": 0.0029933259718182043,
+      "p_positive": 0.87,
+      "n_boot": 2000
+    },
+    "strict_roster_expected": {
+      "delta": 0.0037472640075607577,
+      "ci_lo": 0.002005880632663501,
+      "ci_hi": 0.0055309654344097205,
+      "p_positive": 1.0,
+      "n_boot": 2000
+    },
+    "expected_over_actual_squad": {
+      "delta": 0.010810019253814973,
+      "ci_lo": 0.007373287601590122,
+      "ci_hi": 0.014193985906583002,
+      "p_positive": 1.0,
+      "n_boot": 2000
+    },
+    "full_leak_actual_minutes": {
+      "delta": 0.010892752261297267,
+      "ci_lo": 0.007460617350531407,
+      "ci_hi": 0.014319114106052003,
+      "p_positive": 1.0,
+      "n_boot": 2000
+    }
+  },
+  "expected_vs_actual_correlation": 0.06011103057934822,
+  "previously_measured_leaky_delta": 0.00975,
+  "previously_measured_leaky_ci": [
+    -0.01349,
+    -0.0059
+  ]
+}
