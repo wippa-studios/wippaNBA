@@ -157,4 +157,4 @@ venv.bak/
 
 # The 382 MB NBA download. A local symlink or a real copy both belong here:
 # committing either would add hundreds of megabytes to the repository.
-data/
+data
