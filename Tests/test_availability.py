@@ -13,7 +13,7 @@ leak, and a leak that produces excellent numbers is worse than no model at all.
 These tests pin the bounded claim, which is much smaller than the leak:
 
     roster size ONLY (leak control)     +0.00109   CI [-0.00073, +0.00299]  straddles zero
-    STRICT-ROSTER expected minutes      +0.00375   CI [+0.00201, +0.00553]  EXCLUDES ZERO
+    STRICT-ROSTER expected minutes      +0.00382   CI [+0.00230, +0.00547]  EXCLUDES ZERO
     expected over ACTUAL squad          +0.01081   EXCLUDES ZERO
     ACTUAL minutes (full leak)          +0.01089   EXCLUDES ZERO
 
@@ -75,7 +75,18 @@ class TestStrictRosterIsStrictlyPast(unittest.TestCase):
                         "team's first game on record")
 
     def test_truncating_the_future_changes_nothing(self):
-        """The property the whole claim rests on."""
+        """The property the whole claim rests on.
+
+        The tolerance is 1e-9 rather than exact equality, and the reason is worth
+        stating: the sum is a `merge_asof` lookup over a frame whose LENGTH differs
+        between the two calls, so the order floats are summed in differs and the
+        result carries ~1e-14 of rounding. Observed maximum drift is 5.68e-14.
+
+        Exact `== 0` here would fail on that noise while passing on a genuine leak
+        of any size below the tolerance - so the check is a tight bound, and the
+        NaN pattern is compared exactly, because a cell that becomes finite when
+        future data is added is a leak with no tolerance that could excuse it.
+        """
         import importlib.util
         spec = importlib.util.spec_from_file_location(
             "avail_script", ROOT / "scripts" / "availability.py")
@@ -83,16 +94,20 @@ class TestStrictRosterIsStrictlyPast(unittest.TestCase):
         spec.loader.exec_module(mod)
 
         sub = self.games.head(3000)
-        a = mod.strict_roster_expectation(sub)
-        b = mod.strict_roster_expectation(self.games.head(4500)).head(len(sub))
-        a = a.reset_index(drop=True)
-        b = b.reset_index(drop=True)
+        a = mod.strict_roster_expectation(sub).reset_index(drop=True)
+        b = mod.strict_roster_expectation(
+            self.games.head(4500)).head(len(sub)).reset_index(drop=True)
+        tol = 1e-9
         for c in ("home_sexp", "away_sexp", "sexp_diff"):
             x = a[c].to_numpy(float)
             y = b[c].to_numpy(float)
-            m = np.isfinite(x) & np.isfinite(y)
-            self.assertEqual(np.nanmax(np.abs(x[m] - y[m])), 0.0,
-                             f"{c} changed when future games were added")
+            # A NaN pattern that changes under truncation is a leak outright.
+            self.assertTrue((np.isfinite(x) == np.isfinite(y)).all(),
+                            f"{c}: finiteness pattern changed when future games "
+                            f"were added, which is a leak")
+            m = np.isfinite(x)
+            self.assertLess(float(np.nanmax(np.abs(x[m] - y[m]))), tol,
+                            f"{c} moved by more than {tol} when future games were added")
 
     def test_expected_minutes_never_uses_the_current_game(self):
         import importlib.util
@@ -144,10 +159,10 @@ class TestTheBoundedClaimStaysBounded(unittest.TestCase):
         self.assertGreater(d["ci_hi"], 0.0)
 
     def test_the_honest_share_is_a_minority_of_the_leak(self):
-        """34% is the honest share. It must never be reported as the whole.
+        """35% is the honest share. It must never be reported as the whole.
 
-        The leaky arm is an order of magnitude more impressive and entirely
-        unattainable. Asserting the ratio keeps the two from being conflated.
+        The leaky arm is three times more impressive and entirely unattainable.
+        Asserting the ratio keeps the two from being conflated.
         """
         arms = self.data["arms"]
         honest = arms["strict_roster_expected"]["delta"]

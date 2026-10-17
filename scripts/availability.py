@@ -108,43 +108,23 @@ def _ewm_by_player(df: pd.DataFrame, value: str, halflife: float) -> pd.Series:
 def strict_roster_expectation(games: pd.DataFrame, halflife: float = 15.0) -> pd.DataFrame:
     """Expected minutes summed over the team's PREVIOUS game's squad.
 
-    `availability_frame` sums expected minutes over the players who ACTUALLY
-    appeared, which is not available before tip-off: a team missing its star has a
-    smaller sum, so the column carries a little post-hoc knowledge. The measured
-    size of that leak is small (+0.00109, interval straddling zero) but it is not
-    zero, and it is the difference between an honest claim and an inflated one.
+    Delegates to the SHARED implementation in `nba_data.availability_features`, so
+    the number this script publishes is produced by the code the models actually
+    use. An earlier draft of this function carried its own copy of the logic and
+    that copy leaked: it looked each player's expectation up by `groupby().last()`,
+    which is the player's most recent value ANYWHERE in the frame rather than as
+    of the game being predicted. Truncating the future exposed it immediately.
 
-    This version uses the squad from the team's previous game instead - known
-    before tip-off whatever happens tonight. In a 30-day window the two squads
-    differ only by injury, so this is exactly the availability signal minus the
-    leak, and it is the arm worth quoting.
+    A duplicated implementation of a causal feature is exactly as dangerous as a
+    duplicated drop list - it looks like a convenience and it silently drifts.
     """
-    pm = player_minutes()
-    pm["expected_min"] = _ewm_by_player(pm, "MIN", halflife)
-    emap = (pm.dropna(subset=["expected_min"])
-            .groupby("PLAYER_ID")["expected_min"].last().to_dict())
-
-    squad = (pm.groupby(["TEAM_ABBREVIATION", "GAME_ID", "GAME_DATE"], as_index=False)
-             .agg(squad=("PLAYER_ID", lambda s: frozenset(s))))
-    squad = squad.sort_values(["TEAM_ABBREVIATION", "GAME_DATE"]).reset_index(drop=True)
-    squad["prev_squad"] = squad.groupby("TEAM_ABBREVIATION", sort=False)["squad"].shift(1)
-    squad["prev_sum"] = [
-        sum(emap.get(p, 0.0) for p in ps) if isinstance(ps, frozenset) else np.nan
-        for ps in squad["prev_squad"]
-    ]
-
-    d = games[["GAME_ID", "home", "away"]]
-    h = d.merge(squad[["GAME_ID", "TEAM_ABBREVIATION", "prev_sum"]],
-                left_on=["GAME_ID", "home"],
-                right_on=["GAME_ID", "TEAM_ABBREVIATION"], how="left"
-                ).rename(columns={"prev_sum": "home_sexp"})
-    a = d.merge(squad[["GAME_ID", "TEAM_ABBREVIATION", "prev_sum"]],
-                left_on=["GAME_ID", "away"],
-                right_on=["GAME_ID", "TEAM_ABBREVIATION"], how="left"
-                ).rename(columns={"prev_sum": "away_sexp"})
-    out = h[["GAME_ID", "home_sexp"]].merge(a[["GAME_ID", "away_sexp"]], on="GAME_ID")
-    out["sexp_diff"] = out["home_sexp"] - out["away_sexp"]
-    return out[["GAME_ID", "home_sexp", "away_sexp", "sexp_diff"]]
+    out = nd.availability_features(games, halflife=halflife)
+    return pd.DataFrame({
+        "GAME_ID": games["GAME_ID"].to_numpy(),
+        "home_sexp": out["home_expected_minutes"].to_numpy(),
+        "away_sexp": out["away_expected_minutes"].to_numpy(),
+        "sexp_diff": out["home_expected_minutes_diff"].to_numpy(),
+    })
 
 
 def availability_frame(games: pd.DataFrame, halflife: float = 15.0) -> pd.DataFrame:

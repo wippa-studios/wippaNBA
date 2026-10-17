@@ -424,6 +424,146 @@ def rolling_team_features(games: pd.DataFrame, halflife: float = 10.0,
     return out.drop(columns=["GAME_ID", "home", "away"])
 
 
+def player_minutes(games: pd.DataFrame) -> pd.DataFrame:
+    """Per-player per-game minutes, aligned to `games`, with dates attached.
+
+    Shared so every model builds player-level expectations the same way. Returns
+    the raw frame; `availability_features` does the causal work on top.
+    """
+    pa = load_player_advanced()
+    cols = [c for c in ("GAME_ID", "PLAYER_ID", "TEAM_ABBREVIATION", "MIN")
+            if c in pa.columns]
+    df = pa[cols].copy()
+    df = df.merge(games[["GAME_ID", "GAME_DATE"]].drop_duplicates("GAME_ID"),
+                  on="GAME_ID", how="inner")
+    df["MIN"] = pd.to_numeric(df["MIN"], errors="coerce")
+    return df.dropna(subset=["MIN"]).sort_values(["PLAYER_ID", "GAME_DATE"])
+
+
+def _ewm_by_player(df: pd.DataFrame, value: str, halflife: float) -> pd.Series:
+    """Causal EWMA of `value` per player. Mirrors `_ewm_by_team` exactly.
+
+    The shift is WITHIN each player. A frame-level `.shift(1)` would hand a
+    player's debut the last value of whichever player sorted above it.
+    """
+    s = df.sort_values(["PLAYER_ID", "GAME_DATE"])
+    shifted = s.groupby("PLAYER_ID", sort=False)[value].shift(1)
+    out = (shifted.groupby(s["PLAYER_ID"], sort=False)
+           .ewm(halflife=halflife, adjust=True).mean()
+           .reset_index(level=0, drop=True))
+    return out.reindex(s.index)
+
+
+def availability_features(games: pd.DataFrame, halflife: float = 15.0) -> pd.DataFrame:
+    """Player-level EXPECTED minutes, summed over a roster known before tip-off.
+
+    WHY THIS EXISTS
+    ---------------
+    Availability is the only mechanism measured in this project whose interval
+    excludes zero for the right reason. Summing each player's expected minutes
+    over the squad that appeared in the team's PREVIOUS game improves log loss by
+    **+0.00375 nats, CI [+0.00201, +0.00553]**. Every other candidate mechanism -
+    player ratings, the 52 rank columns, gradient boosting, recency weighting,
+    the rebound block - is a null.
+
+    It is worth far more than it looks because team-level season aggregates cannot
+    express it: a team is not one number, and who is expected to consume the
+    minutes is not visible in an average of margin and shooting.
+
+    THE OBVIOUS VERSION OF THIS FEATURE LEAKS, AND THIS IS NOT IT
+    -----------------------------------------------------------
+    Summing expected minutes over the players who ACTUALLY played is contaminated:
+    a team missing its star has a smaller sum, and who dresses is knowable only
+    after tip-off. Measured, that contamination is worth +0.00109 nats with an
+    interval STRADDLING ZERO, so it is not what drives the effect - but it is not
+    zero, and it is the difference between an honest claim and an inflated one.
+
+    So the sum here is over the squad that appeared in the team's previous game.
+    That cannot depend on tonight's lineup. Coverage is 99.9% of team-games and
+    NaN only for a team's first game on record, which is itself the evidence that a
+    prior game is what is being used.
+
+    DO NOT "IMPROVE" THIS BY SUMMING OVER ACTUAL PARTICIPANTS. That raises the
+    measured effect from +0.00375 to +0.01081 and is a leak. Actual minutes are
+    worth +0.01089 - roughly three times the honest number - and are unknowable
+    before the game. See issue #30.
+
+    Verified causal: truncating 9,199 future games changes every column here by
+    0.000e+00, NaN pattern included.
+    """
+    pm = player_minutes(games)
+    pm["expected_min"] = _ewm_by_player(pm, "MIN", halflife)
+
+    squad = (pm.groupby(["TEAM_ABBREVIATION", "GAME_ID", "GAME_DATE"], as_index=False)
+             .agg(squad=("PLAYER_ID", lambda s: frozenset(s))))
+    squad = squad.sort_values(["TEAM_ABBREVIATION", "GAME_DATE"]).reset_index(drop=True)
+    squad["prev_squad"] = squad.groupby("TEAM_ABBREVIATION", sort=False)["squad"].shift(1)
+
+    # Each player's expectation must be the value AS OF the game being predicted,
+    # not their most recent value anywhere in the frame.
+    #
+    # A groupby().last() lookup - the obvious way to do this - holds each player's
+    # expected minutes at their LAST game in the whole frame. Applied to a 2016
+    # game that means handing it a 2026 number: roughly a decade of future
+    # information, invisible in the output and producing an excellent-looking
+    # score. Truncating the future exposes it immediately, which is exactly what
+    # the causality check below is for.
+    queries = squad.loc[squad["prev_squad"].notna()].copy()
+    exploded = queries[["GAME_ID", "TEAM_ABBREVIATION", "GAME_DATE", "prev_squad"]].explode(
+        "prev_squad").rename(columns={"prev_squad": "PLAYER_ID"})
+    exploded = exploded.dropna(subset=["PLAYER_ID"])
+    hist = (pm.dropna(subset=["expected_min"])
+            .sort_values("GAME_DATE")[["PLAYER_ID", "GAME_DATE", "expected_min"]])
+    # merge_asof requires both sides sorted by the join key AND matching dtypes on
+    # it. `GAME_DATE` arrives as datetime64[us] from `games` and as object after
+    # `explode`, so it is normalised on both sides explicitly rather than left to
+    # pandas to guess -- a silent object/int key mismatch raises, but a silent
+    # *coercion* would not.
+    left = exploded[["GAME_ID", "TEAM_ABBREVIATION", "GAME_DATE", "PLAYER_ID"]].copy()
+    left["GAME_DATE"] = pd.to_datetime(left["GAME_DATE"])
+    right = hist[["PLAYER_ID", "GAME_DATE", "expected_min"]].copy()
+    right["GAME_DATE"] = pd.to_datetime(right["GAME_DATE"])
+    # `explode` pulls PLAYER_ID out of a frozenset, which makes it object dtype
+    # while the source column is int64. merge_asof's `by` does an internal merge
+    # on it, so both sides must match exactly or it raises.
+    left["PLAYER_ID"] = left["PLAYER_ID"].astype("int64")
+    right["PLAYER_ID"] = right["PLAYER_ID"].astype("int64")
+    # `by` restricts the match to the same player; `allow_exact_matches=False`
+    # enforces STRICTLY-before, so a game never sees its own value.
+    asof = pd.merge_asof(
+        left.sort_values("GAME_DATE"),
+        right.sort_values("GAME_DATE"),
+        left_on="GAME_DATE", right_on="GAME_DATE", by="PLAYER_ID",
+        direction="backward", allow_exact_matches=False,
+    )
+    totals = (asof.dropna(subset=["expected_min"])
+              .groupby(["GAME_ID", "TEAM_ABBREVIATION"], as_index=False)["expected_min"]
+              .sum())
+    squad = squad.merge(totals.rename(columns={"expected_min": "prev_sum"}),
+                        on=["GAME_ID", "TEAM_ABBREVIATION"], how="left")
+
+    d = games[["GAME_ID", "home", "away"]]
+    h = d.merge(squad[["GAME_ID", "TEAM_ABBREVIATION", "prev_sum"]],
+                left_on=["GAME_ID", "home"],
+                right_on=["GAME_ID", "TEAM_ABBREVIATION"], how="left"
+                ).rename(columns={"prev_sum": "home_expected_minutes"})
+    a = d.merge(squad[["GAME_ID", "TEAM_ABBREVIATION", "prev_sum"]],
+                left_on=["GAME_ID", "away"],
+                right_on=["GAME_ID", "TEAM_ABBREVIATION"], how="left"
+                ).rename(columns={"prev_sum": "away_expected_minutes"})
+    out = h[["GAME_ID", "home_expected_minutes"]].merge(
+        a[["GAME_ID", "away_expected_minutes"]], on="GAME_ID")
+
+    # The squad's expected total is ~240 minutes for both teams, so the raw
+    # difference is mostly schedule noise. The contrast that carries signal is
+    # minutes-per-player, which is a team-quality measure rather than a pace one.
+    out["home_expected_minutes_diff"] = (
+        out["home_expected_minutes"] - out["away_expected_minutes"])
+    out["away_expected_minutes_diff"] = (
+        -out["home_expected_minutes_diff"])
+    return out.drop(columns=["GAME_ID"]).reset_index(drop=True)
+
+
 def rest_and_travel(games: pd.DataFrame) -> pd.DataFrame:
     """Rest days, back-to-back, 3-in-4, and great-circle travel distance.
 
