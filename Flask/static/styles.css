@@ -704,3 +704,176 @@ h3 {
     color: var(--text);
     background: rgba(255, 255, 255, 0.06);
 }
+
+/* Schedule (/games) */
+.day-nav {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 24px;
+}
+
+.day-nav-link {
+    font-size: 14px;
+    color: var(--muted);
+    padding: 8px 14px;
+    border-radius: 999px;
+    border: 1px solid var(--stroke);
+    transition: color 0.2s ease, border-color 0.2s ease;
+}
+
+.day-nav-link:hover {
+    color: var(--text);
+    border-color: rgba(255, 255, 255, 0.2);
+}
+
+.day-nav-current {
+    font-family: "Space Grotesk", sans-serif;
+    font-size: 15px;
+    letter-spacing: 0.6px;
+}
+
+.games-count {
+    color: var(--muted);
+    font-size: 14px;
+    margin: 0 0 18px;
+}
+
+.games-notice {
+    padding: 28px;
+    border-radius: var(--radius-lg);
+    border: 1px solid var(--stroke);
+    background: var(--surface);
+    box-shadow: var(--shadow);
+}
+
+.games-notice-title {
+    font-size: 20px;
+    margin-bottom: 10px;
+}
+
+.games-notice p {
+    color: var(--muted);
+    margin: 0;
+    line-height: 1.6;
+    max-width: 62ch;
+}
+
+.schedule-card {
+    margin-bottom: 18px;
+}
+
+.schedule-status {
+    font-weight: 600;
+    letter-spacing: 0.6px;
+    text-transform: uppercase;
+}
+
+.status-chip.status-scheduled {
+    background: rgba(47, 124, 246, 0.18);
+    color: #9dc4ff;
+}
+
+.status-chip.status-live {
+    background: rgba(45, 211, 111, 0.2);
+    color: var(--positive);
+}
+
+.status-chip.status-final {
+    background: rgba(255, 255, 255, 0.1);
+    color: var(--muted);
+}
+
+.status-chip.status-unknown {
+    background: rgba(242, 201, 76, 0.18);
+    color: var(--accent-3);
+}
+
+.schedule-clock {
+    color: var(--muted);
+    font-size: 13px;
+    padding: 4px 10px;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.06);
+}
+
+.team-lines {
+    display: grid;
+    gap: 10px;
+}
+
+.team-line {
+    display: grid;
+    grid-template-columns: 56px 44px minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 14px;
+    padding: 12px 14px;
+    border-radius: var(--radius-md);
+    border: 1px solid var(--stroke);
+    background: rgba(11, 16, 30, 0.75);
+}
+
+.team-line-away {
+    border-left: 3px solid rgba(47, 124, 246, 0.55);
+}
+
+.team-line-home {
+    border-left: 3px solid rgba(35, 214, 198, 0.55);
+}
+
+.team-side {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 1.4px;
+    color: var(--muted);
+}
+
+/* The tricode monogram stands in for a logo on purpose. ScoreboardV3 returns no
+   logo URL, and hotlinking a third-party CDN for one would put an unversioned
+   external dependency in front of every card. This always renders. */
+.team-monogram {
+    display: grid;
+    place-items: center;
+    height: 36px;
+    border-radius: 12px;
+    background: linear-gradient(135deg, #2f7cf6 0%, #23d6c6 100%);
+    color: #06101f;
+    font-family: "Space Grotesk", sans-serif;
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+}
+
+.team-fullname {
+    font-size: 16px;
+    font-weight: 600;
+    overflow-wrap: anywhere;
+}
+
+.team-fullname small {
+    display: block;
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--muted);
+}
+
+.team-points {
+    font-family: "Space Grotesk", sans-serif;
+    font-size: 24px;
+    font-weight: 600;
+    min-width: 2ch;
+    text-align: right;
+}
+
+@media (max-width: 720px) {
+    .team-line {
+        grid-template-columns: 44px 40px minmax(0, 1fr) auto;
+        gap: 10px;
+    }
+
+    .team-points {
+        font-size: 20px;
+    }
+}

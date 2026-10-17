@@ -238,6 +238,32 @@ FEATURE_BLOCKS: dict[str, dict[str, object]] = {
         "note": "OPP_FTA_RATE / OPP_TOV_PCT / OPP_OREB_PCT, present in every "
                 "downloaded season and never read by any model here",
     },
+    # ---------------------------------------------------------------------
+    # PLAYER-LEVEL ELO, TOTALLED OVER THE EXPECTED-AVAILABLE ROSTER.
+    #
+    # Every other feature in this repo describes an INSTITUTION. This one
+    # describes people: each player carries an online Elo rating, and the feature
+    # is the sum of `rating x expected minutes` over the squad expected to be
+    # available tonight. It exists because the one mechanism in this project that
+    # is NOT a null is availability (+0.00382 nats), and that mechanism can only
+    # discount a roster by WHO is in it if something knows who that is.
+    #
+    # `src/Models/player_ratings.py` already found RAPM-style player ratings a
+    # null across three families and both estimation methods. This is a different
+    # estimator - sequential, online, one parameter - aimed at a different
+    # question. It is also the block most likely to be a duplicate of team form:
+    # a player's rating is largely a measure of the team he plays for, so this may
+    # turn out to be a 1500-scaled restatement of `ewm_margin`. The measured
+    # correlation is printed alongside the ablation for exactly that reason.
+    #
+    # Availability means EXPECTED, from trailing minutes. `AVAILABLE_FLAG` in the
+    # source data is written after the game and would be a leak.
+    # ---------------------------------------------------------------------
+    "player_elo": {
+        "columns": _sides("elo_available", "elo_mean", "elo_top5"),
+        "note": "per-player Elo summed (or averaged) over the expected-available "
+                "squad, weighted by expected minutes",
+    },
     "net_rating": {
         "columns": ["home_ewm_net_rating", "away_ewm_net_rating"],
         "note": "documented as redundant with off - def; scored to check",
@@ -362,6 +388,7 @@ def build_feature_frame(games: pd.DataFrame, halflife: float = HALFLIFE,
     roll = nd.rolling_team_features(games, halflife=halflife, min_games=MIN_GAMES)
     sched = nd.rest_and_travel(games)
     opp = nd.opponent_adjusted_features(games, halflife=halflife)
+    elo = nd.player_elo_features(games, halflife=halflife)
 
     keep = lambda d: d.select_dtypes(include=[np.number])  # noqa: E731
     # roll and sched each carry a GAME_DATE; concatenating datetime columns hands
@@ -369,7 +396,8 @@ def build_feature_frame(games: pd.DataFrame, halflife: float = HALFLIFE,
     # maintaining a delete-list.
     blocks = [keep(roll).reset_index(drop=True),
               keep(sched).reset_index(drop=True),
-              keep(opp).reset_index(drop=True)]
+              keep(opp).reset_index(drop=True),
+              keep(elo).reset_index(drop=True)]
     if include_ranks:
         blocks.append(league_rank_features(games, roll).reset_index(drop=True))
 

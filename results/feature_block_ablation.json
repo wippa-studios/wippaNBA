@@ -1,11 +1,11 @@
 {
-  "generated_utc": "2026-10-17T11:55:12.977253+00:00",
+  "generated_utc": "2026-10-17T13:31:13.489523+00:00",
   "halflife": 10.0,
   "seed": 42,
   "n_splits": 5,
   "n_games": 13199,
   "n_out_of_fold": 6600,
-  "n_features_full": 61,
+  "n_features_full": 67,
   "sign_convention": "delta = loss(full) - loss(minus <block>); a POSITIVE delta means the ablated model is BETTER, so the block does not earn its place",
   "registry": {
     "rank": [
@@ -71,6 +71,14 @@
       "home_ewm_opp_orb",
       "away_ewm_opp_orb"
     ],
+    "player_elo": [
+      "home_elo_available",
+      "away_elo_available",
+      "home_elo_mean",
+      "away_elo_mean",
+      "home_elo_top5",
+      "away_elo_top5"
+    ],
     "net_rating": [
       "home_ewm_net_rating",
       "away_ewm_net_rating"
@@ -121,6 +129,14 @@
       "home_ewm_pace",
       "away_ewm_pace"
     ],
+    "player_elo": [
+      "home_elo_available",
+      "away_elo_available",
+      "home_elo_mean",
+      "away_elo_mean",
+      "home_elo_top5",
+      "away_elo_top5"
+    ],
     "rank": [
       "home_rank_margin",
       "away_rank_margin",
@@ -147,90 +163,90 @@
   },
   "reference_metrics": {
     "n": 6600,
-    "log_loss": 0.6187371392160325,
-    "brier": 0.21478630514404337,
-    "accuracy": 0.6575757575757576,
-    "auc": 0.7090410196179813,
+    "log_loss": 0.6193852053201702,
+    "brier": 0.2151053185397372,
+    "accuracy": 0.655,
+    "auc": 0.7079207562223649,
     "calibration": [
       {
         "bin": 0,
         "lo": 0.0,
         "hi": 0.1,
-        "n": 12,
-        "mean_pred": 0.08816107273125752,
-        "actual": 0.16666666666666666
+        "n": 8,
+        "mean_pred": 0.0876384119036113,
+        "actual": 0.125
       },
       {
         "bin": 1,
         "lo": 0.1,
         "hi": 0.2,
-        "n": 157,
-        "mean_pred": 0.16653921701332708,
-        "actual": 0.18471337579617833
+        "n": 155,
+        "mean_pred": 0.1644114535769823,
+        "actual": 0.15483870967741936
       },
       {
         "bin": 2,
         "lo": 0.2,
         "hi": 0.30000000000000004,
-        "n": 520,
-        "mean_pred": 0.25256225912117475,
-        "actual": 0.24807692307692308
+        "n": 510,
+        "mean_pred": 0.25178603758981527,
+        "actual": 0.2607843137254902
       },
       {
         "bin": 3,
         "lo": 0.30000000000000004,
         "hi": 0.4,
-        "n": 739,
-        "mean_pred": 0.35295261995283306,
-        "actual": 0.3342354533152909
+        "n": 732,
+        "mean_pred": 0.3526699578888421,
+        "actual": 0.32786885245901637
       },
       {
         "bin": 4,
         "lo": 0.4,
         "hi": 0.5,
-        "n": 1038,
-        "mean_pred": 0.451172671484479,
-        "actual": 0.4624277456647399
+        "n": 1010,
+        "mean_pred": 0.451604679180167,
+        "actual": 0.46732673267326735
       },
       {
         "bin": 5,
         "lo": 0.5,
         "hi": 0.6000000000000001,
-        "n": 1234,
-        "mean_pred": 0.5521749186801896,
-        "actual": 0.5453808752025932
+        "n": 1240,
+        "mean_pred": 0.5514043182080967,
+        "actual": 0.5435483870967742
       },
       {
         "bin": 6,
         "lo": 0.6000000000000001,
         "hi": 0.7000000000000001,
-        "n": 1273,
-        "mean_pred": 0.6491113525732884,
-        "actual": 0.6425765907305577
+        "n": 1290,
+        "mean_pred": 0.6484883561773405,
+        "actual": 0.6364341085271318
       },
       {
         "bin": 7,
         "lo": 0.7000000000000001,
         "hi": 0.8,
-        "n": 1003,
-        "mean_pred": 0.7481229147728452,
-        "actual": 0.7467597208374875
+        "n": 1007,
+        "mean_pred": 0.7476151504349626,
+        "actual": 0.7368421052631579
       },
       {
         "bin": 8,
         "lo": 0.8,
         "hi": 0.9,
-        "n": 568,
-        "mean_pred": 0.8415245348540344,
-        "actual": 0.8274647887323944
+        "n": 589,
+        "mean_pred": 0.8418381070907048,
+        "actual": 0.8285229202037352
       },
       {
         "bin": 9,
         "lo": 0.9,
         "hi": 1.0,
-        "n": 56,
-        "mean_pred": 0.9158450105050446,
-        "actual": 0.9107142857142857
+        "n": 59,
+        "mean_pred": 0.9157747653019841,
+        "actual": 0.8983050847457628
       }
     ]
   },
@@ -242,17 +258,17 @@
         "home_games_played",
         "away_games_played"
       ],
-      "delta": 0.0001252767825989931,
-      "ci_lo": -0.0001484118695882969,
-      "ci_hi": 0.0003916453605809582,
-      "p_positive": 0.811,
+      "delta": 0.00022305447925896615,
+      "ci_lo": -0.0001552915456944498,
+      "ci_hi": 0.0006005589850030023,
+      "p_positive": 0.874,
       "n_boot": 2000,
-      "z": 0.9093035708563731,
+      "z": 1.156786247098137,
       "verdict": "null: interval straddles zero",
-      "log_loss_full": 0.6187371392160325,
-      "log_loss_minus": 0.6186118624334335,
-      "auc_full": 0.7090410196179813,
-      "auc_minus": 0.7090844781117768,
+      "log_loss_full": 0.6193852053201702,
+      "log_loss_minus": 0.6191621508409112,
+      "auc_full": 0.7079207562223649,
+      "auc_minus": 0.7080933830171635,
       "n_scored": 6600
     },
     "four_factors_rebound": {
@@ -270,17 +286,17 @@
         "home_ewm_drb",
         "away_ewm_drb"
       ],
-      "delta": 9.47051597681714e-05,
-      "ci_lo": -0.0007515819096192144,
-      "ci_hi": 0.0009256590901695983,
-      "p_positive": 0.5995,
+      "delta": 0.0002339049723211195,
+      "ci_lo": -0.0005904967073231653,
+      "ci_hi": 0.0010338379387772653,
+      "p_positive": 0.71,
       "n_boot": 2000,
-      "z": 0.22133814256059348,
+      "z": 0.5644715222580379,
       "verdict": "null: interval straddles zero",
-      "log_loss_full": 0.6187371392160325,
-      "log_loss_minus": 0.6186424340562643,
-      "auc_full": 0.7090410196179813,
-      "auc_minus": 0.7090519771014596,
+      "log_loss_full": 0.6193852053201702,
+      "log_loss_minus": 0.619151300347849,
+      "auc_full": 0.7079207562223649,
+      "auc_minus": 0.708111583582941,
       "n_scored": 6600
     },
     "home_away_split": {
@@ -294,17 +310,17 @@
         "home_home_edge",
         "away_home_edge"
       ],
-      "delta": -0.0008859800315474953,
-      "ci_lo": -0.0016675786943443794,
-      "ci_hi": -0.00015428811172682496,
-      "p_positive": 0.011,
+      "delta": -0.0009616824687553871,
+      "ci_lo": -0.0017570724402903941,
+      "ci_hi": -0.00016703612673552904,
+      "p_positive": 0.0095,
       "n_boot": 2000,
-      "z": 2.294984170916245,
+      "z": 2.3708427312300437,
       "verdict": "earns its place",
-      "log_loss_full": 0.6187371392160325,
-      "log_loss_minus": 0.61962311924758,
-      "auc_full": 0.7090410196179813,
-      "auc_minus": 0.7078252032520325,
+      "log_loss_full": 0.6193852053201702,
+      "log_loss_minus": 0.6203468877889255,
+      "auc_full": 0.7079207562223649,
+      "auc_minus": 0.7065934149610136,
       "n_scored": 6600
     },
     "net_rating": {
@@ -314,17 +330,17 @@
         "home_ewm_net_rating",
         "away_ewm_net_rating"
       ],
-      "delta": 2.280930275988524e-05,
-      "ci_lo": -5.671846652842427e-05,
-      "ci_hi": 0.00010169084441860599,
-      "p_positive": 0.723,
+      "delta": 1.900810428723254e-05,
+      "ci_lo": -5.940297918277937e-05,
+      "ci_hi": 9.78445994558235e-05,
+      "p_positive": 0.671,
       "n_boot": 2000,
-      "z": 0.5644290983555196,
+      "z": 0.4738413199588134,
       "verdict": "null: interval straddles zero",
-      "log_loss_full": 0.6187371392160325,
-      "log_loss_minus": 0.6187143299132726,
-      "auc_full": 0.7090410196179813,
-      "auc_minus": 0.709034519415918,
+      "log_loss_full": 0.6193852053201702,
+      "log_loss_minus": 0.6193661972158829,
+      "auc_full": 0.7079207562223649,
+      "auc_minus": 0.707936728147435,
       "n_scored": 6600
     },
     "opponent_adjusted": {
@@ -334,17 +350,17 @@
         "home_ewm_adj_margin",
         "away_ewm_adj_margin"
       ],
-      "delta": -4.441503635455035e-05,
-      "ci_lo": -0.0001397526965014828,
-      "ci_hi": 4.939324813549856e-05,
-      "p_positive": 0.186,
+      "delta": -3.816439073278666e-05,
+      "ci_lo": -0.00013416868495262911,
+      "ci_hi": 6.045432091654193e-05,
+      "p_positive": 0.208,
       "n_boot": 2000,
-      "z": 0.9204730503811156,
+      "z": 0.7686740997976148,
       "verdict": "null: interval straddles zero",
-      "log_loss_full": 0.6187371392160325,
-      "log_loss_minus": 0.618781554252387,
-      "auc_full": 0.7090410196179813,
-      "auc_minus": 0.7089929181227119,
+      "log_loss_full": 0.6193852053201702,
+      "log_loss_minus": 0.619423369710903,
+      "auc_full": 0.7079207562223649,
+      "auc_minus": 0.707872561867066,
       "n_scored": 6600
     },
     "opponent_characteristics": {
@@ -358,17 +374,17 @@
         "home_ewm_opp_orb",
         "away_ewm_opp_orb"
       ],
-      "delta": 4.182036868138894e-06,
-      "ci_lo": -0.0006088996251844281,
-      "ci_hi": 0.0006010476825666327,
-      "p_positive": 0.5045,
+      "delta": 0.00013501610093913374,
+      "ci_lo": -0.00046424021895052344,
+      "ci_hi": 0.0007081321049750445,
+      "p_positive": 0.687,
       "n_boot": 2000,
-      "z": 0.013548758124781726,
+      "z": 0.4514379806834626,
       "verdict": "null: interval straddles zero",
-      "log_loss_full": 0.6187371392160325,
-      "log_loss_minus": 0.6187329571791643,
-      "auc_full": 0.7090410196179813,
-      "auc_minus": 0.7086964160485902,
+      "log_loss_full": 0.6193852053201702,
+      "log_loss_minus": 0.619250189219231,
+      "auc_full": 0.7079207562223649,
+      "auc_minus": 0.707693063430086,
       "n_scored": 6600
     },
     "pace": {
@@ -378,17 +394,41 @@
         "home_ewm_pace",
         "away_ewm_pace"
       ],
-      "delta": -7.590448480754297e-05,
-      "ci_lo": -0.0004316691765591518,
-      "ci_hi": 0.0002588601623283559,
-      "p_positive": 0.3105,
+      "delta": -0.00013025117763643124,
+      "ci_lo": -0.0004404633427478433,
+      "ci_hi": 0.0001754884172019161,
+      "p_positive": 0.177,
       "n_boot": 2000,
-      "z": 0.430887000112147,
+      "z": 0.8289208205065705,
       "verdict": "null: interval straddles zero",
-      "log_loss_full": 0.6187371392160325,
-      "log_loss_minus": 0.61881304370084,
-      "auc_full": 0.7090410196179813,
-      "auc_minus": 0.708821219928208,
+      "log_loss_full": 0.6193852053201702,
+      "log_loss_minus": 0.6195154564978066,
+      "auc_full": 0.7079207562223649,
+      "auc_minus": 0.707695013490705,
+      "n_scored": 6600
+    },
+    "player_elo": {
+      "block": "player_elo",
+      "n_columns": 6,
+      "columns": [
+        "home_elo_available",
+        "away_elo_available",
+        "home_elo_mean",
+        "away_elo_mean",
+        "home_elo_top5",
+        "away_elo_top5"
+      ],
+      "delta": 0.0006480661041377012,
+      "ci_lo": 6.70171214892712e-05,
+      "ci_hi": 0.0012566431414364357,
+      "p_positive": 0.984,
+      "n_boot": 2000,
+      "z": 2.135437881203303,
+      "verdict": "does not earn its place",
+      "log_loss_full": 0.6193852053201702,
+      "log_loss_minus": 0.6187371392160325,
+      "auc_full": 0.7079207562223649,
+      "auc_minus": 0.7090410196179813,
       "n_scored": 6600
     },
     "rank": {
@@ -404,17 +444,17 @@
         "home_rank_def_rating",
         "away_rank_def_rating"
       ],
-      "delta": 0.00038340582647833354,
-      "ci_lo": -0.0005013501701600698,
-      "ci_hi": 0.0012273579140803011,
-      "p_positive": 0.8135,
+      "delta": 0.00023310430818912486,
+      "ci_lo": -0.0005943249761636265,
+      "ci_hi": 0.000991521171815365,
+      "p_positive": 0.726,
       "n_boot": 2000,
-      "z": 0.8693909910394014,
+      "z": 0.5761921519030513,
       "verdict": "null: interval straddles zero",
-      "log_loss_full": 0.6187371392160325,
-      "log_loss_minus": 0.6183537333895541,
-      "auc_full": 0.7090410196179813,
-      "auc_minus": 0.7095202702301147,
+      "log_loss_full": 0.6193852053201702,
+      "log_loss_minus": 0.619152101011981,
+      "auc_full": 0.7079207562223649,
+      "auc_minus": 0.7080411956805972,
       "n_scored": 6600
     },
     "schedule": {
@@ -429,17 +469,17 @@
         "away_in_3_of_4",
         "travel_miles"
       ],
-      "delta": -0.00202670184840692,
-      "ci_lo": -0.0035786802896389663,
-      "ci_hi": -0.0005127145027124663,
-      "p_positive": 0.004,
+      "delta": -0.002049852767197158,
+      "ci_lo": -0.003596196675012395,
+      "ci_hi": -0.0005421374711103279,
+      "p_positive": 0.0045,
       "n_boot": 2000,
-      "z": 2.5911982961773647,
+      "z": 2.6310148957647006,
       "verdict": "earns its place",
-      "log_loss_full": 0.6187371392160325,
-      "log_loss_minus": 0.6207638410644394,
-      "auc_full": 0.7090410196179813,
-      "auc_minus": 0.7059042078222317,
+      "log_loss_full": 0.6193852053201702,
+      "log_loss_minus": 0.6214350580873673,
+      "auc_full": 0.7079207562223649,
+      "auc_minus": 0.7047188495459515,
       "n_scored": 6600
     },
     "strength_of_schedule": {
@@ -449,27 +489,28 @@
         "home_ewm_sos",
         "away_ewm_sos"
       ],
-      "delta": -7.86861947450479e-05,
-      "ci_lo": -0.0001549194550440086,
-      "ci_hi": -1.2854174891802397e-06,
-      "p_positive": 0.02,
+      "delta": -5.794752114340884e-05,
+      "ci_lo": -0.0001388864220410846,
+      "ci_hi": 1.9956139561058677e-05,
+      "p_positive": 0.086,
       "n_boot": 2000,
-      "z": 2.0076554837953124,
-      "verdict": "earns its place",
-      "log_loss_full": 0.6187371392160325,
-      "log_loss_minus": 0.6188158254107775,
-      "auc_full": 0.7090410196179813,
-      "auc_minus": 0.7089270803618123,
+      "z": 1.4300330362940672,
+      "verdict": "null: interval straddles zero",
+      "log_loss_full": 0.6193852053201702,
+      "log_loss_minus": 0.6194431528413136,
+      "auc_full": 0.7079207562223649,
+      "auc_minus": 0.7078658759449437,
       "n_scored": 6600
     }
   },
   "summary": {
     "earns_its_place": [
       "home_away_split",
-      "schedule",
-      "strength_of_schedule"
+      "schedule"
     ],
-    "does_not_earn_its_place": [],
+    "does_not_earn_its_place": [
+      "player_elo"
+    ],
     "null": [
       "experience",
       "four_factors_rebound",
@@ -477,7 +518,8 @@
       "opponent_adjusted",
       "opponent_characteristics",
       "pace",
-      "rank"
+      "rank",
+      "strength_of_schedule"
     ]
   }
 }

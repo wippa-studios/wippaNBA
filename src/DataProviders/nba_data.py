@@ -782,6 +782,353 @@ def opponent_adjusted_features(games: pd.DataFrame,
     return out.drop(columns=["GAME_ID", "home", "away"]).reset_index(drop=True)
 
 
+def player_elo_ratings(games: pd.DataFrame, k: float = 16.0,
+                       mean: float = 1500.0, scale: float = 400.0,
+                       regress: float = 0.02) -> pd.DataFrame:
+    """A causal Elo rating per PLAYER, from team results.
+
+    WHY THIS EXISTS
+    ---------------
+    Every team-level feature in this repo is a statement about an institution. A
+    rating is a statement about a person. Those are different quantities, and the
+    team aggregates cannot express what happens when a club's best player is
+    unavailable - which is the one mechanism in this project that is NOT a null
+    (availability, +0.00382 nats). Player ratings give the availability mechanism
+    something to act on: it can discount a roster by *who* is in it rather than
+    only *how many* minutes are expected.
+
+    `src/Models/player_ratings.py` already tested RAPM-style player ratings and
+    found them a null (+0.00151 CI [-0.00059, +0.00358], and a null across all
+    three rating families and both estimation methods). This is a different
+    estimator - online, sequential, and far more parsimonious - and it is aimed at
+    a different question: not "can a player's rating predict a game", but "does a
+    rotation-weighted sum of them, over the players expected to play".
+
+    THE UPDATE
+    ----------
+    For each game in date order, for every player who played:
+
+        expected = logistic((r_player - r_opponent_mean) / scale)
+        r_player += k * (team_won - expected) + regress * (mean - r_player)
+
+    The opponent's strength is the MINUTES-WEIGHTED mean rating of the players
+    who actually shared the floor, not the unweighted mean, because a team is not
+    eleven equally important participants and an unweighted average lets a
+    garbage-time player speak for a starter.
+
+    THE REVERSION TERM, AND WHY IT IS NOT OPTIONAL
+    ----------------------------------------------
+    Without `regress`, ratings random-walk: a hot player's number climbs until the
+    arithmetic can no longer express it, and early-season games become a function
+    of whatever happened in 2017. With 13,199 games and 1,554 players a small pull
+    toward `mean` every game is what keeps the scale meaningful across seasons.
+
+    KNOWN LIMITATION, STATED UP FRONT
+    ----------------------------------
+    The only outcome available here is the TEAM result. A player's rating is
+    therefore partly a measure of their teammates - a star on a weak club is
+    charged for losing games he did not cause. This is the standard weakness of
+    Elo applied to a team sport and is the main reason the previous player-rating
+    attempt came back a null. It is a reason to be sceptical of the result, not a
+    reason to skip the measurement.
+
+    Causality: ratings are read BEFORE the game and written AFTER it, and games
+    are processed in date order, so the value attached to a game is the rating the
+    player carried into it.
+    """
+    pa = player_minutes(games)[["GAME_ID", "GAME_DATE", "PLAYER_ID",
+                               "TEAM_ABBREVIATION", "MIN"]].copy()
+    if not len(pa):
+        return pd.DataFrame(index=games.index)
+
+    outcome = games[["GAME_ID", "GAME_DATE", "home", "away", "home_pts",
+                     "away_pts"]].copy()
+    outcome["home_win"] = (outcome["home_pts"] > outcome["away_pts"]).astype(float)
+    win = dict(zip(outcome["GAME_ID"], outcome["home_win"]))
+
+    pa["win"] = pa["GAME_ID"].map(win)
+    pa = pa.dropna(subset=["win"])
+    # A player who has not been seen before starts at the league mean. Starting at
+    # zero would read as catastrophic rather than unknown, and the first few games
+    # of every season are almost entirely unknown players.
+    ratings: dict[int, float] = {}
+    out_rows = []
+    # Date order; GAME_ID breaks ties so two same-day games are deterministic.
+    for _, grp in pa.sort_values(["GAME_DATE", "GAME_ID"]).groupby(
+            ["GAME_DATE", "GAME_ID"], sort=True):
+        teams = grp.groupby("TEAM_ABBREVIATION")["PLAYER_ID"].apply(list).to_dict()
+        if len(teams) < 2:
+            continue
+
+        # Minutes-weighted opponent strength, computed from PRE-game ratings.
+        team_strength, team_win, team_min = {}, {}, {}
+        for team, pids in teams.items():
+            sub = grp.loc[grp["TEAM_ABBREVIATION"] == team]
+            team_win[team] = float(sub["win"].iloc[0])
+            mins = dict(zip(sub["PLAYER_ID"], sub["MIN"]))
+            team_min[team] = mins
+            vals = np.array([ratings.get(p, mean) for p in pids], dtype=float)
+            w = np.array([mins.get(p, 0.0) for p in pids], dtype=float)
+            team_strength[team] = (float(np.average(vals, weights=w))
+                                   if w.sum() > 0 else float(vals.mean()))
+
+        for team, pids in teams.items():
+            opp = [team_strength[t] for t in teams if t != team]
+            opp_strength = float(np.mean(opp))
+            gid = grp["GAME_ID"].iloc[0]
+            gdate = grp["GAME_DATE"].iloc[0]
+            for p in pids:
+                r = ratings.get(p, mean)
+                # The rating carried INTO the game, which is the only value a
+                # prediction made before tip-off is allowed to read.
+                out_rows.append({"GAME_ID": gid, "GAME_DATE": gdate,
+                                 "PLAYER_ID": p,
+                                 "TEAM_ABBREVIATION": team, "elo": r,
+                                 "MIN": float(team_min[team].get(p, np.nan))})
+                expected = 1.0 / (1.0 + 10.0 ** (-(r - opp_strength) / scale))
+                ratings[p] = r + (k * (team_win[team] - expected)
+                                  + regress * (mean - r))
+
+    if not out_rows:
+        return pd.DataFrame(columns=["GAME_ID", "PLAYER_ID",
+                                     "TEAM_ABBREVIATION", "elo"])
+    out = pd.DataFrame(out_rows)
+    # Align to the caller's game order rather than to processing order, so a
+    # caller can rely on positional alignment with `games`.
+    order = {g: i for i, g in enumerate(games["GAME_ID"].to_numpy())}
+    out["_order"] = out["GAME_ID"].map(order)
+    out = out.dropna(subset=["_order"]).sort_values(["_order", "PLAYER_ID"])
+    return out.drop(columns=["_order"]).reset_index(drop=True)
+
+
+def player_elo_features(games: pd.DataFrame, k: float = 16.0,
+                        halflife: float = 15.0, top_n: int = 5,
+                        roster_mode: str = "all_prior"
+                        ) -> pd.DataFrame:
+    """Rotation-weighted aggregate of the player Elo ratings, per side.
+
+    ``*_elo_available``
+        SUM of ``elo * expected_minutes`` over the players expected to be
+        available. This is the quantity the availability result predicts should
+        carry signal: a team whose stars are unavailable loses total
+        quality-minutes before tip-off.
+
+    ``*_elo_top{n}``
+        Sum of the ``top_n`` highest ratings among the expected-available squad. A
+        crude but honest proxy for "who starts" - no lineup data ships with this
+        project - and it behaves differently from the total, because losing a
+        28-minute rotation player barely moves it while losing a star moves it a
+        lot.
+
+    ``*_elo_mean``
+        Minutes-weighted mean rating of the expected-available squad. Scale-free,
+        so it separates "this roster is good" from "this roster is deep".
+
+    Availability here means EXPECTED availability, from trailing minutes. The
+    dataset's ``AVAILABLE_FLAG`` is written after the game and would be a leak;
+    this is the same discipline ``availability_features`` already applies.
+    """
+    elo_long = player_elo_ratings(games, k=k)
+    if not len(elo_long):
+        return pd.DataFrame(index=games.index)
+
+    # Expected minutes, from the player's own past appearances only.
+    elo_long = elo_long.sort_values(["PLAYER_ID", "GAME_DATE"])
+    elo_long["exp_min"] = _ewm_by_player(elo_long, "MIN", halflife)
+
+    # ---------------------------------------------------------------------
+    # THE ROSTER MUST BE KNOWABLE BEFORE TIP-OFF. THIS IS THE WHOLE FIX.
+    # ---------------------------------------------------------------------
+    # An earlier version aggregated over `elo_long` directly, which contains one
+    # row per player WHO ACTUALLY PLAYED that game. The weights were honest
+    # trailing values, so the feature looked clean - and it measured -0.00645 nats
+    # at |z| 5.18, by a wide margin the largest effect in this project.
+    #
+    # It was leaking, and the leak is in the MEMBERSHIP rather than the weights.
+    # Nobody knows before a game which ten men will be on the floor. Summing over
+    # the actual participants tells the model who played, which is the same
+    # information the honest availability feature had to be careful about:
+    # availability_features is worth +0.00382 honestly and +0.01089 when actual
+    # minutes are substituted. An effect that large, from a player-level feature
+    # with post-game membership, should be assumed to be that leak until proven
+    # otherwise.
+    #
+    # So the roster is rebuilt from the past: for team X's game t, the available
+    # roster is every player with an appearance for X STRICTLY BEFORE t, carrying
+    # the Elo and trailing expected minutes from that most recent appearance.
+    # A player who misses game t entirely is still in the sum, discounted by his
+    # own trailing minutes - which is the entire point of the block.
+    team_games = (games[["GAME_ID", "GAME_DATE", "home", "away"]]
+                  .melt(id_vars=["GAME_ID", "GAME_DATE"],
+                        value_vars=["home", "away"], value_name="team")
+                  .sort_values(["team", "GAME_DATE"])
+                  .reset_index(drop=True))
+
+    # `top_n` names the number of highest-rated players reported as `elo_top5`,
+    # and separately bounds the `top_minutes` roster. Keeping them the same is
+    # deliberate: the reported "best five" and the cheapest lineup proxy should
+    # not quietly disagree about what five means.
+    roster_top_n = top_n
+    available = _asof_roster(team_games, elo_long, roster=roster_mode,
+                             top_n=roster_top_n)
+    available["elo_x_min"] = available["elo"] * available["exp_min"]
+
+    g = available.groupby(["GAME_ID", "TEAM_ABBREVIATION"]).agg(
+        elo_available=("elo_x_min", "sum"),
+        elo_exp_minutes=("exp_min", "sum"),
+    ).reset_index()
+    g["elo_mean"] = g["elo_available"] / g["elo_exp_minutes"].replace(0, np.nan)
+
+    # Top-n by rating among the players EXPECTED to be available - the same
+    # pre-game roster, not the actual participants.
+    top = (available[available["exp_min"] > 0]
+           .sort_values(["GAME_ID", "TEAM_ABBREVIATION", "elo"],
+                        ascending=[True, True, False])
+           .groupby(["GAME_ID", "TEAM_ABBREVIATION"])
+           .head(top_n)
+           .groupby(["GAME_ID", "TEAM_ABBREVIATION"])["elo"].sum()
+           .rename(f"elo_top{top_n}").reset_index())
+    g = g.merge(top, on=["GAME_ID", "TEAM_ABBREVIATION"], how="left")
+
+    # Pick each side's value out by keying on (GAME_ID, team). The obvious
+    # alternative - merge the per-team table onto the games frame and filter on
+    # `home.notna()` - produces two rows per game and then depends on
+    # `drop_duplicates` to collapse them, which is an assumption about the data
+    # rather than a lookup. A MultiIndex reindex is exact and order-preserving.
+    g = g.set_index(["GAME_ID", "TEAM_ABBREVIATION"])
+    if not g.index.is_unique:
+        dupes = g.index[g.index.duplicated()].tolist()[:3]
+        raise AssertionError(
+            f"player Elo produced duplicate (game, team) keys: {dupes}. A team "
+            f"cannot play itself twice, so the aggregation is wrong.")
+    gi = games[["GAME_ID", "home", "away"]].reset_index(drop=True)
+
+    out = pd.DataFrame(index=gi.index)
+    for side in ("home", "away"):
+        idx = pd.MultiIndex.from_arrays([gi["GAME_ID"], gi[side]])
+        for c in ("elo_available", "elo_mean", f"elo_top{top_n}"):
+            out[f"{side}_{c}"] = g[c].reindex(idx).to_numpy()
+
+    if len(out) != len(games):
+        raise AssertionError(
+            f"player_elo_features produced {len(out)} rows for {len(games)} games")
+    return out.reset_index(drop=True)
+
+
+
+
+def _asof_roster(team_games: pd.DataFrame, appearances: pd.DataFrame,
+                 roster: str = "all_prior", top_n: int = 5) -> pd.DataFrame:
+    """Which players count as available for a game, under a stated assumption.
+
+    THE QUESTION THIS PARAMETER ANSWERS
+    -----------------------------------
+    "Available" is not a fact a model can look up before tip-off. It is an
+    assumption, and different assumptions give materially different team totals.
+    Rather than pick one and hope, the assumption is a parameter and every
+    variant is scored against the same target:
+
+    ``all_prior``
+        Everyone with any earlier appearance for the team, weighted by trailing
+        expected minutes. The most permissive, and the default. Because a
+        long-departed player's trailing EWMA decays rather than vanishing, this
+        sums to roughly 6x a real rotation.
+
+    ``prev_game``
+        Only the players who played in the team's immediately preceding game. The
+        tightest pre-game assumption available without an API, and the closest
+        cheap analogue of a confirmed lineup.
+
+    ``top_minutes``
+        The ``top_n`` players by trailing expected minutes. A standing proxy for
+        the starting five: no API call, but it cannot notice that a starter is
+        sitting out tonight, which is exactly what a real lineup would tell you.
+
+    ``confirmed``
+        The actual submitted starting five, if a backfill supplied it. NOT
+        computable from this dataset, and the reason is a prediction-point
+        question rather than a data question: starting lineups are filed 30-60
+    minutes before tip-off. They are therefore legitimate for a tip-off
+    prediction and NOT available to a model run that morning. That makes it a
+    different product, not a better feature, and it is a parameter rather than a
+    default so that distinction has to be made explicitly.
+
+    Every player with a STRICTLY EARLIER appearance for a team, at that game.
+
+    For each (team, player), the player's Elo and trailing expected minutes are
+    carried forward from their most recent appearance with that team onto each of
+    that team's games that came afterwards.
+
+    ``allow_exact_matches=False`` is load-bearing. A player's appearance in game t
+    must not supply the rating used to predict game t; with exact matches allowed, a
+    debutant's first game would be predicted from a rating computed using that same
+    game's result - which is the leak this function exists to remove.
+
+    The result is the PRE-GAME roster, which is strictly larger than the actual
+    lineup because it includes every player who could plausibly be available.
+    """
+    ap = appearances[["GAME_DATE", "PLAYER_ID", "TEAM_ABBREVIATION", "elo",
+                      "exp_min"]].sort_values("GAME_DATE")
+
+    out = []
+    for team, grp in ap.groupby("TEAM_ABBREVIATION", sort=False):
+        t_games = team_games[team_games["team"] == team].sort_values("GAME_DATE")
+        if not len(t_games):
+            continue
+        for _player, pgrp in grp.groupby("PLAYER_ID", sort=False):
+            merged = pd.merge_asof(
+                t_games,
+                pgrp.sort_values("GAME_DATE"),
+                left_on="GAME_DATE", right_on="GAME_DATE",
+                direction="backward", allow_exact_matches=False,
+            )
+            merged = merged.dropna(subset=["PLAYER_ID"])
+            if len(merged):
+                out.append(merged)
+
+    if not out:
+        return pd.DataFrame(columns=["GAME_ID", "GAME_DATE", "team",
+                                     "PLAYER_ID", "elo", "exp_min"])
+    r = pd.concat(out, ignore_index=True)
+    # One row per (game, team, player): a player may have several past
+    # appearances, and only the most recent may be carried forward.
+    dupes = r.duplicated(subset=["GAME_ID", "team", "PLAYER_ID"]).sum()
+    if dupes:
+        raise AssertionError(
+            f"roster carries {dupes} duplicate (game, team, player) rows; the "
+            f"as-of merge did not collapse to the latest prior appearance")
+    if roster not in ("all_prior", "prev_game", "top_minutes", "confirmed"):
+        raise KeyError(f"unknown roster assumption {roster!r}; known: "
+                       f"all_prior, prev_game, top_minutes, confirmed")
+    if roster == "all_prior":
+        return r
+
+    r = r.sort_values(["team", "GAME_DATE", "GAME_ID"])
+    if roster == "prev_game":
+        # The player's most recent appearance must have been the team's own
+        # previous GAME. Keyed on the team's game sequence rather than the
+        # calendar, so a long gap - an All-Star break, a cancelled game - does not
+        # silently widen the window into "whoever turned up most recently".
+        #
+        # The sequence has to be assigned per GAME first. Doing it with
+        # `groupby("team").cumcount()` counts ROWS, and this frame has one row per
+        # (game, player), so the counter ran on player appearances and never
+        # equalled a game index. The result was an all-NaN column that looked like
+        # a data problem rather than an off-by-one.
+        seq = team_games[["team", "GAME_ID"]].copy()
+        seq["_seq"] = seq.groupby("team").cumcount()
+        r = r.merge(seq, on=["team", "GAME_ID"], how="left")
+        last_before = r.groupby(["team", "PLAYER_ID"])["_seq"].shift(1)
+        return (r[last_before == r["_seq"] - 1]
+                .drop(columns=["_seq"]).reset_index(drop=True))
+
+    # top_minutes
+    return (r[r["exp_min"] > 0]
+            .sort_values(["GAME_ID", "team", "exp_min"], ascending=[True, True, False])
+            .groupby(["GAME_ID", "team"]).head(top_n)
+            .reset_index(drop=True))
+
+
 def rest_and_travel(games: pd.DataFrame) -> pd.DataFrame:
     """Rest days, back-to-back, 3-in-4, and great-circle travel distance.
 

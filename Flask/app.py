@@ -1,8 +1,9 @@
-from datetime import date
+from datetime import date, datetime, timedelta, timezone
 import json
 import os
 import sys
 import threading
+from zoneinfo import ZoneInfo
 from flask import Flask, render_template,jsonify, request
 from functools import lru_cache
 import subprocess, requests, re, time
@@ -24,6 +25,18 @@ API_TIMEOUT_SECONDS = 15
 MAX_CONCURRENT_PREDICTIONS = 3
 # Cached lookups are keyed on a bucket of this many seconds.
 PLAYER_STATS_TTL_SECONDS = 600
+
+# The /games page asks stats.nba.com for one day's scoreboard and reuses that
+# answer for this long. ONE upstream call per page load, and none from the
+# browser at all: NBA blocks bursts from server IPs (issue #27 records hard HTTP
+# 403s), so a page that polled every few seconds would earn a 403 within the
+# first minute and then show nothing for hours afterwards. A minute of staleness
+# on a live score is a fair price for staying reachable at all.
+SCOREBOARD_TTL_SECONDS = 60
+# Bound on the outbound scoreboard call. The same value as API_TIMEOUT_SECONDS so
+# a slow NBA and a slow RapidAPI fail at the same point in time rather than one
+# hanging twice as long as the other.
+SCOREBOARD_TIMEOUT_SECONDS = API_TIMEOUT_SECONDS
 
 # The prediction runners end their run with exactly one machine-readable line:
 #
@@ -410,6 +423,562 @@ def index():
     return render_template('index.html', today=date.today(), data=books)
 
 
+# ---------------------------------------------------------------------------
+# Upcoming games -- nba_api ScoreboardV3
+# ---------------------------------------------------------------------------
+# ONE upstream call per page load, cached for SCOREBOARD_TTL_SECONDS (see the
+# constant above for why a browser never polls this page).
+#
+# `nba_api` is imported INSIDE scoreboard_tables rather than at module scope, for
+# the reason src/Utils/nba_client.py documents at length: a module-scope import
+# makes every `flask` command fail on a machine that does not have nba_api
+# installed, and makes this module unimportable for a test suite that must run
+# with no network. Only the one function that talks to NBA pays the import.
+#
+# TWO UPSTREAM TRAPS, BOTH CONFIRMED AGAINST LIVE PAYLOADS
+# --------------------------------------------------------
+# 1. NOTHING ON THIS ENDPOINT SAYS WHICH TEAM IS HOME. GameHeader has no
+#    home/away flag and LineScore does not either; the only field that carries
+#    the split is `gameCode`, which is 'YYYYMMDD/AWAYHOME' ('20261020/PHINYK'
+#    is Phoenix at New York). Building a card from row order alone gets it wrong
+#    often enough to matter, so gameCode decides and row order is the documented
+#    fallback -- see order_team_lines.
+# 2. `gameEt` IS EASTERN WALL-CLOCK TIME WITH A 'Z' STAMPED ON IT. For a game
+#    tipping at 23:00 UTC it reads 'T19:00:00Z'. It is not UTC and it is not
+#    parseable as UTC. `gameTimeUTC` is the only timestamp here this app trusts;
+#    `gameEt` and `gameStatusText` are shown as the endpoint's own wording and
+#    never converted.
+
+# ScoreboardV3 GameHeader.gameStatus values, read off live responses: 1 before
+# tip-off, 2 while the game is being played, 3 once it is over. Anything else is
+# rendered as the raw number rather than guessed at. Each value maps to (slug
+# used in the template's class name and logic, wording shown on the page).
+GAME_STATUS_SCHEDULED = 1
+GAME_STATUS_IN_PROGRESS = 2
+GAME_STATUS_FINAL = 3
+GAME_STATUS_LABELS = {
+    GAME_STATUS_SCHEDULED: ("scheduled", "Scheduled"),
+    GAME_STATUS_IN_PROGRESS: ("live", "In progress"),
+    GAME_STATUS_FINAL: ("final", "Final"),
+}
+
+# LeagueID for the NBA. nba_api's own default is also '00'; it is named here so
+# the value this page depends on is visible rather than inherited.
+SCOREBOARD_LEAGUE_ID = "00"
+
+# The two tricodes in a gameCode suffix after the slash, and nothing else.
+GAME_CODE_TEAM_LENGTH = 6
+
+# A query-string date has to be this shape. strptime alone is not enough: it
+# happily accepts '2026-1-5', which is a different string from the '2026-01-05'
+# every other link on the page emits.
+GAME_DATE_FORMAT = "%Y-%m-%d"
+GAME_DATE_LENGTH = 10
+
+# Cookie holding the zone the visitor's browser is in. Server-side rendering
+# means the server cannot otherwise know, and guessing a zone would silently put
+# every tip-off an hour out for half the country. See resolve_viewer_timezone.
+VIEWER_TZ_COOKIE = "viewer_tz"
+
+# HTTP statuses that mean "stop asking" rather than "that went wrong". NBA sends
+# 403 when it blocks a burst and 429 when it wants the same thing politely.
+RATE_LIMITED_STATUS_CODES = (403, 429)
+
+# Copy for every board status that is not "ok", next to the code that sets it.
+# The template is left dumb on purpose: these strings are the whole difference
+# between "no games tonight" and "we could not reach NBA", and a quiet day off
+# must never be rendered as an outage. Keys match parse_predictions' statuses
+# so the two failure paths read the same way.
+GAMES_NOTICES = {
+    "no_games": (
+        "No games scheduled",
+        "NBA reports no games on this date. Try the day before or after.",
+    ),
+    "rate_limited": (
+        "NBA is rate limiting this host",
+        "stats.nba.com refused the scoreboard request, which is what happens "
+        "when too many requests arrive from one IP address in a short window. "
+        "This page asks NBA at most once a minute, so please try again shortly.",
+    ),
+    "unavailable": (
+        "Game data is temporarily unavailable",
+        "The NBA scoreboard could not be reached. Please try again shortly.",
+    ),
+}
+
+
+class ScoreboardUnavailable(Exception):
+    """A scoreboard fetch that failed, carrying the HTTP status if there was one.
+
+    nba_api turns a blocked request into a JSON decode error and throws the
+    status code away. 403 is not "the network is down": it is this host being
+    rate limited, and the page has to say so differently -- otherwise every
+    blocked request is reported to whoever is debugging it as a decode bug. The
+    status is dug back out of the response object and carried here.
+    """
+
+    def __init__(self, reason, status_code=None):
+        super().__init__(reason)
+        self.reason = reason
+        self.status_code = status_code
+
+
+def scoreboard_status_code(endpoint):
+    """HTTP status nba_api saw, or None when no response ever arrived.
+
+    `get_response()` is None when nba_api replayed a debug fixture from disk, so
+    this returns None rather than raising in that case; the caller treats an
+    unknown status as an ordinary failure, which it is.
+    """
+    response = getattr(
+        getattr(endpoint, "nba_response", None), "get_response", lambda: None
+    )()
+    return getattr(response, "status_code", None)
+
+
+def scoreboard_tables(game_date, timeout=SCOREBOARD_TIMEOUT_SECONDS, proxy=None):
+    """The two ScoreboardV3 tables this page reads, as pandas DataFrames.
+
+    Raises ScoreboardUnavailable for anything the endpoint got wrong and lets a
+    real transport error (requests.Timeout, ConnectionError) propagate, so the
+    caller can tell "NBA said no" from "we never reached NBA" from the type
+    alone.
+
+    get_request is switched off in the constructor and issued by hand so the
+    failure can still be attributed. Constructing with get_request=True raises
+    from inside the constructor and takes the response object -- the only place
+    the status code is kept -- with it.
+    """
+    from nba_api.stats.endpoints.scoreboardv3 import ScoreboardV3
+
+    endpoint = ScoreboardV3(
+        game_date=game_date,
+        league_id=SCOREBOARD_LEAGUE_ID,
+        timeout=timeout,
+        proxy=proxy,
+        get_request=False,
+    )
+    try:
+        endpoint.get_request()
+    except Exception as error:
+        raise ScoreboardUnavailable(str(error), scoreboard_status_code(endpoint)) from error
+
+    return endpoint.game_header.get_data_frame(), endpoint.line_score.get_data_frame()
+
+
+def board_records(frame):
+    """A DataFrame as a list of plain dicts, or [] for a missing or empty one.
+
+    pandas boxes numpy scalars to native Python types on the way out of
+    `to_dict("records")`, which is what lets `entry_number` and `entry_text`
+    below be reused unchanged for these columns.
+    """
+    if frame is None or len(frame.index) == 0:
+        return []
+    return [row for row in frame.to_dict("records") if isinstance(row, dict)]
+
+
+class GamesBoard(dict):
+    """One date's games keyed by gameId, plus the status of the fetch.
+
+    Mirrors PredictionBoard for the same reason: the games live in the dict so a
+    template can iterate them with `.items()`, and the status lives on the side
+    so a caller can tell a genuinely empty slate ("no_games" -- a day off) from a
+    fetch that failed ("unavailable" / "rate_limited"). Both render as an empty
+    page otherwise, and a broken endpoint is exactly what looks like a quiet
+    night. `board_status` and `board_detail` read this class unchanged.
+    """
+
+    def __init__(self, games=None, status="ok", detail=""):
+        super().__init__(games or {})
+        self.status = status
+        self.detail = detail
+
+
+def split_game_code(game_code):
+    """(away_tricode, home_tricode) from a gameCode, or (None, None).
+
+    '20261020/PHINYK' is Phoenix at New York: the suffix is two three-letter
+    tricodes, away first. Returns None for anything that is not exactly that
+    shape so the caller falls back to row order rather than inventing a split --
+    a wrong home/away is the kind of mistake nobody catches by reading the card.
+    """
+    text = entry_text(game_code)
+    if text is None or "/" not in text:
+        return None, None
+    suffix = text.rsplit("/", 1)[1].upper()
+    if len(suffix) != GAME_CODE_TEAM_LENGTH or not suffix.isalpha():
+        return None, None
+    return suffix[:GAME_CODE_TEAM_LENGTH // 2], suffix[GAME_CODE_TEAM_LENGTH // 2:]
+
+
+def line_tricode(line):
+    """The three-letter code on a LineScore row, upper-cased, or None."""
+    return (entry_text(line.get("teamTricode")) or "").upper() or None
+
+
+def order_team_lines(header, lines):
+    """(away_line, home_line) for one game, or (None, None) when it has no lines.
+
+    gameCode decides, but only when BOTH of its tricodes actually appear among
+    this game's LineScore rows -- which is what keeps a six-letter suffix from
+    silently labelling the two teams backwards on an unfamiliar matchup.
+
+    The fallback is the endpoint's own row order: HOME FIRST, away second. That
+    is not a guess; it is what live payloads do (game `20261020/PHINYK` returns
+    New York on the first LineScore row and Philadelphia on the second), and it
+    is pinned by a test so a reordering upstream is a failing test rather than a
+    page quietly listing the visitors first.
+    """
+    if not lines:
+        return None, None
+    away_code, home_code = split_game_code(header.get("gameCode"))
+    if away_code and home_code:
+        by_code = {}
+        for line in lines:
+            code = line_tricode(line)
+            if code:
+                by_code.setdefault(code, line)
+        away = by_code.get(away_code)
+        home = by_code.get(home_code)
+        if away is not None and home is not None:
+            return away, home
+    return lines[1], lines[0] if len(lines) > 1 else None
+
+
+def build_team_side(line, scored):
+    """One team on a card, in the fields Flask/templates/games.html reads.
+
+    `scored` is False before tip-off, and then the score is None rather than the
+    endpoint's placeholder 0: a card reading "0 - 0" before a game starts
+    claims a result nobody has played.
+    """
+    city = entry_text(line.get("teamCity"))
+    name = entry_text(line.get("teamName"))
+    full_name = " ".join(part for part in (city, name) if part) or None
+    if full_name is None:
+        return None
+
+    wins = entry_number(line.get("wins"), integer=True)
+    losses = entry_number(line.get("losses"), integer=True)
+    # Records read 0-0 before a season starts, which is true but useless; leave
+    # it out rather than showing a record that is not a record.
+    record = f"{wins}-{losses}" if wins and losses else None
+
+    return {
+        "name": full_name,
+        "city": city,
+        "tricode": line_tricode(line) or "",
+        "record": record,
+        "score": entry_number(line.get("score"), integer=True) if scored else None,
+    }
+
+
+def parse_utc_stamp(text):
+    """An aware UTC datetime from a ScoreboardV3 timestamp, or None.
+
+    Aware or nothing: `datetime.fromisoformat` on '2026-10-20T19:00:00' with no
+    offset returns a NAIVE datetime, and a naive tip-off interpreted in the
+    server's local zone is an hour out for most of the country. A stamp with no
+    offset is therefore read as UTC, which is what this endpoint sends, rather
+    than being allowed through as naive.
+    """
+    stamp = entry_text(text)
+    if stamp is None:
+        return None
+    if stamp.endswith(("Z", "z")):
+        stamp = stamp[:-1] + "+00:00"
+    try:
+        moment = datetime.fromisoformat(stamp)
+    except ValueError:
+        app.logger.warning("Could not read the scoreboard timestamp %r", text)
+        return None
+    return moment.replace(tzinfo=timezone.utc) if moment.tzinfo is None else moment
+
+
+def game_status(header):
+    """(status_slug, status_label) for one GameHeader row.
+
+    The slug is one of GAME_STATUS_LABELS' first values or "unknown". An unknown
+    code is labelled with the raw number rather than being folded into one of
+    the known buckets: a postponed or abandoned game must not be rendered as
+    "Scheduled" with a score against it.
+    """
+    code = entry_number(header.get("gameStatus"), integer=True)
+    return GAME_STATUS_LABELS.get(code, ("unknown", f"Status {code}"))
+
+
+def build_scoreboard_game(header, lines):
+    """One GameHeader row plus its LineScore rows, in the template's vocabulary.
+
+    Returns None when the row carries no game id or no usable team rows, and the
+    caller drops it rather than render a card with a blank side. This only maps
+    what the endpoint actually returned: there is no seed, no network, and no
+    inferred field anywhere below.
+    """
+    game_id = entry_text(header.get("gameId"))
+    if game_id is None:
+        return None
+
+    away_line, home_line = order_team_lines(header, lines)
+    if away_line is None or home_line is None:
+        return None
+
+    status, label = game_status(header)
+    scored = status in ("live", "final")
+
+    away = build_team_side(away_line, scored)
+    home = build_team_side(home_line, scored)
+    if away is None or home is None:
+        return None
+
+    tipoff = parse_utc_stamp(header.get("gameTimeUTC"))
+    return {
+        "game_id": game_id,
+        # The endpoint's own wording for the state ("Final", "Final/OT",
+        # "Q3 04:12", "7:00 pm ET"). Shown verbatim next to our own label
+        # because "Final/OT" and a running clock are both worth saying and
+        # neither is something to reconstruct.
+        "status_text": entry_text(header.get("gameStatusText")),
+        "status": status,
+        "status_label": label,
+        "period": entry_number(header.get("period"), integer=True),
+        "game_clock": entry_text(header.get("gameClock")),
+        "tipoff": tipoff,
+        "away": away,
+        "home": home,
+        "has_score": scored,
+    }
+
+
+def build_games(header_frame, line_frame):
+    """Every game on the returned scoreboard, keyed by gameId, as a GamesBoard.
+
+    Status is one of:
+      "ok"           games parsed and ready to render
+      "no_games"     the endpoint answered and the slate was empty, which is a
+                     real answer for a day off and not a fault
+      "degraded"     the slate parsed but some rows were unusable
+    """
+    headers = board_records(header_frame)
+    lines = board_records(line_frame)
+
+    if not headers:
+        # An empty DataFrame is how this endpoint says "nothing scheduled", not
+        # an exception and not an empty page: see the empty-payload handling in
+        # fetch_games.
+        return GamesBoard(status="no_games", detail="the scoreboard reported no games")
+
+    lines_by_game = {}
+    for line in lines:
+        lines_by_game.setdefault(entry_text(line.get("gameId")) or "", []).append(line)
+
+    board = GamesBoard()
+    unusable = 0
+    for header in headers:
+        game = build_scoreboard_game(header, lines_by_game.get(entry_text(header.get("gameId")) or "", []))
+        if game is None:
+            unusable += 1
+            continue
+        app.logger.debug("%s game %s: %s @ %s (%s)",
+                         game["game_id"], game["away"]["name"], game["home"]["name"],
+                         game["status_label"], game["status_text"])
+        board[game["game_id"]] = game
+
+    if unusable:
+        app.logger.error("Dropped %s of %s scoreboard rows as unusable", unusable, len(headers))
+        board.status = "degraded"
+        board.detail = f"{unusable} of {len(headers)} games could not be read"
+
+    # Earliest tip-off first. Games with no readable tip-off sort last, on the
+    # game id, so the order is stable across reloads instead of reshuffling.
+    ordered = sorted(board.items(),
+                     key=lambda item: (item[1]["tipoff"] is None,
+                                       item[1]["tipoff"] or datetime.max.replace(tzinfo=timezone.utc),
+                                       item[0]))
+    return GamesBoard(ordered, status=board.status, detail=board.detail)
+
+
+def failed_games_board(game_date, reason, status_code=None):
+    """The board for a fetch that failed: a status, never a raised error.
+
+    The reason goes to the log and the page shows GAMES_NOTICES copy, which is
+    the same contract the rest of this app follows: detail server-side, a
+    generic message to the client, and never source or a traceback.
+    """
+    status = "rate_limited" if status_code in RATE_LIMITED_STATUS_CODES else "unavailable"
+    app.logger.error("NBA scoreboard for %s came back %s (HTTP %s): %s",
+                     game_date, status, status_code if status_code else "no response", reason)
+    return GamesBoard(status=status, detail=str(reason))
+
+
+@lru_cache()
+def fetch_games(game_date, ttl_hash=None):
+    """One date's GamesBoard, with at most one upstream call per TTL window.
+
+    `ttl_hash` only takes part in the cache key so the result expires; see
+    get_ttl_hash.
+
+    FAILURES ARE RETURNED, NOT RAISED, and that is deliberate for the cache as
+    much as for the route. `lru_cache` does not memoize a raised exception, so a
+    fetch that threw would re-request on the very next page load -- which is
+    exactly the behaviour that earns a 403 in the first place, and would turn one
+    blocked request into a permanent ban. Returning the failure puts it behind
+    the same 60-second window as a success.
+
+    The result is shared by every caller for the window, so it is tz-independent
+    on purpose: two visitors in different zones must not each evict the other's
+    copy. Rendering into a timezone happens per request, in format_tipoff.
+    """
+    del ttl_hash
+    try:
+        header_frame, line_frame = scoreboard_tables(game_date)
+    except ScoreboardUnavailable as error:
+        return failed_games_board(game_date, error.reason, error.status_code)
+    except ImportError as error:
+        return failed_games_board(game_date, f"nba_api is not installed: {error}")
+    except Exception as error:
+        app.logger.exception("NBA scoreboard request for %s failed", game_date)
+        return failed_games_board(game_date, error)
+
+    try:
+        return build_games(header_frame, line_frame)
+    except Exception as error:
+        app.logger.exception("NBA scoreboard payload for %s could not be read", game_date)
+        return failed_games_board(game_date, error)
+
+
+def parse_game_date(raw):
+    """A `date` from a `YYYY-MM-DD` query value, or None when it is not one."""
+    text = entry_text(raw)
+    if text is None or len(text) != GAME_DATE_LENGTH:
+        return None
+    try:
+        return datetime.strptime(text, GAME_DATE_FORMAT).date()
+    except ValueError:
+        return None
+
+
+def resolve_viewer_timezone():
+    """(ZoneInfo, label) for the tip-offs on this page.
+
+    `?tz=` wins, then the cookie the page set from the browser's own zone, then
+    UTC. The page renders server-side, so those are the only ways to know where
+    the viewer is; guessing a zone would silently move every tip-off by an hour
+    for part of the country, and the label is shown on the page so a wrong guess
+    is visible rather than believed. The fallback is `timezone.utc`, never a
+    naive datetime.
+
+    An unusable name is logged and skipped rather than raised, so one bad query
+    value cannot turn into a 500.
+    """
+    candidates = [request.args.get("tz"), request.cookies.get(VIEWER_TZ_COOKIE)]
+    for candidate in candidates:
+        name = entry_text(candidate)
+        if name is None:
+            continue
+        try:
+            return ZoneInfo(name), name
+        except (ValueError, KeyError, OSError):
+            app.logger.warning("Ignoring unusable timezone %r", name)
+    return timezone.utc, "UTC"
+
+
+def format_tipoff(tipoff, zone):
+    """(ISO string, human string) for one tip-off in `zone`, or (None, "TBD").
+
+    The clock is built from the datetime parts rather than with strftime's `%-I`
+    / `%-m` pads: those are glibc extensions that silently raise on Windows, and
+    src/Utils/nba_client.py already documents that trap for this repo.
+    """
+    if tipoff is None:
+        return None, "Time TBD"
+    local = tipoff.astimezone(zone)
+    clock = "%d:%02d %s" % (local.hour % 12 or 12, local.minute,
+                            "AM" if local.hour < 12 else "PM")
+    label = f"{local.strftime('%a %b')} {local.day}, {clock}"
+    # %Z is empty on a plain UTC ZoneInfo, where the offset is the useful part.
+    return local.isoformat(), f"{label} {local.tzname() or local.strftime('%Z%z')}"
+
+
+def format_clock(clock):
+    """An NBA game clock as the endpoint writes it, or None when there is none."""
+    text = entry_text(clock)
+    return text if text else None
+
+
+@app.route("/games")
+def games():
+    """The NBA slate for one date, rendered server-side from the cached scoreboard.
+
+    `?date=YYYY-MM-DD` picks the day and `?tz=IANA` the display zone; both are
+    validated, and an unusable one renders a message rather than raising. Every
+    failure mode of this endpoint -- a day with no games, a 403 from a blocked
+    burst, a timeout, a payload that does not parse -- is a GamesBoard status
+    the template can say something specific about. Nothing here raises, so
+    handle_unexpected_error stays a backstop rather than the normal path.
+    """
+    zone, zone_label = resolve_viewer_timezone()
+    today = datetime.now(zone).date()
+    # Carried through so the day links preserve the zone the visitor asked for.
+    tz_query = request.args.get("tz")
+
+    requested = request.args.get("date")
+    day = parse_game_date(requested)
+    if requested is not None and day is None:
+        app.logger.warning("Rejected an unusable /games date %r", requested)
+        return render_template(
+            "games.html",
+            game_date=None,
+            today=today,
+            timezone_name=zone_label,
+            tz_query=tz_query,
+            games=[],
+            status="bad_date",
+            notice=("Not a date", f"{requested!r} is not a YYYY-MM-DD date."),
+            games_count=0,
+            yesterday=today - timedelta(days=1),
+            tomorrow=today + timedelta(days=1),
+        ), 400
+
+    if day is None:
+        day = today
+
+    board = fetch_games(day.isoformat(),
+                        ttl_hash=get_ttl_hash(seconds=SCOREBOARD_TTL_SECONDS))
+    status = board_status(board)
+    if status != "ok":
+        app.logger.warning("Games for %s came back %s: %s", day, status, board_detail(board))
+
+    cards = []
+    for game in board.values():
+        tipoff_iso, tipoff_label = format_tipoff(game["tipoff"], zone)
+        cards.append(dict(game,
+                          tipoff_iso=tipoff_iso,
+                          tipoff_label=tipoff_label,
+                          game_clock=format_clock(game["game_clock"])))
+
+    # A failed fetch answers 503, the same way index() does for an unreadable
+    # prediction run: the page renders its message, but a crawler or a monitor
+    # must not read "no games tonight" as a 200.
+    response_status = 200 if status in ("ok", "no_games", "degraded") else 503
+    return render_template(
+        "games.html",
+        game_date=day,
+        today=today,
+        timezone_name=zone_label,
+        tz_query=tz_query,
+        games=cards,
+        games_count=len(cards),
+        status=status,
+        notice=GAMES_NOTICES.get(status),
+        # Only a degraded count reaches the page. An error `detail` is a
+        # traceback-shaped string about an upstream we do not control, and this
+        # app's error contract keeps that server-side.
+        degraded_note=board_detail(board) if status == "degraded" else None,
+        yesterday=day - timedelta(days=1),
+        tomorrow=day + timedelta(days=1),
+    ), response_status
 
 
 def get_player_data(team_abv):

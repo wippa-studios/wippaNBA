@@ -1,0 +1,165 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>NBA Edge Lab &middot; Games</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@300;400;500;600;700&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+</head>
+<body>
+    <div class="page">
+        <div class="backdrop">
+            <div class="glow glow-1"></div>
+            <div class="glow glow-2"></div>
+            <div class="grid-overlay"></div>
+        </div>
+
+        <header class="site-header">
+            <nav class="nav">
+                <div class="brand">
+                    <div class="brand-mark">NBA</div>
+                    <div class="brand-text">
+                        Edge Lab
+                        <small>Machine Learning Picks</small>
+                    </div>
+                </div>
+                <div class="nav-links">
+                    <a href="{{ url_for('index') }}#picks">Today's Board</a>
+                    <a href="{{ url_for('index') }}#stack">Model Stack</a>
+                    <a href="{{ url_for('index') }}#insights">Market Pulse</a>
+                    <a href="{{ url_for('games') }}" aria-current="page">Schedule</a>
+                </div>
+                <div class="nav-actions">
+                    <a class="btn btn-ghost" href="{{ url_for('index') }}#picks">View Picks</a>
+                    <a class="btn btn-primary" href="{{ url_for('games') }}">Games</a>
+                </div>
+            </nav>
+        </header>
+
+        <main>
+            <section class="section">
+                <div class="section-header">
+                    <div>
+                        <div class="eyebrow">Schedule</div>
+                        <h2>{% if game_date %}{{ game_date }}{% else %}Pick a date{% endif %}</h2>
+                        <p>
+                            Tip-offs from the NBA scoreboard, rendered on the server and
+                            cached for a minute. Times shown in {{ timezone_name }}.
+                        </p>
+                    </div>
+                    <div class="chip">{{ timezone_name }}</div>
+                </div>
+
+                <div class="day-nav">
+                    <a class="day-nav-link" href="{{ url_for('games', date=yesterday.isoformat(), tz=tz_query) }}">
+                        &larr; {{ yesterday.isoformat() }}
+                    </a>
+                    <span class="day-nav-current">
+                        {% if game_date and game_date == today %}Today{% else %}{{ game_date }}{% endif %}
+                    </span>
+                    <a class="day-nav-link" href="{{ url_for('games', date=tomorrow.isoformat(), tz=tz_query) }}">
+                        {{ tomorrow.isoformat() }} &rarr;
+                    </a>
+                </div>
+
+                {% if notice %}
+                <div class="games-notice reveal is-visible" role="status">
+                    <h3 class="games-notice-title">{{ notice[0] }}</h3>
+                    <p>{{ notice[1] }}</p>
+                </div>
+                {% elif degraded_note %}
+                <div class="games-notice reveal is-visible" role="status">
+                    <h3 class="games-notice-title">Partial slate</h3>
+                    <p>{{ degraded_note }}. Everything else on this page is real.</p>
+                </div>
+                {% elif not games %}
+                <div class="games-notice reveal is-visible" role="status">
+                    <h3 class="games-notice-title">No games scheduled</h3>
+                    <p>NBA reports no games on this date. Try the day before or after.</p>
+                </div>
+                {% else %}
+                <p class="games-count">{{ games_count }} game{{ '' if games_count == 1 else 's' }} on this date.</p>
+                {% endif %}
+
+                {% for game in games %}
+                <article class="game-card schedule-card reveal is-visible" data-delay="{{ loop.index0 * 40 }}">
+                    <div class="game-header">
+                        <div class="matchup">
+                            <span class="schedule-status status-chip status-{{ game.status }}">
+                                {{ game.status_label }}
+                            </span>
+                            {% if game.status == 'live' and game.game_clock %}
+                            <span class="schedule-clock">{{ game.status_text }} &middot; {{ game.game_clock }}</span>
+                            {% elif game.status_text %}
+                            <span class="schedule-clock">{{ game.status_text }}</span>
+                            {% endif %}
+                        </div>
+                        {# The tip-off is labelled with the zone it was converted
+                           into, because the endpoint's own wording next to it
+                           ("7:00 pm ET") is always in Eastern time. #}
+                        <div class="lean">
+                            <span>Tip-off &middot; {{ timezone_name }}</span>
+                            <strong>
+                                {% if game.tipoff_iso %}
+                                <time datetime="{{ game.tipoff_iso }}">{{ game.tipoff_label }}</time>
+                                {% else %}
+                                {{ game.tipoff_label }}
+                                {% endif %}
+                            </strong>
+                        </div>
+                    </div>
+
+                    <div class="team-lines">
+                        {# Away first, then home, and each row says which it is.
+                           Home and away come from the scoreboard's gameCode, not
+                           from row order -- see order_team_lines. #}
+                        {% for side in ('away', 'home') %}
+                        <div class="team-line team-line-{{ side }}">
+                            <span class="team-side">{{ side|capitalize }}</span>
+                            <span class="team-monogram" aria-hidden="true">{{ game[side]['tricode'] or 'NBA' }}</span>
+                            <span class="team-fullname">
+                                {{ game[side]['name'] }}
+                                {% if game[side]['record'] %}<small>{{ game[side]['record'] }}</small>{% endif %}
+                            </span>
+                            <span class="team-points">
+                                {% if game[side]['score'] is not none %}{{ game[side]['score'] }}{% else %}&mdash;{% endif %}
+                            </span>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </article>
+                {% endfor %}
+            </section>
+        </main>
+
+        <footer class="footer">
+            Built for sharper NBA decisions. Data + models update daily.
+        </footer>
+    </div>
+
+    <script>
+        // Server-rendered pages cannot know the visitor's timezone, so record it
+        // once and let the next load render tip-offs locally. This is not a poll:
+        // it is a cookie write with no network call, and the server falls back to
+        // UTC until it is set. `?tz=` still wins, and the page always names the
+        // zone it used.
+        (function () {
+            try {
+                var zone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+                if (zone) {
+                    document.cookie = "viewer_tz=" + encodeURIComponent(zone) +
+                        "; path=/; max-age=31536000; SameSite=Lax";
+                }
+            } catch (error) {
+                /* No Intl, or cookies blocked: the page still renders in UTC. */
+            }
+        })();
+    </script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="{{ url_for('static', filename='app.js') }}"></script>
+</body>
+</html>

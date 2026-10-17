@@ -37,7 +37,9 @@ whether they make money.
 | **The market beats the model decisively** | On 4,076 games with both a prediction and a closing line: market log loss **0.5994** vs the model + availability at **0.6258**, a gap of 0.0264 with the interval entirely on the market's side (|z| = 7.36). That is a loss, not a tie. |
 | **Betting selectively does not rescue it** | The parameter-free rule — bet wherever the model beats the posted price, **both sides considered** — places 3,440 bets and returns **−10.80%**. Not one of six margins is positive. |
 | **Almost everything measured here is a null** | Player ratings, 52 rank columns, gradient boosting, recency weighting, the rebound block: every interval straddles zero. See [the one thing that is not](#the-one-thing-that-is-not-a-null). |
-| **The best model is the simplest sensible one** | Logistic regression (log loss 0.6190) beats XGBoost, HistGradientBoosting and margin/total models. |
+| **The one big-looking win was a leak** | A per-player Elo block measured **\|z\| = 5.18** — the largest effect ever found here — and it was leaking the real lineup. On a pre-game roster it is +0.00065 and does not earn its place. See [the player-Elo block](#the-player-elo-block-a-strong-result-that-was-a-leak). |
+| **The best model is the simplest sensible one** | Logistic regression (log loss 0.6190) beats XGBoost, HistGradientBoosting, random forest, Gaussian NB and margin/total models. Every run is logged in `results/experiments.jsonl`. |
+| **The null is the field's finding too** | A survey of ~45 public NBA repos finds the same accuracy ceiling (65–69%), and only two of them state plainly that they lose to the market. See [against other repos](#against-other-repos). |
 | **Do not use the committed model files** | They were trained on the leaked dataset and must be retrained. |
 
 ### Contents
@@ -48,6 +50,10 @@ whether they make money.
 - [Verifying and testing](#verifying-and-testing)
 - [Results](#results)
 - [The one thing that is not a null](#the-one-thing-that-is-not-a-null)
+- [The feature search](#the-feature-search-four-candidates-pre-registered)
+- [The player-Elo block](#the-player-elo-block-a-strong-result-that-was-a-leak)
+- [Nine more candidate blocks](#nine-more-candidate-blocks-all-measured-all-null)
+- [Against other repos](#against-other-repos)
 - [What the audit found](#what-the-audit-found)
 - [What this fork changes](#what-this-fork-changes)
 - [Tooling added here](#tooling-added-here)
@@ -215,6 +221,43 @@ edge thresholds with standard errors.
 Useful flags: `--dataset`, `--test-size`, `--model {logreg,gbdt,none}`, `--skip-odds`.
 See `scripts/README.md` for the gate's checks and degradation rules.
 
+#### The experiment log
+
+`scripts/run_experiments.py` is the iterative loop, made mechanical so the search
+is an artefact rather than a memory. Every experiment is **declared with its
+rationale before it is run**, executed on identical walk-forward folds, and
+appended to `results/experiments.jsonl`.
+
+```bash
+python scripts/run_experiments.py --stage 1        # baselines and regularisation
+python scripts/run_experiments.py --stage 2        # feature-block ablations
+python scripts/run_experiments.py --stage 3        # RF / HistGB / XGBoost
+python scripts/run_experiments.py --stage elo      # player-Elo block
+python scripts/run_experiments.py --stage survey   # models named in the repo survey
+```
+
+It reports log loss as primary, with Brier, AUC and accuracy secondary and
+**explicitly not ranked** — accuracy discards the confidence a bettor needs, and
+two models can share it while disagreeing about every individual game. It also
+reports the **train-vs-test gap** for every run, so an improvement bought by
+memorising the training folds cannot hide, and it prints the **selection cost** of
+the winner: the gap between best and median. A best-of-N is the maximum of N draws,
+and the gap between best and median is the expected size of that maximum.
+
+`scripts/feature_block_ablation.py` does the same job for feature blocks, with the
+paired bootstrap and the Bonferroni accounting:
+
+```bash
+python scripts/feature_block_ablation.py --seed 42  --splits 5
+python scripts/feature_block_ablation.py --seed 137 --splits 5
+python scripts/feature_block_ablation.py --seed 2718 --splits 5
+python scripts/feature_block_ablation.py --seed 42 --splits 8   # the fold-artifact check
+```
+
+`scripts/edge_holdout.py` answers a narrower question: does a *threshold chosen by
+looking at the data* survive being chosen somewhere else? See
+[the ROI arm](#a-number-in-the-committed-output-that-looked-good-and-was-a-bug).
+
 ### Run the tests
 
 ```bash
@@ -228,9 +271,9 @@ meaningful signal. That guard lives centrally in `src/DataProviders/nba_data.py`
 which raises `unittest.SkipTest` — so there is exactly one place where "needs data"
 is decided.
 
-#### Current state: 1,020 passing, 0 failing
+#### Current state: 1,039 passing, 0 failing
 
-33 files, measured individually:
+35 files, measured individually:
 
 | test file | tests | what it protects |
 |---|---|---|
@@ -254,6 +297,7 @@ is decided.
 | `test_snapshot_provenance.py` | 14 | that a repeated price is never counted as a trajectory |
 | `test_edge_betting.py` | 13 | the parameter-free betting rule and its pricing control |
 | `test_feature_selection_errors.py` | 13 | that an empty feature list is an error, not a crash |
+| `test_player_elo.py` | 13 | player Elo: causality, scale, and that `elo_available` is inverted, not ordered |
 | `test_opponent_adjusted.py` | 12 | opponent-quality features: causality, and the margin sign convention |
 | `test_closing_line.py` | 11 | American-odds conversion, de-vigging, and row alignment |
 | `test_create_games.py` | 11 | dataset assembly |
@@ -262,6 +306,7 @@ is decided.
 | `test_availability.py` | 8 | that availability stays strictly causal and bounded |
 | `test_expected_value.py` | 8 | EV arithmetic |
 | `test_get_odds_data.py` | 8 | odds scraping |
+| `test_roi_denominator.py` | 6 | that ROI is divided by money staked, not by a signed sum |
 | `test_data_guard.py` | 7 | that missing *or partial* data skips instead of crashing a loader |
 | `test_recency_ablation.py` | 6 | the recency null stays a null |
 | `test_dataset_manifest.py` | 5 | dataset provenance |
@@ -270,8 +315,18 @@ is decided.
 
 **Every guard in this table was added because something was measured to be wrong,
 and several exist because a test caught a bug I introduced in the same commit.**
-Four examples worth knowing about:
+Five examples worth knowing about:
 
+- `test_player_elo.py` exists because a per-player Elo block measured **|z| = 5.18**
+  and was leaking: it summed over the players who actually played, which nobody can
+  know before tip-off. Truncating the future does **not** catch that — the leak is
+  in the *membership*, not the weights — so the test asserts something else
+  entirely: that the raw total is **inverted** relative to winning, which is what
+  remains once the leak is removed. See
+  [the player-Elo block](#the-player-elo-block-a-strong-result-that-was-a-leak).
+- `test_roi_denominator.py` exists because `closing_line.roi()` divided total
+  profit by `stake.sum()`, which included negative stakes, so a strategy losing
+  9.37% reported **+13.54%**. A loss divided by a negative total.
 - `test_data_guard.py` exists because the guard that skips the suite when the NBA
   data is absent checked for a *directory*, not for files. An empty `game_logs/`
   passed it, every glob then returned nothing, and CI failed with
@@ -411,6 +466,8 @@ Almost every mechanism measured in this project came back flat. These did not.
 | rank columns (52 cols) | +0.00065 | [−0.00039, +0.00166] | null |
 | schedule block (7 cols) | −0.00203 | [−0.00358, −0.00051] | **lead, not a finding** |
 | per-team home/away split (6 cols) | −0.00089 | [−0.00167, −0.00015] | **replicated, below the bar** |
+| player Elo, pre-game roster (6 cols) | +0.00065 | [+0.00007, +0.00126] | **does not earn its place** |
+| *player Elo, real lineup (a leak)* | *−0.00645* | *[−0.00890, −0.00402]* | *\|z\| 5.18 — the biggest fake win here* |
 | recency weighting (halflife 5, 2) | worse | excludes zero | halflife 10 is already optimal |
 
 **Availability is the first mechanism here whose interval excludes zero for the
@@ -605,38 +662,237 @@ is a broken price, not an edge.
 is the market's side, and the availability result below is a genuine improvement to
 *prediction* that a 4% bookmaker already exceeds.
 
-#### A number in the committed output that looks good, and why it is not one
+**The player-Elo bucket analysis reaches the same verdict from a new direction, and
+that agreement is worth more than either result alone.** `elo_mean` orders games
+correctly — decile home-win rate rises monotonically from 0.535 to 0.622, ρ = +0.85
+— yet its spread across those buckets is **0.091, against the closing market's
+0.099 on the very same games.** A feature that orders games marginally worse than
+the price already does is a real feature and not a betting edge. See
+[the player-Elo block](#the-player-elo-block-a-strong-result-that-was-a-leak).
 
-`scripts/closing_line.py` also prints a threshold sweep, and two of its cells look
-like an edge:
+#### A number in the committed output that looked good, and was a bug
+
+`scripts/closing_line.py` printed this in an earlier revision:
 
 | threshold | bets | model ROI | \|z\| | model + availability ROI | \|z\| |
 |---|---|---|---|---|---|
-| 0.55 | 815 | +11.76% | 2.22 | +13.54% | 2.54 |
+| 0.55 | 815 | **+11.76%** | 2.22 | **+13.54%** | 2.54 |
 | 0.60 | 638 | +6.19% | 1.02 | +3.52% | 0.59 |
 | 0.65 | 478 | −2.11% | 0.30 | +0.07% | 0.01 |
 
-**This is the failure mode this project exists to avoid, printed by its own
-script, and it is recorded here rather than left in `results/closing_line.json`
-for someone to find later.** Three things disqualify it, and none of them is
-"the number is small":
+**Those two positive numbers were a bug, not a finding, and the bug inverted the
+sign.** The corrected figures, every threshold negative or flat:
 
-1. **It is threshold-swept.** Three thresholds, and the two largest are the two
-   lowest thresholds — the part of the sweep where you bet most often and so have
-   the least room to be wrong about the price. Picking the best of three is a
-   multiple-comparisons problem, and the script's own verdict text says so.
-2. **Neither clears |z| > 3.** 2.22 and 2.54 are the bar this project adopted from
-   Vandenbruaene et al. (2022), whose null of unprofitability survived 628
-   implementations.
-3. **It contradicts the parameter-free rule measured on more games.** The
-   breakeven table above places 3,440 bets across 4,076 games and returns
-   **−10.80%**. The sweep here places 815 on a subset of the same games and returns
-   +13.54%. One of the two is selection. Given that the untuned rule loses and the
-   tuned rule wins, the tuned number is the one that should be believed least.
+| threshold | bets | model ROI | \|z\| | model + availability ROI | \|z\| |
+|---|---|---|---|---|---|
+| 0.55 | 815 | −8.55% | 1.62 | **−9.37%** | 1.78 |
+| 0.60 | 638 | −5.02% | 0.86 | −2.74% | 0.46 |
+| 0.65 | 478 | +1.76% | 0.25 | −0.06% | 0.01 |
 
-The threshold sweep is left in the script because deleting the output that
-disagrees with the conclusion is worse than publishing it with the reasoning
-attached.
+**What was wrong.** The stake is `p_model − p_raw`, which is **negative whenever
+the market is the more confident side** — at a 0.55 threshold, 1,382 of 4,076
+games. Those are not short positions. They are not bets, and their stake is not
+money. But the ROI divided total profit by `stake.sum()`, which summed them:
+
+```
+positive stakes   812, sum  +69.22   <- money actually at risk
+negative stakes  1382, sum -117.10   <- not bets at all
+stake.sum()             -47.88        <- the denominator as coded
+total profit            -6.48         <- a LOSS
+profit / sum(positive)  -9.37%        correct
+profit / stake.sum()   +13.54%        as it was reported
+```
+
+A loss divided by a negative total reports as a profit. The same mistake was
+inside the bootstrap, so the standard error was computed over the wrong population
+too — a wrong ROI with a plausible-looking SE, which is harder to catch than
+either alone.
+
+**Why it survived as long as it did.** The bet *count* was right (812), every
+individual stake was sensible, and every intermediate number was plausible. Only
+the ratio was wrong. Sitting on top of a best-of-six threshold sweep, `+11.76%`
+and `+13.54%` became the two best cells — which is exactly what a selection effect
+looks like, and why it was initially written off in this file as multiplicity
+rather than arithmetic. **That explanation was wrong, and being wrong in the
+conservative direction is still wrong.** An independent reimplementation
+(`scripts/edge_holdout.py`) computed the same 812 bets and got −9.37% from a
+different code path; that disagreement is what found it.
+
+Both the mean and the bootstrap now restrict to placed bets before aggregating.
+Pinned by `Tests/test_roi_denominator.py`, whose headline test asserts the
+invariant the bug violated: *the sign of the ROI is the sign of the total profit.*
+
+---
+
+### The player-Elo block: a strong result that was a leak
+
+This is the longest entry here because the *shape* of it is the point.
+
+Per-player Elo ratings, totalled over each team's expected-available roster, were
+built as a feature block and scored. The first measurement was:
+
+| roster construction | Δ log loss | 95% CI | \|z\| | verdict |
+|---|---|---|---|---|
+| **over the actual participants** | **−0.00645** | [−0.00890, −0.00402] | **5.18** | the largest effect ever measured here |
+| over the pre-game roster | +0.00065 | [+0.00007, +0.00126] | 2.14 | **does not earn its place** |
+
+**That first row was target leakage, and it was nearly published as a result.**
+|z| = 5.18 clears this project's bar of 3, clears Bonferroni for eleven looks,
+and is larger than every real effect in this repository combined. It came from
+summing `rating × expected_minutes` over the players who **actually played**.
+
+The *weights* were honest — trailing EWMAs, strictly causal, verified by truncating
+the future. The leak was in the **membership**. Nobody knows before tip-off which
+ten men will be on the floor, so a sum over the actual lineup tells the model who
+played. It is the same failure mode as substituting actual minutes for expected
+ones, which is worth +0.01089 against an honest +0.00382; the size of the
+fabrication here sits exactly in that pattern, which is what made it worth
+suspecting.
+
+The fix rebuilds the roster from the past: for team X's game *t*, the available
+roster is every player with an appearance for X **strictly before t**, carrying the
+rating and trailing minutes from that last appearance. A player who misses the
+game is still in the sum, discounted by his own trailing minutes — which is the
+entire point of the block. Reproduce both numbers with
+`python scripts/feature_block_ablation.py --blocks player_elo`.
+
+**Bucketing the contrast explains the mechanism, without needing the model.**
+`scripts/elo_buckets.py` removes the regression entirely: it takes the raw
+home-minus-away Elo contrast, splits games into ten equal-population buckets, and
+reports the actual home-win rate in each. Three columns, three different answers.
+
+| contrast | Spearman ρ vs bucket | win rate, low → high bucket | spread / noise | market's own spread |
+|---|---|---|---|---|
+| `elo_mean` (scale-free) | **+0.85** | 0.535 → 0.622 | 6.7× | 0.099 |
+| `elo_available` (raw total) | **−0.96** | 0.624 → 0.483 | 10.3× | 0.111 |
+| `elo_top5` | +0.17 | 0.537 → 0.591 | 4.0× | 0.035 |
+
+Read those three rows together:
+
+1. **`elo_available` runs backwards.** The stronger a team's accumulated
+   rating-minutes looks, the *less* it wins. It is not a quality measure at all —
+   it is dominated by **departed** players, whose trailing EWMA decays without ever
+   reaching zero, so a club that recently traded a star keeps carrying his weight
+   while a club that just acquired one is under-counted. It is a lagging indicator
+   of roster churn, and it is the column that made the leaky version look like a
+   breakthrough.
+2. **`elo_mean` is correctly ordered** — and its spread (0.091) is *narrower* than
+   the closing market's spread on the same buckets (0.099). A feature that orders
+   games slightly worse than the price already does is a real feature and **not a
+   betting edge**, which is the whole conclusion of this project arriving from a
+   completely new direction.
+3. **`elo_top5` is nearly useless** (ρ = +0.17), which is expected: it is a crude
+   proxy for a starting five that cannot notice a starter sitting out.
+
+The bucket at zero contrast sits at **0.5585**, not 0.500 — correctly above a coin
+flip, because an Elo difference says nothing about home court.
+
+**What is left is honest and small.** The block is retained, behind a
+`roster_mode` parameter, because a measured null with a diagnosed mechanism is worth
+more than a deleted function. `all_prior`, `prev_game` and `top_minutes` are three
+stated answers to "who is available", and the `elo_mean` numbers across them agree
+to within a point (1546.4 / 1546.7 / 1548.0) even though their raw totals differ
+by 10×. A confirmed starting five would be a fourth answer, but lineups are filed
+**30–60 minutes before tip-off** — legitimate for a tip-off prediction and
+impossible for a model run that morning. That is a prediction-point decision, not a
+data gap, so it is a parameter that stays unfilled rather than a feature that
+quietly becomes unavailable.
+
+### Nine more candidate blocks, all measured, all null
+
+`docs/modeling_exploration.md` builds and **scores** nine feature blocks out of the
+tables nothing had read — actual travel distance, margin volatility, matchup-specific
+deviation, momentum as a second difference, shot-chart mix, league-era effects,
+never-read team columns, and two play-type PPP variants. All on the same five
+walk-forward splits. Full document in `docs/`.
+
+| block | cols | OOF log loss | vs base | \|z\| |
+|---|---|---|---|---|
+| actual travel (origin → destination) | 3 | 0.61890 | **+0.00026** | 1.02 |
+| margin volatility (trailing sd) | 2 | 0.61889 | **+0.00026** | 1.19 |
+| matchup deviation (this pairing) | 3 | 0.61911 | +0.00004 | 0.39 |
+| momentum (last 2 vs last 10) | 4 | 0.61919 | −0.00004 | 0.06 |
+| road-trip length | 2 | 0.61924 | −0.00009 | 0.68 |
+| never-read team columns (28) | 28 | 0.61932 | −0.00017 | 0.22 |
+| shot-chart shot mix (49% coverage) | 14 | 0.61952 | −0.00037 | 0.59 |
+| league era / season index | 4 | 0.62043 | −0.00128 | 2.25 |
+| prior-season play-type PPP (crossed) | 22 | 0.62084 | −0.00169 | 2.32 |
+| prior-season play-type PPP (full) | 66 | 0.62763 | −0.00847 | **4.96** |
+
+**The best of ten is +0.00026 at |z| = 1.19.** That is the finding, and the
+correlation screen is what makes it one rather than an opinion about ideas: several
+of these are about as orthogonal to the existing features as a team statistic can
+be — trailing margin volatility at r = 0.04, the last-2-vs-last-10 margin
+contrast at r = 0.06 — and they still predict nothing. If a quantity has no
+correlation with team strength, schedule state, or opponent quality, and it still
+does not pick a winner, it is not a weaker version of team strength. It is nothing.
+
+**One block is worse in a way that is informative.** Prior-season play-type PPP
+costs **−0.0085 nats at |z| = 4.96**, monotonically worse as columns are added,
+and PCA does not rescue it — while correlating only r ≈ 0.08 with the features
+that already carry the signal. The information arrived and a 59-column
+unregularised frame could not carry it. That is an architecture problem, not a
+data problem, and it is the one place where more work might plausibly pay.
+
+**One candidate killed itself during the work.** The strongest idea — player-level
+zone defence crossed with opponent shot mix — turned out to be untestable:
+`D_FG_PCT` is populated on the `Overall` category only, and all five zone
+categories are 100% NaN. Its first correlation reading (+0.691) had also used the
+wrong season key, so it was reading the same leak this project warns about. Both
+are recorded in the document rather than quietly dropped.
+
+### Against other repos
+
+`docs/repo_survey.md` compiles ~45 public NBA prediction repositories from their
+own published READMEs. It is a useful external check for two reasons: it says what
+the field's ceiling looks like, and it says how honestly the field reports.
+
+**This project's accuracy sits inside the reported range, not above it.** Reported
+moneyline accuracies in the survey: ~0.69 (whisdev), 0.669 (Pirkn, neural net),
+0.6505 (Pirkn, ridge), 0.648 (Pirkn, XGBoost), 0.615 (cmunch1), 0.573 (Exidekat,
+combined). This model's canonical accuracy is **0.6567** — mid-pack. The one
+repo that reports a baseline alongside its own number, cmunch1, gets 0.615 against
+0.580 for "home always wins"; this project's equivalent comparison is 0.6567
+against **0.5527**, a wider margin than cmunch1's. So the model is not weak. It is
+ordinary, and being ordinary at 0.657 is what the field looks like.
+
+**Two repos in the survey say outright that they lose to the market.** tonyelhabr
+states its log loss is worse than Benz's 538 model. NBA_Betting states that
+"consistently outperforming Vegas lines remains a challenge", noting the vig. That
+is the same conclusion this project reached by measurement, and the fact that it
+is the minority view in the field is worth naming rather than hiding behind.
+
+**The survey's §7 observation is the one that matters most.** It notes that *no*
+reported accuracy figure across ~45 repos accounts for the vig, typically 4–8% on
+a two-way market, and that a 65%-accurate model is roughly break-even only after
+deducting it. This project measures the vig directly: **+3.98% mean overround**
+(p5–p95 2.96–5.00%) on the closing lines, and a model-to-market gap of 0.026 nats.
+So the accuracy figures in the survey — including the 0.69 and 0.669 — are
+pre-vig numbers that cannot be read as profitability. Comparing this project's
+0.6567 accuracy against those would be the same error the survey warns about.
+
+**The survey's §6.4 finding matches this project's own measurements.** It observes
+that feature volume does not track performance: nealmick uses 500+ features per
+game across 20,000+ games and reports no accuracy, while the repos with the
+strongest numbers use compact hand-engineered sets. That is exactly what happened
+here — the 52 rank columns, the rebound block, the three never-read `OPP_*`
+columns and the opponent-adjusted form were all null or worse than nothing, and
+dropping the `OPP_*` columns very slightly *improved* log loss.
+
+**Three architectures the survey names as winners were tested here, and all three
+lose.** Gaussian Naive Bayes + PCA (best model in luke-lite), logistic on 20
+principal components (rileypsmith reports 80 PCs beating 10), and ridge. See the
+experiment log for the measured numbers. That is consistent with §6.4 rather than
+in conflict with it: the winning numbers elsewhere come with vaguer evaluation
+discipline than this project uses, and §6.5 records that 13 of 28 game-outcome
+repos publish no metrics at all while one 29★ repo has no README whatsoever.
+
+**What this project adds to that literature is not a better model.** It is a
+baseline, a held-out protocol, a measured vig, and a comparison against the actual
+closing price. Of the ~45 repos surveyed, one (cmunch1) publishes a baseline; the
+survey itself identifies it as the exception. Most of the field's conclusions are
+unfalsifiable without re-running the code, which is also the survey's §8 first
+suggestion.
 
 ---
 
@@ -790,6 +1046,9 @@ next deliberate step, tracked in [ROADMAP.md](ROADMAP.md).
 | Module | What it is for |
 |---|---|
 | `scripts/evaluate.py` | One command that reproduces every number in this README. Opens with a **leakage gate** that refuses to report accuracy on a contaminated dataset, then reports baselines, model metrics, the closing-line favourite, and ROI with standard errors. Degrades explicitly rather than scoring a partial odds join. |
+| `scripts/experiments.py` + `scripts/run_experiments.py` | The iterative experiment loop as an append-only log. Experiments are declared with their rationale **before** being run, executed on identical walk-forward folds, and appended to `results/experiments.jsonl` with log loss, Brier, AUC, the train-vs-test gap, and top features. Prints the selection cost of the winner so a best-of-N cannot masquerade as a result. |
+| `scripts/feature_block_ablation.py` | Feature-block scoring by paired bootstrap, with `--seed` and `--splits` so any result can be **replicated** rather than accepted. Ten blocks against one consistent full frame. |
+| `scripts/edge_holdout.py` | Leave-one-season-out test of whether a betting threshold survives being chosen on different seasons than it is scored on. Reports per-season ROI stability and whether the in-sample winner is even stable. |
 | `src/Utils/metrics.py` | Expected calibration error, maximum calibration error, reliability curves, multi-class Brier, guarded log loss. Cross-checked against scikit-learn to `0.000e+00`. |
 | `src/Utils/validation.py` | Purged walk-forward splits with embargo, plus selection-bias and deflated-Sharpe correction. On this dataset 100 hyperparameter trials are worth **~2.5 standard errors** — larger than most effects anyone would claim from it. |
 | `src/Utils/Kelly_Criterion.py` | Fractional Kelly, probability shrinkage, two-way de-vig (proportional and Shin), per-bet and slate caps. The audited arithmetic underneath is unchanged. |
@@ -836,13 +1095,20 @@ for games already played.
 3. **Accuracy is not profitability, and log loss is closer to profitability than
    accuracy is.** The market has both the best accuracy (0.6813) *and* the best log
    loss (0.59940); a model could beat it on one and still lose money on the other.
+   This project's accuracy (0.6567) sits mid-pack among published NBA models
+   (~0.615–0.69, `docs/repo_survey.md`), so being ordinary at 0.657 is the field's
+   normal — and **no** published figure in that survey accounts for the vig, which
+   this one measures directly at +3.98%. Those accuracy numbers cannot be read as
+   returns.
 4. **The `68.9%` figure is retired.** It is reproduced here only to explain the leak.
    It is not a forecasting result.
 5. **Effect sizes here are small, and the honest bar is high.** Everything measured
    is of order 0.001–0.03 nats. This project holds itself to |z| > 3, from
    Vandenbruaene et al. 2022 (*J Sports Econ* 23(7)), where the null of
    unprofitability was never rejected across 628 implementations after
-   multiple-testing correction. A single 95% interval is not enough; six blocks were
+   multiple-testing correction. A single 95% interval is not enough; **ten blocks
+   are** now scored against one full frame, and the largest of them reaches |z| = 2.59,
+   still short of the bar.
    scored in one ablation and only one excluded zero, which did not survive
    correction.
 

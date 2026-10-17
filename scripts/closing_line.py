@@ -214,27 +214,61 @@ def roi(p_model: np.ndarray, p_raw: np.ndarray, y: np.ndarray,
     The stake is the model's edge OVER THE PRICE, not its raw confidence. A 0.60
     model probability is only a bet if the posted line implies less than 0.60,
     because that difference is what survives the vig.
+
+    A GAME WHERE THE PRICE IS BETTER IS NOT A BET, AND ITS STAKE IS NOT MONEY
+    ---------------------------------------------------------------------
+    `p_model - p_raw` is negative whenever the market is the more confident one,
+    which at a 0.55 threshold is most of the slate: on the real data 1,382 of
+    4,076 games. Those are not short positions. They are not bets at all, and
+    their stake is not a unit of currency.
+
+    This function used to divide total profit by `stake.sum()`, which included
+    them. Measured consequence at threshold 0.55:
+
+        positive stakes 812, sum +69.22  <- money actually at risk
+        negative stakes 1382, sum -117.10
+        stake.sum()   = -47.88          <- the denominator it divided by
+        total profit  = -6.48           <- a LOSS
+        profit / sum(positive stakes)  = -9.37%   correct
+        profit / stake.sum()           = +13.54%   as it was reported
+
+    A loss divided by a negative total reports as a profit. The sign of the
+    headline number was inverted by the denominator, not by the threshold sweep
+    being unlucky - and the same `st = stake[pick]` mistake was inside the
+    bootstrap, so the standard error was computed over the wrong population too.
+
+    Both now restrict to placed bets, before the mean and before the resample.
     """
-    stake = np.where(p_model >= threshold, p_model - p_raw, 0.0)
-    n = int((stake > 0).sum())
+    raw_stake = np.where(p_model >= threshold, p_model - p_raw, 0.0)
+    placed = raw_stake > 0
+    n = int(placed.sum())
     if n == 0:
         return {"threshold": threshold, "bets": 0, "roi": float("nan"),
-                "se": float("nan")}
+                "se": float("nan"), "z": float("nan")}
+
     won = (y == 1).astype(float)
-    # Each stake wagers `stake` units and returns stake*win + stake*(1-win) - 1...
-    # expressed properly: profit per unit staked = (won - p_raw) / p_raw * stake
-    profit = np.where(stake > 0, (won - p_raw) / p_raw * stake, 0.0)
-    total_staked = stake.sum()
+    # Profit per unit staked on a bet that was actually placed:
+    #   win  -> (1 - p_raw) / p_raw   (net of the stake)
+    #   lose -> -1
+    profit = np.where(placed, (won - p_raw) / p_raw * raw_stake, 0.0)
+    stake = np.where(placed, raw_stake, 0.0)
+
+    total_staked = float(stake.sum())
+    if total_staked <= 0:
+        return {"threshold": threshold, "bets": n, "roi": float("nan"),
+                "se": float("nan"), "z": float("nan")}
     roi_point = float(profit.sum() / total_staked)
-    # Clustered SE: bets on the same game are not independent, but games are.
+
+    # Resample GAMES, not bets. Only placed bets enter, and each game
+    # contributes at most one of them on this rule.
     rng = np.random.default_rng(SEED)
-    per_game = np.where(stake > 0, (won - p_raw) / p_raw * stake, 0.0)
-    draws = []
-    idx = np.flatnonzero(stake > 0)
-    for _ in range(1000):
-        pick = rng.choice(idx, size=len(idx), replace=True)
-        st = stake[pick]
-        draws.append(per_game[pick].sum() / st.sum())
+    idx = np.flatnonzero(placed)
+    st = stake[idx]
+    pf = profit[idx]
+    draws = np.empty(2000)
+    for i in range(len(draws)):
+        pick = rng.integers(0, len(idx), len(idx))
+        draws[i] = pf[pick].sum() / st[pick].sum()
     se = float(np.std(draws, ddof=1))
     return {"threshold": threshold, "bets": n, "roi": roi_point, "se": se,
             "z": (roi_point / se) if se > 0 else float("nan")}
