@@ -69,9 +69,53 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-DATA_ROOT = os.environ.get(
-    "NBA_DATA_ROOT", "/home/Joel/Desktop/Legit_NBA_Predictions/data/nba"
-)
+_REPO_ROOT = Path(__file__).resolve().parents[2]
+
+# Where the downloader puts its output. Resolved relative to the REPOSITORY, not
+# to a fixed absolute path.
+#
+# The default used to be one developer's home directory:
+# "/home/Joel/Desktop/Legit_NBA_Predictions/data/nba". In a shared repository that
+# is wrong for every other person - someone who ran the downloader exactly as
+# documented, into ./data/nba, would still be told the data was missing. It is
+# also why the data guard behaved inconsistently between machines.
+#
+# Order: NBA_DATA_ROOT, then ./data/nba, then the legacy sibling checkout that the
+# original development used. First match that exists wins.
+def _default_data_root() -> str:
+    # An explicit override ALWAYS wins, even when it points somewhere that does
+    # not exist. Falling through to a default in that case silently ignored the
+    # caller: the error then names a path nobody asked for, and a CI job with a
+    # typo'd variable reads as "the data is missing" rather than "your variable
+    # is wrong".
+    override = os.environ.get("NBA_DATA_ROOT")
+    if override:
+        return override
+    candidates = [
+        str(_REPO_ROOT / "data" / "nba"),
+        str(_REPO_ROOT.parent / "Legit_NBA_Predictions" / "data" / "nba"),
+    ]
+    for c in candidates:
+        if Path(c).is_dir():
+            return c
+    # Nothing exists yet. Return the in-repo location anyway so the error message
+    # names the path the README tells people to use, not a stale absolute one.
+    return candidates[0]
+
+
+DATA_ROOT = _default_data_root()
+
+# The minimum a usable dataset must contain, checked for actual CSVs rather than
+# merely for the directory existing - the downloader writes its tables one stage
+# at a time, and an interrupted run leaves exactly the state that crashes a loader
+# with `ValueError: No objects to concatenate`.
+#
+# Deliberately only the two tables every code path needs. An earlier version also
+# required `player_gamelogs` and `schedule`, which is correct for the real 382 MB
+# download but wrong in general: the synthetic fixtures in Tests/ legitimately
+# carry a subset, and requiring a full download to run a unit test is how a guard
+# becomes an obstacle rather than a protection.
+_REQUIRED_DATA_DIRS = ("game_logs", "team_gamelogs")
 
 # The 30 current franchises. Guards against All-Star / Rising Stars / preseason
 # squads, which the schedule carries under tricode-like names (USA, WLD, GNS, ULM...).
@@ -145,13 +189,32 @@ def _require_downloaded_data() -> None:
     SkipTest is a legitimate outcome, not a failure: these tests cannot run
     without an input the project does not ship.
     """
-    if (Path(DATA_ROOT) / "game_logs").is_dir():
+    # A DIRECTORY existing is not enough, and checking only ONE of them is not
+    # enough either. An empty `game_logs/` passes an `is_dir()` check and every
+    # glob returns nothing, so `pd.concat([])` raises from deep inside a loader -
+    # which is exactly what this function exists to prevent, and what red-lined CI.
+    #
+    # A PARTIAL download fails the same way by a different route: `game_logs/`
+    # populated but `team_gamelogs/` still empty passes a single-directory check
+    # and then blows up on the second glob. So every directory the core loaders
+    # read is checked for actual CSVs.
+    missing = [d for d in _REQUIRED_DATA_DIRS
+               if not glob.glob(os.path.join(DATA_ROOT, d, "*.csv"))]
+    if not missing:
         return
     import unittest  # local import: this module is not otherwise test-coupled
 
+    root_exists = Path(DATA_ROOT).is_dir()
+    if not root_exists:
+        detail = "(directory does not exist)"
+    elif len(missing) == len(_REQUIRED_DATA_DIRS):
+        detail = "(directory exists but holds no CSVs)"
+    else:
+        detail = f"(no CSVs in: {', '.join(missing)})"
     raise unittest.SkipTest(
-        f"NBA data not found at {DATA_ROOT}. Download it with "
-        f"`python download_nba_data.py`, or set NBA_DATA_ROOT to an existing copy."
+        f"NBA data not found at {DATA_ROOT} {detail}. Download it with "
+        f"`python scripts/download_nba_data.py`, or set NBA_DATA_ROOT to an "
+        f"existing copy."
     )
 
 
