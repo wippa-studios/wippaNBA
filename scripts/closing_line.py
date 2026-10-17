@@ -87,24 +87,62 @@ def implied_from_american(odds) -> np.ndarray:
         return np.where(o < 0, (-o) / ((-o) + 100.0), 100.0 / (o + 100.0))
 
 
+#: Candidate table names for a season's closing lines, most-preferred first.
+#: Mirrors ``training_reporting.ODDS_TABLE_CANDIDATES``. The four spellings all
+#: occur in the shipped database: 2024-25 is stored as a bare ``2024-25`` and
+#: 2025-26 as ``odds_2025-26`` with no ``_new`` twin. Probing only one name
+#: silently discarded both - see #47.
+ODDS_TABLE_CANDIDATES = (
+    "odds_{season}_new",
+    "odds_{season}",
+    "{season}_new",
+    "{season}",
+)
+
+
 def load_odds() -> pd.DataFrame:
-    """Closing moneyline for every season the model covers."""
+    """Closing moneyline for every season the model covers.
+
+    Every season in ``SEASONS`` must resolve to a table. A season that does not is
+    an error naming the season, not a silent ``continue``: the previous version
+    probed only ``odds_<season>_new`` and swallowed the miss with a bare
+    ``except``, which is indistinguishable from the odds genuinely being absent.
+    That guard reported absence when the data was there under a different name,
+    and every market number in this repository was computed without the two most
+    recent seasons.
+    """
     if not ODDS_DB.exists():
         raise FileNotFoundError(f"{ODDS_DB} is absent; the market comparison "
                                 "needs the shipped odds database")
     con = sqlite3.connect(f"file:{ODDS_DB}?mode=ro", uri=True)
-    frames = []
-    for s in SEASONS:
-        name = f"odds_{s}_new"
-        try:
+    try:
+        existing = {row[0] for row in
+                    con.execute("SELECT name FROM sqlite_master WHERE type = 'table'")}
+        frames = []
+        missing = []
+        for s in SEASONS:
+            name = next((t.format(season=s) for t in ODDS_TABLE_CANDIDATES
+                         if t.format(season=s) in existing), None)
+            if name is None:
+                missing.append(s)
+                continue
             d = pd.read_sql_query(f'SELECT * FROM "{name}"', con)
-        except Exception:
-            continue
-        if len(d):
-            d = d.assign(SEASON=s)
-            frames.append(d[["Date", "Home", "Away", "ML_Home", "ML_Away",
-                             "OU", "Spread"]])
-    con.close()
+            if len(d):
+                # SEASON is carried through rather than dropped. It was assigned
+                # and then immediately excluded by the column selection below,
+                # so no caller could see which seasons the frame actually
+                # covered - which is how the two missing seasons went unnoticed.
+                d = d.assign(SEASON=s)
+                frames.append(d[["Date", "Home", "Away", "ML_Home", "ML_Away",
+                                 "OU", "Spread", "SEASON"]])
+    finally:
+        con.close()
+    if missing:
+        raise RuntimeError(
+            f"no odds table for season(s) {missing} in {ODDS_DB.name}; tried "
+            f"{[t.format(season=missing[0]) for t in ODDS_TABLE_CANDIDATES]}. "
+            "Refusing to return a frame that silently omits seasons."
+        )
     if not frames:
         raise RuntimeError("no odds tables matched")
     return pd.concat(frames, ignore_index=True)
