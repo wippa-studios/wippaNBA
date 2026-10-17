@@ -65,3 +65,124 @@ jobs:
 
       - name: Run tests (unittest discovery)
         run: python -m unittest discover -s Tests -t .
+
+  # ---------------------------------------------------------------------------
+  # The totals (over/under) trainer, run end to end.
+  #
+  # Issue #5's third acceptance criterion was that CI exercises the UO path and
+  # not only the moneyline path. Nothing here did: this workflow ran the test
+  # suite, and the test suite fit a synthetic LogisticRegression rather than
+  # running a trainer, so a totals trainer that could not construct its estimator
+  # was still green. This job runs the real entry point.
+  #
+  # The matrix spans the scikit-learn 1.7 removal of `multi_class` on purpose.
+  # requirements.txt pins scikit-learn==1.3.1, so the version gate's legacy
+  # branch is the one the `test` job above exercises; the >=1.7 branch -- the one
+  # that raised TypeError, and the one this issue is about -- is only reachable
+  # by overriding that pin. Two legs, one version each, and neither can quietly
+  # stand in for the other.
+  # ---------------------------------------------------------------------------
+  totals-trainer:
+    name: totals trainer end to end (scikit-learn ${{ matrix.label }})
+    runs-on: ubuntu-latest
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # The requirements.txt pin: the oldest library this repo supports, and
+          # the branch where LogisticRegression still accepts multi_class.
+          # numpy is held below 2.0 because the 1.3.1 wheels are built against
+          # the numpy 1.x C ABI.
+          - label: "1.3.1 (pinned; multi_class accepted)"
+            sklearn: "scikit-learn==1.3.1"
+            numpy: "numpy<2"
+          # Where `multi_class` was removed. Before the fix this leg died with
+          # TypeError: LogisticRegression.__init__() got an unexpected keyword
+          # argument 'multi_class', on the first estimator of the first trial,
+          # so the totals path produced no numbers at all.
+          - label: ">=1.7 (multi_class removed; the TypeError)"
+            sklearn: "scikit-learn>=1.7"
+            numpy: "numpy"
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          # 3.11, and specifically NOT 3.13. One interpreter rather than the
+          # 3.10/3.11 pair above, because this matrix varies scikit-learn, not
+          # Python -- and 3.11 is the highest interpreter with a
+          # scikit-learn==1.3.1 WHEEL. On 3.13 that leg has no wheel, pip falls
+          # back to the sdist and dies compiling Cython, which is the same
+          # ceiling requirements.txt documents. Both legs run on 3.11 so the
+          # matrix varies exactly one thing.
+          python-version: "3.11"
+          cache: pip
+
+      # NOT `pip install -r requirements.txt`, deliberately. This job runs ONE
+      # script and that script imports exactly three third-party packages:
+      # numpy, pandas and scikit-learn. The full requirements file pulls
+      # TensorFlow (by far the slowest step in the job above) and pins
+      # scikit-learn==1.3.1 beside numpy<2.0 for tensorflow 2.14 -- which makes
+      # the >=1.7 leg of this matrix uninstallable, i.e. it would delete the
+      # only leg that reproduces the bug this job exists to catch.
+      - name: Install the totals trainer's dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install "${{ matrix.numpy }}" pandas "${{ matrix.sklearn }}"
+
+      # Printed rather than asserted: the point is a legible log. If these two
+      # legs ever agree about the signature, the matrix has stopped spanning the
+      # removal and one leg is silently duplicating the other.
+      - name: Show which branch of the version gate this leg takes
+        run: |
+          python -c "
+          import inspect, sklearn
+          from sklearn.linear_model import LogisticRegression
+          present = 'multi_class' in inspect.signature(LogisticRegression.__init__).parameters
+          print('scikit-learn', sklearn.__version__, '-> multi_class in signature:', present)
+          "
+
+      # The trainer reads Data/dataset.sqlite through training_common.DATASET_DB,
+      # a module constant with no command-line override, so the synthetic table
+      # is written to that exact path.
+      #
+      # Nothing is downloaded, and the committed 38 MB table is deleted first on
+      # purpose: leaving it in place would let a failed build here fall through
+      # to a ten-minute run on real data and report a green job that tested
+      # nothing at all. The committed table is restored by the next checkout.
+      - name: Build a synthetic dataset (nothing is downloaded)
+        run: |
+          rm -f Data/dataset.sqlite
+          python - <<'PY'
+          import sqlite3
+          import sys
+          from pathlib import Path
+
+          sys.path[:0] = ["Tests", "src/Train-Models", "."]
+          from test_training_layer import write_synthetic_dataset_db
+
+          import training_common
+
+          path = write_synthetic_dataset_db(Path("Data/dataset.sqlite"))
+          with sqlite3.connect(f"file:{path}?mode=ro", uri=True) as con:
+              names = [
+                  row[0]
+                  for row in con.execute("SELECT name FROM sqlite_master WHERE type='table'")
+              ]
+              rows = con.execute(
+                  f'SELECT COUNT(*) FROM "{training_common.DEFAULT_DATASET}"'
+              ).fetchone()[0]
+          # Asserted, not just printed: this is the guard against silently
+          # training on whatever else happens to be at that path.
+          assert names == [training_common.DEFAULT_DATASET], names
+          print(f"wrote {path}: tables={names} rows={rows}")
+          PY
+
+      # --trials 2 --splits 3 is about two seconds. The goal is that a
+      # regression in this path fails CI, not that CI produces a model worth
+      # having; the real search defaults to 15 trials over 5 folds.
+      - name: Train the totals model
+        run: python -m src.Train-Models.Logistic_Regression_UO --trials 2 --splits 3

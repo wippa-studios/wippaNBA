@@ -8,6 +8,9 @@ Six filed issues, one file, and each class below names the issue it pins:
   ``TestTotalsTrainerRuns``       #5   ``multi_class="multinomial"`` is a
                                        TypeError on modern scikit-learn, so the
                                        totals trainer could not run at all.
+  ``TestTotalsTrainerRunsEndToEnd`` #5  the same fix, proved by RUNNING the
+                                       entry point rather than by inspecting the
+                                       kwargs it would build.
   ``TestSearchDoesNotRankNoise``  #7   the search ranked on seed luck and on a
                                        num_boost_round dimension that early
                                        stopping already resolves; 100 trials
@@ -42,8 +45,10 @@ import importlib.util
 import io
 import sqlite3
 import sys
+import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
 import numpy as np
 import pandas as pd
@@ -152,6 +157,31 @@ def synthetic_dataset(n_rows=600, per_date=4, seed=0):
             "OU-Cover": rng.integers(0, 3, rows),
         }
     )
+
+
+def write_synthetic_dataset_db(path, n_rows=600, per_date=4, seed=0):
+    """``synthetic_dataset`` written to a sqlite file named for the real one.
+
+    The trainers read a dataset through ``training_common.load_dataset``, which
+    goes via ``resolve_dataset_table`` and so needs a real FILE holding a table
+    called ``DEFAULT_DATASET``. Pointing ``training_common.DATASET_DB`` at this
+    file is therefore enough to drive a trainer end to end with no downloaded
+    data and no committed 38 MB table -- which is what the CI job does, and what
+    ``TestTotalsTrainerRunsEndToEnd`` does in-process.
+    """
+    frame = synthetic_dataset(n_rows=n_rows, per_date=per_date, seed=seed)
+    path = Path(path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    # Explicit close, not `with sqlite3.connect(...)`: that context manager
+    # commits and rolls back, it does not close the handle, so it leaks a
+    # connection into every test that builds a dataset.
+    con = sqlite3.connect(path)
+    try:
+        frame.to_sql(training_common.DEFAULT_DATASET, con, index=False, if_exists="replace")
+        con.commit()
+    finally:
+        con.close()
+    return path
 
 
 def cut_inside_a_group(dates, fraction):
@@ -382,6 +412,60 @@ class TestTotalsTrainerRuns(unittest.TestCase):
         else:
             self.assertEqual(kwargs["multi_class"], "multinomial")
 
+    # ---------------------------------------------------------------------
+    # BOTH BRANCHES OF THE VERSION GATE, ON WHATEVER SCIPY-LEARN IS INSTALLED
+    #
+    # The test above asserts whichever branch matches the installed library, so
+    # on any single CI leg only one of the two is ever exercised -- and the one
+    # that is skipped is the one that used to crash. Both are pinned here by
+    # faking the probe, so the fork is covered on every scikit-learn, and a
+    # matrix spanning the removal tests the gate rather than the branch the
+    # local environment happens to land on.
+    # ---------------------------------------------------------------------
+
+    def test_kwargs_omit_multi_class_when_the_probe_says_it_is_gone(self):
+        # The >= 1.7 branch. The parameter no longer exists, so it must not be
+        # passed -- this is the branch that raised TypeError before the fix.
+        with mock.patch.object(
+            logistic_training, "supports_multi_class_parameter", return_value=False
+        ):
+            kwargs = logistic_training.logistic_regression_kwargs(
+                1.0, "l2", "lbfgs", random_state=42, num_classes=3
+            )
+        self.assertNotIn("multi_class", kwargs)
+
+    def test_kwargs_include_multinomial_when_the_probe_says_it_is_taken(self):
+        # The < 1.7 branch. The parameter is still accepted, and for a
+        # three-class target "multinomial" is the intended behaviour spelled out
+        # rather than left to be inferred.
+        with mock.patch.object(
+            logistic_training, "supports_multi_class_parameter", return_value=True
+        ):
+            kwargs = logistic_training.logistic_regression_kwargs(
+                1.0, "l2", "lbfgs", random_state=42, num_classes=3
+            )
+        self.assertEqual(kwargs["multi_class"], "multinomial")
+
+    def test_the_two_branches_differ_only_in_the_multi_class_key(self):
+        # Otherwise the fork is doing more than the fork: a regression that
+        # quietly changed C, the penalty, the solver or the seed depending on
+        # the scikit-learn version would make two branches train different
+        # models, which no version of scikit-learn asks for.
+        modern = logistic_training.logistic_regression_kwargs(
+            1.0, "l2", "lbfgs", random_state=42, num_classes=3
+        )
+        with mock.patch.object(
+            logistic_training, "supports_multi_class_parameter", return_value=True
+        ):
+            legacy = logistic_training.logistic_regression_kwargs(
+                1.0, "l2", "lbfgs", random_state=42, num_classes=3
+            )
+        self.assertEqual(set(legacy) - set(modern), {"multi_class"})
+        self.assertEqual(
+            {key: value for key, value in legacy.items() if key != "multi_class"},
+            modern,
+        )
+
     def test_kwargs_never_set_multi_class_for_a_binary_target(self):
         kwargs = logistic_training.logistic_regression_kwargs(
             1.0, "l2", "lbfgs", random_state=42, num_classes=2
@@ -428,6 +512,107 @@ class TestTotalsTrainerRuns(unittest.TestCase):
                 and any(kw.arg == "multi_class" for kw in node.keywords)
             ]
             self.assertEqual(offenders, [], f"{name} passes multi_class to the estimator")
+
+
+class TestTotalsTrainerRunsEndToEnd(unittest.TestCase):
+    """``Logistic_Regression_UO.main()``, whole script, on synthetic data.
+
+    Every other #5 test checks one fact about the fix. This one runs the entry
+    point, because that is what the issue actually reported: not a wrong number,
+    a script that could not start. The unit tests above would all pass while the
+    trainer was broken somewhere else in the body -- the search loop, the
+    calibrator, the reporting tail -- which is the other half of the acceptance
+    criteria and the part CI is asked to police.
+
+    Data: a 600-row synthetic ``dataset_2012-26`` written to a temporary sqlite
+    file, with ``training_common.DATASET_DB`` and ``training_reporting.ODDS_DB``
+    repointed at it. Nothing is downloaded and the committed 38 MB table is not
+    read, so this runs in about two seconds on any checkout. The CI job
+    ``totals-trainer`` runs the same synthetic table through the real
+    ``python -m src.Train-Models.Logistic_Regression_UO`` entry point.
+    """
+
+    @classmethod
+    def setUpClass(cls):
+        cls.tmp = tempfile.TemporaryDirectory()
+        cls.db = write_synthetic_dataset_db(Path(cls.tmp.name) / "dataset.sqlite")
+        cls.saved_dataset_db = training_common.DATASET_DB
+        cls.saved_odds_db = training_reporting.ODDS_DB
+        training_common.DATASET_DB = cls.db
+        # No odds database, so the closing-line report takes its documented
+        # "not available" branch instead of matching 0 of 60 synthetic test
+        # rows. It must never raise either way; this keeps the test from
+        # depending on the committed OddsData.sqlite being present.
+        training_reporting.ODDS_DB = Path(cls.tmp.name) / "no-odds.sqlite"
+        cls.trainer = load_trainer_module("Logistic_Regression_UO.py")
+
+    @classmethod
+    def tearDownClass(cls):
+        training_common.DATASET_DB = cls.saved_dataset_db
+        training_reporting.ODDS_DB = cls.saved_odds_db
+        cls.tmp.cleanup()
+
+    def run_main(self, extra_args=()):
+        argv = ["Logistic_Regression_UO", "--trials", "2", "--splits", "3", *extra_args]
+        saved = sys.argv
+        sys.argv = argv
+        try:
+            with contextlib.redirect_stdout(io.StringIO()) as buffer:
+                self.trainer.main()
+        finally:
+            sys.argv = saved
+        return buffer.getvalue()
+
+    def test_main_completes_and_reports_a_held_out_score(self):
+        # The regression itself. Before the fix this raised
+        # TypeError: __init__() got an unexpected keyword argument 'multi_class'
+        # on the first trial's estimator, and nothing below was ever reached.
+        out = self.run_main()
+        for expected in (
+            "Trial 1/2:",
+            "Best val log loss:",
+            "Test accuracy:",
+            "Test log loss:",
+            "Test ROC AUC: multiclass",
+            "Classification report:",
+        ):
+            self.assertIn(expected, out)
+
+    def test_main_scores_three_totals_classes(self):
+        # Three classes out, not two: the label is under/over/push, so a
+        # probability vector of width 2 would be a silently wrong model rather
+        # than a crash. LABELS is the script's own constant.
+        self.assertEqual(self.trainer.LABELS, [0, 1, 2])
+        self.assertEqual(self.trainer.NUM_CLASSES, training_common.TOTALS_NUM_CLASSES)
+        self.assertEqual(self.trainer.TARGET_COLUMN, training_common.TOTALS_TARGET)
+
+    def test_main_does_not_ask_for_the_isotonic_it_refuses(self):
+        # Reached only with BOTH --calibration isotonic AND --allow-isotonic:
+        # argparse fixes `choices` before it sees a boolean neighbour, so
+        # isotonic is not an accepted value without the opt-in. With the opt-in
+        # present, the SIZE gate in resolve_calibration_method is what refuses
+        # it here, because a 600-row synthetic table yields a calibration
+        # segment far below MIN_CALIBRATION_ROWS. This asserts the run reaches
+        # and honours that gate rather than quietly calibrating anyway.
+        with self.assertRaises(ValueError) as caught:
+            self.run_main(("--calibration", "isotonic", "--allow-isotonic"))
+        self.assertIn(
+            str(training_reporting.MIN_CALIBRATION_ROWS), str(caught.exception)
+        )
+
+    def test_a_missing_dataset_is_a_named_failure_not_a_bare_sqlite_error(self):
+        # The second half of #5's blast radius: the default table used to be a
+        # name that did not exist. Point the loader at a database with no
+        # tables and the failure has to name the file and list what was there.
+        training_common.DATASET_DB = Path(self.tmp.name) / "absent.sqlite"
+        try:
+            with self.assertRaises(FileNotFoundError) as caught:
+                self.run_main()
+        finally:
+            training_common.DATASET_DB = self.db
+        message = str(caught.exception)
+        self.assertIn("absent.sqlite", message)
+        self.assertIn("Create_Games", message)
 
 
 # ---------------------------------------------------------------------------
