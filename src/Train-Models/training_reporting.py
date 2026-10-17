@@ -40,6 +40,7 @@ held-out set (1,722 rows):
   of anything.
 """
 
+import contextlib
 import re
 import sqlite3
 
@@ -222,7 +223,7 @@ def load_closing_odds():
     if not ODDS_DB.exists():
         return None
 
-    with sqlite3.connect(ODDS_DB) as con:
+    with contextlib.closing(sqlite3.connect(ODDS_DB)) as con:
         existing = {
             row[0] for row in con.execute("SELECT name FROM sqlite_master WHERE type = 'table'")
         }

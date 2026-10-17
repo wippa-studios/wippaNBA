@@ -35,6 +35,7 @@ filename. The XGBoost and NN trainers use it; the logistic regression trainers
 never name a saved model, so they do not.
 """
 
+import contextlib
 import sqlite3
 import sys
 from pathlib import Path
@@ -200,7 +201,15 @@ def available_dataset_tables():
     """
     if not DATASET_DB.exists():
         return []
-    with sqlite3.connect(f"file:{DATASET_DB}?mode=ro", uri=True) as con:
+    # contextlib.closing closes the handle. `with sqlite3.connect(...)` does
+    # not: that context manager wraps a transaction, so it guarantees the
+    # commit and guarantees nothing about closing. These are read-only
+    # connections, so there is no transaction to commit and closing alone is
+    # the whole fix. The handle would otherwise survive until the garbage
+    # collector happened to run, which is how it went unnoticed - a leaked
+    # handle is invisible until a long run exhausts the file-descriptor
+    # limit. The Process-Data modules already use this idiom throughout.
+    with contextlib.closing(sqlite3.connect(f"file:{DATASET_DB}?mode=ro", uri=True)) as con:
         return sorted(
             row[0]
             for row in con.execute("SELECT name FROM sqlite_master WHERE type = 'table'")
@@ -252,7 +261,7 @@ def load_dataset(dataset_name=DEFAULT_DATASET):
     handle on the shipped database is one stray CREATE away from corrupting it.
     """
     table = resolve_dataset_table(dataset_name)
-    with sqlite3.connect(f"file:{DATASET_DB}?mode=ro", uri=True) as con:
+    with contextlib.closing(sqlite3.connect(f"file:{DATASET_DB}?mode=ro", uri=True)) as con:
         return pd.read_sql_query(f'SELECT * FROM "{table}"', con)
 
 
