@@ -1,0 +1,58 @@
+{
+ "definitions": {
+  "level": "max |corr| of the feature against each of the 43 E14 columns individually -- i.e. against a LEVEL",
+  "contrast": "|corr| against home_ewm_margin - away_ewm_margin, a quantity that is not a column in the frame",
+  "partial_given_contrast": "|corr| of the residual after regressing both on the frame's margin contrast"
+ },
+ "by_K": [
+  {
+   "K": 5.0,
+   "level_max_abs_r": 0.5979,
+   "level_argmax": "home_ewm_margin",
+   "abs_r_vs_margin_contrast": 0.8364,
+   "partial_r_given_contrast": 0.0026,
+   "n_complete": 13182
+  },
+  {
+   "K": 10.0,
+   "level_max_abs_r": 0.6363,
+   "level_argmax": "away_ewm_margin",
+   "abs_r_vs_margin_contrast": 0.89,
+   "partial_r_given_contrast": 0.0004,
+   "n_complete": 13182
+  },
+  {
+   "K": 15.0,
+   "level_max_abs_r": 0.6527,
+   "level_argmax": "away_ewm_margin",
+   "abs_r_vs_margin_contrast": 0.9118,
+   "partial_r_given_contrast": 0.003,
+   "n_complete": 13182
+  },
+  {
+   "K": 20.0,
+   "level_max_abs_r": 0.6608,
+   "level_argmax": "away_ewm_margin",
+   "abs_r_vs_margin_contrast": 0.9221,
+   "partial_r_given_contrast": 0.006,
+   "n_complete": 13182
+  },
+  {
+   "K": 30.0,
+   "level_max_abs_r": 0.6667,
+   "level_argmax": "away_ewm_margin",
+   "abs_r_vs_margin_contrast": 0.9287,
+   "partial_r_given_contrast": 0.0109,
+   "n_complete": 13182
+  },
+  {
+   "K": 40.0,
+   "level_max_abs_r": 0.6666,
+   "level_argmax": "away_ewm_margin",
+   "abs_r_vs_margin_contrast": 0.9276,
+   "partial_r_given_contrast": 0.0133,
+   "n_complete": 13182
+  }
+ ],
+ "verdict": "BOTH numbers are real. The 0.636 is a correlation against a single E14 LEVEL and the 0.90+ is against the frame's margin CONTRAST (home_ewm_margin - away_ewm_margin), which is not itself a column. The redundancy claim must be stated against the contrast: at K=10 |r| = 0.890, above 0.8, so elo_diff IS a re-estimate of the margin contrast and not an orthogonal signal. Its residual contribution after the frame's own margin contrast is |r| = 0.000."
+}
