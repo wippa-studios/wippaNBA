@@ -5,8 +5,8 @@ import sys
 import threading
 from zoneinfo import ZoneInfo
 from flask import Flask, render_template,jsonify, request
-from functools import lru_cache
 import subprocess, requests, re, time
+from collections import OrderedDict
 from werkzeug.exceptions import HTTPException
 
 
@@ -23,7 +23,11 @@ PREDICTION_SLOT_TIMEOUT_SECONDS = 30
 API_TIMEOUT_SECONDS = 15
 # Cap on prediction children running at the same time (one per sportsbook).
 MAX_CONCURRENT_PREDICTIONS = 3
-# Cached lookups are keyed on a bucket of this many seconds.
+# How long one sportsbook's board is served from cache before the pipeline runs
+# again. Every window in this app is measured from the moment its own fetch
+# finished, not from a wall-clock boundary -- see TTLCache.
+PREDICTIONS_TTL_SECONDS = 600
+# How long a cached player-stats lookup is served before it is fetched again.
 PLAYER_STATS_TTL_SECONDS = 600
 
 # The /games page asks stats.nba.com for one day's scoreboard and reuses that
@@ -32,6 +36,10 @@ PLAYER_STATS_TTL_SECONDS = 600
 # 403s), so a page that polled every few seconds would earn a 403 within the
 # first minute and then show nothing for hours afterwards. A minute of staleness
 # on a live score is a fair price for staying reachable at all.
+#
+# "This long" means from the moment that day was fetched (see TTLCache), so no
+# two page loads one second apart can both reach NBA: issue #35 is the bucketed
+# clock that used to make that possible.
 SCOREBOARD_TTL_SECONDS = 60
 # Bound on the outbound scoreboard call. The same value as API_TIMEOUT_SECONDS so
 # a slow NBA and a slow RapidAPI fail at the same point in time rather than one
@@ -78,6 +86,78 @@ def sportsbook_lock(sportsbook):
         return sportsbook_locks.setdefault(sportsbook, threading.Lock())
 
 
+class TTLCache:
+    """One bounded store of per-key values, each with its own real expiry window.
+
+    This is the cache every route in this app shares. It replaces the
+    `lru_cache` + `get_ttl_hash` pair they used to cache with, which keyed each
+    entry on `round(time.time() / seconds)`: the window a caller actually got was
+    whatever was left of a wall-clock bucket, so a request landing a millisecond
+    before a boundary refreshed immediately and a client could be handed two
+    upstream calls back to back. That is mild for the RapidAPI routes and
+    materially worse for `/games`, which sits on ScoreboardV3 -- the endpoint
+    this repo documents as 403-ing under burst (issue #27; issue #35 for the
+    bucketing itself).
+
+    The window is not fixable from the arithmetic: `floor` removes the double
+    call and hands the unlucky requester a nearly-full window instead of a
+    nearly-empty one. So nothing buckets the clock here. Each value is stored
+    next to the moment it was stored and the window is measured against THAT, and
+    two calls for one key therefore cannot land closer together than the window
+    the caller asked for.
+
+    A key is whatever the caller wants to cache on -- a date, a sportsbook, a
+    (player, season) pair -- and nothing is shared between keys. A fetch that
+    raises stores nothing and propagates, exactly as an `lru_cache` entry would;
+    that is why `fetch_games` returns its failures as values.
+    """
+
+    def __init__(self, maxsize=128):
+        # 128 is the maxsize the bare `@lru_cache()` these functions used to carry,
+        # kept deliberately: the bound is what stops `/games?date=` walking a year
+        # of history from growing this without limit (issue #35, item 2).
+        self.maxsize = maxsize
+        self.entries = OrderedDict()
+        self.lock = threading.Lock()
+
+    def get(self, key, fetch, seconds):
+        """The cached value for `key`, calling `fetch()` at most once per window.
+
+        `fetch` is a callable rather than a value so a miss can be decided and
+        then served without holding the lock: an upstream call takes seconds, and
+        holding a shared lock through one would serialise every key behind it.
+        Two threads can therefore both miss the same empty key and both fetch it,
+        which is exactly what the `lru_cache` it replaces allowed as well.
+        Closing that would mean single-flighting every key, which is a larger
+        change than this fix calls for.
+        """
+        with self.lock:
+            entry = self.entries.get(key)
+            if entry is not None:
+                stored, value = entry
+                if time.time() - stored <= seconds:
+                    self.entries.move_to_end(key)
+                    return value
+
+        value = fetch()
+
+        with self.lock:
+            # Stamped when the fetch RETURNS, not when it was asked for: a slow
+            # upstream then eats into the NEXT window rather than the one before
+            # it, so the gap between two upstream calls is always at least
+            # `seconds`. Least-recently-used eviction, as `lru_cache` did.
+            self.entries[key] = (time.time(), value)
+            self.entries.move_to_end(key)
+            while len(self.entries) > self.maxsize:
+                self.entries.popitem(last=False)
+        return value
+
+    def clear(self):
+        """Forget every key. The test suite, and nothing else."""
+        with self.lock:
+            self.entries.clear()
+
+
 def rapidapi_headers():
     """Build the RapidAPI request headers from the RAPIDAPI_KEY env var."""
     return {
@@ -95,31 +175,40 @@ def rapidapi_unavailable_response():
     }), 503
 
 
-@lru_cache()
-def fetch_prediction(sportsbook, ttl_hash=None):
+PREDICTION_CACHE = TTLCache()
+
+
+def fetch_prediction(sportsbook, seconds=PREDICTIONS_TTL_SECONDS):
     """Run the prediction pipeline for one sportsbook at most once per TTL window.
 
-    `ttl_hash` only takes part in the cache key so the result expires. The
-    per-sportsbook lock in the wrappers below makes concurrent requests wait for
-    the in-flight run instead of each spawning their own child process.
+    Keyed on the sportsbook and served until `seconds` have passed since THAT
+    book's own run finished. The per-sportsbook lock in the wrappers below makes
+    concurrent requests wait for the in-flight run instead of each spawning their
+    own child process.
     """
-    del ttl_hash
-    return fetch_game_data(sportsbook=sportsbook)
+    return PREDICTION_CACHE.get(
+        sportsbook, lambda: fetch_game_data(sportsbook=sportsbook), seconds)
 
 
-def fetch_fanduel(ttl_hash=None):
+def fetch_fanduel(seconds=PREDICTIONS_TTL_SECONDS):
     with sportsbook_lock("fanduel"):
-        return fetch_prediction("fanduel", ttl_hash)
+        return fetch_prediction("fanduel", seconds)
 
 
-def fetch_draftkings(ttl_hash=None):
+def fetch_draftkings(seconds=PREDICTIONS_TTL_SECONDS):
     with sportsbook_lock("draftkings"):
-        return fetch_prediction("draftkings", ttl_hash)
+        return fetch_prediction("draftkings", seconds)
 
 
-def fetch_betmgm(ttl_hash=None):
+def fetch_betmgm(seconds=PREDICTIONS_TTL_SECONDS):
     with sportsbook_lock("betmgm"):
-        return fetch_prediction("betmgm", ttl_hash)
+        return fetch_prediction("betmgm", seconds)
+
+
+# `cache_clear` is the seam the `@lru_cache`d versions of these three functions
+# had and that the test suite still calls on fetch_games. Each alias is bound to
+# its own store, so clearing one route's cache cannot quietly drop another's.
+fetch_prediction.cache_clear = PREDICTION_CACHE.clear
 
 
 class PredictionBoard(dict):
@@ -370,11 +459,6 @@ def fetch_game_data(sportsbook="fanduel"):
     return parse_predictions(stdout, sportsbook)
 
 
-def get_ttl_hash(seconds=600):
-    """Return the same value withing `seconds` time period"""
-    return round(time.time() / seconds)
-
-
 app = Flask(__name__)
 app.jinja_env.add_extension('jinja2.ext.loopcontrols')
 # Handle every exception here instead of letting the WSGI server render a
@@ -397,11 +481,14 @@ def handle_unexpected_error(error):
 
 @app.route("/")
 def index():
-    ttl_hash = get_ttl_hash()
+    # One window for all three books, as when a single shared ttl_hash drove them
+    # all. Each is still cached separately from the moment its own run finished,
+    # so a slow book cannot shorten the other two's window.
+    seconds = PREDICTIONS_TTL_SECONDS
     try:
-        fanduel = fetch_fanduel(ttl_hash=ttl_hash)
-        draftkings = fetch_draftkings(ttl_hash=ttl_hash)
-        betmgm = fetch_betmgm(ttl_hash=ttl_hash)
+        fanduel = fetch_fanduel(seconds)
+        draftkings = fetch_draftkings(seconds)
+        betmgm = fetch_betmgm(seconds)
     except Exception:
         app.logger.exception("Failed to build today's predictions")
         return "Predictions are temporarily unavailable. Please try again shortly.", 503
@@ -816,25 +903,45 @@ def failed_games_board(game_date, reason, status_code=None):
     return GamesBoard(status=status, detail=str(reason))
 
 
-@lru_cache()
-def fetch_games(game_date, ttl_hash=None):
+SCOREBOARD_CACHE = TTLCache()
+
+
+def fetch_games(game_date, seconds=SCOREBOARD_TTL_SECONDS):
     """One date's GamesBoard, with at most one upstream call per TTL window.
 
-    `ttl_hash` only takes part in the cache key so the result expires; see
-    get_ttl_hash.
+    Cached per date and served until `seconds` have passed since THAT date's own
+    fetch, so two page loads a second apart cannot both reach NBA however they
+    line up against a clock boundary (issue #35).
 
     FAILURES ARE RETURNED, NOT RAISED, and that is deliberate for the cache as
-    much as for the route. `lru_cache` does not memoize a raised exception, so a
-    fetch that threw would re-request on the very next page load -- which is
-    exactly the behaviour that earns a 403 in the first place, and would turn one
-    blocked request into a permanent ban. Returning the failure puts it behind
-    the same 60-second window as a success.
+    much as for the route. This cache stores nothing for a fetch that raised, so
+    a raising fetch would be requested again on the very next page load -- which
+    is exactly the behaviour that earns a 403 in the first place, and would turn
+    one blocked request into a permanent ban. Returning the failure puts it
+    behind the same 60-second window as a success.
 
     The result is shared by every caller for the window, so it is tz-independent
     on purpose: two visitors in different zones must not each evict the other's
     copy. Rendering into a timezone happens per request, in format_tipoff.
     """
-    del ttl_hash
+    return SCOREBOARD_CACHE.get(game_date, lambda: load_games(game_date), seconds)
+
+
+# The seam the test suite clears between cases, kept from the `@lru_cache`d
+# version of this function. `clear` empties only this store, so the scoreboard
+# cache and the prediction cache can never evict each other by accident.
+fetch_games.cache_clear = SCOREBOARD_CACHE.clear
+
+
+def load_games(game_date):
+    """The upstream call behind fetch_games: one date's board, or the reason there
+    is not one.
+
+    Everything that can go wrong here arrives as a GamesBoard status rather than
+    as an exception, for the reason fetch_games gives. An empty header frame is
+    NOT one of those failures: it is the endpoint's answer for a day off, and
+    build_games turns it into a "no_games" board.
+    """
     try:
         header_frame, line_frame = scoreboard_tables(game_date)
     except ScoreboardUnavailable as error:
@@ -942,8 +1049,7 @@ def games():
     if day is None:
         day = today
 
-    board = fetch_games(day.isoformat(),
-                        ttl_hash=get_ttl_hash(seconds=SCOREBOARD_TTL_SECONDS))
+    board = fetch_games(day.isoformat(), seconds=SCOREBOARD_TTL_SECONDS)
     status = board_status(board)
     if status != "ok":
         app.logger.warning("Games for %s came back %s: %s", day, status, board_detail(board))
@@ -1071,7 +1177,7 @@ def player_stats(player_id):
 
     try:
         return jsonify(cached_player_stats(player_id, PLAYER_STATS_SEASON,
-                                            ttl_hash=get_ttl_hash(seconds=PLAYER_STATS_TTL_SECONDS)))
+                                           seconds=PLAYER_STATS_TTL_SECONDS))
     except Exception:
         app.logger.exception("Error in player_stats for player %s", player_id)
         return jsonify({
@@ -1080,14 +1186,21 @@ def player_stats(player_id):
         }), 503
 
 
-@lru_cache()
-def cached_player_stats(player_id, season, ttl_hash=None):
+PLAYER_STATS_CACHE = TTLCache()
+
+
+def cached_player_stats(player_id, season, seconds=PLAYER_STATS_TTL_SECONDS):
     """Cache the (player_id, season) lookups so repeats are not billed twice.
 
-    `ttl_hash` only takes part in the cache key so the cached payload expires.
+    Each pair is cached for `seconds` from its own fetch, so a repeat inside the
+    window costs nothing and the first request after it is the one that pays.
     """
-    del ttl_hash
-    return fetch_player_stats(player_id, season)
+    return PLAYER_STATS_CACHE.get(
+        (player_id, season), lambda: fetch_player_stats(player_id, season), seconds)
+
+
+# The third `cache_clear` seam, for the reason the first one gave.
+cached_player_stats.cache_clear = PLAYER_STATS_CACHE.clear
 
 
 def fetch_player_stats(player_id, season):

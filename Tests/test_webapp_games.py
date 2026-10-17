@@ -294,16 +294,38 @@ class TestGamesRoute(WebappGamesTestCase):
                                 line_frame(*FINAL_LINES))
         with mock.patch.object(webapp.time, "time", return_value=1_000.0):
             self.serve()
+        # Past the window, not exactly on it: a window that has not yet ELAPSED is
+        # still open, and the clock now runs from that day's own fetch rather than
+        # from a wall-clock boundary (issue #35).
         with mock.patch.object(webapp.time, "time",
-                               return_value=1_000.0 + webapp.SCOREBOARD_TTL_SECONDS):
+                               return_value=1_000.0 + webapp.SCOREBOARD_TTL_SECONDS + 1):
             self.serve()
 
         self.assertEqual(len(calls), 2)
 
+    def test_the_window_is_still_open_at_exactly_its_length(self):
+        """The other half of the boundary, and the reason the clock is not bucketed.
+
+        Under the old `round(time.time() / 60)` key, a request arriving exactly
+        60s after the one before it could land in the next bucket and refresh
+        immediately, so the window a client got was 'whatever is left of the
+        current minute'. Measured from the fetch instead, 60s is still inside the
+        window it opened.
+        """
+        calls = stub_scoreboard(webapp, header_frame(FINAL_HEADER),
+                                line_frame(*FINAL_LINES))
+        with mock.patch.object(webapp.time, "time", return_value=1_000.0):
+            self.serve()
+        with mock.patch.object(webapp.time, "time",
+                               return_value=1_000.0 + webapp.SCOREBOARD_TTL_SECONDS):
+            self.serve()
+
+        self.assertEqual(len(calls), 1)
+
     def test_a_failure_is_cached_too(self):
         """A 403 behind no cache earns the next 403 within the same minute.
 
-        lru_cache does not memoize a raised exception, which is exactly why
+        The cache stores nothing for a fetch that raised, which is exactly why
         fetch_games returns the failure as a value: the error page must not
         re-request NBA every time somebody refreshes.
         """
@@ -339,8 +361,8 @@ class TestGamesRoute(WebappGamesTestCase):
         TEST. Five cases inside a single `test_...` method are five `subTest`
         iterations of that one test, so the cache was cleared once at the start
         and not again between them. All five shared one date, so all five shared
-        one `(game_date, ttl_bucket)` key: the first miss cached "ok" and the
-        other four were cache HITS served that same answer.
+        one cache key: the first miss cached "ok" and the other four were cache
+        HITS served that same answer.
 
         Verified by reproduction, not inferred. Sharing a date WITHOUT clearing
         fails 4 of 5 with every case returning the first case's result. Sharing a
@@ -352,7 +374,7 @@ class TestGamesRoute(WebappGamesTestCase):
         being remembered - which is precisely the mistake that caused the
         original failure. There is only one module object here: the test loads
         `Flask/app.py` under the synthetic name `flask_games_app`, and the route
-        resolves that same `lru_cache`d function object, so a duplicate-module
+        resolves that same cached function object, so a duplicate-module
         explanation was ruled out rather than left as a theory.
         """
         cases = (
@@ -770,19 +792,39 @@ class TestWiring(WebappGamesTestCase):
 
 class TestFetchGamesCache(WebappGamesTestCase):
 
-    def test_the_ttl_hash_is_the_only_thing_that_expires_the_entry(self):
+    def test_the_window_runs_from_the_fetch_not_from_a_clock_boundary(self):
+        """The route-level half of the issue #35 fix.
+
+        Two page loads either side of the step the old `round(time.time() / 60)`
+        key took are one upstream call now, and the second only happens once the
+        window has genuinely elapsed.
+
+        Driven through the ROUTE, not by calling fetch_games directly, and that is
+        the point rather than an accident of style: the route is what computed the
+        old key. Calling the function with no `ttl_hash` pinned the key to None and
+        cached the board until the process restarted -- a third way the old shape
+        lied about its window. Tests/test_flask_cache.py pins the same property on
+        the shared cache itself, for all three routes that use it.
+        """
         calls = stub_scoreboard(webapp, header_frame(FINAL_HEADER), line_frame(*FINAL_LINES))
-        with self.app.test_request_context("/games"):
-            webapp.fetch_games("2026-01-15", ttl_hash=1)
-            webapp.fetch_games("2026-01-15", ttl_hash=1)
-            webapp.fetch_games("2026-01-15", ttl_hash=2)
+        # `round(t / 60)` steps at t = 30 (mod 60), so 1470.0 is one of those
+        # steps: these two page loads were different cache entries 0.2s apart.
+        with mock.patch.object(webapp.time, "time", return_value=1_469.9):
+            self.serve("?date=2026-01-15")
+        with mock.patch.object(webapp.time, "time", return_value=1_470.1):
+            self.serve("?date=2026-01-15")
+        self.assertEqual(len(calls), 1, "two page loads 0.2s apart were two upstream calls")
+
+        with mock.patch.object(webapp.time, "time",
+                               return_value=1_469.9 + webapp.SCOREBOARD_TTL_SECONDS + 1):
+            self.serve("?date=2026-01-15")
         self.assertEqual(len(calls), 2)
 
     def test_a_cached_board_is_shared_rather_than_rebuilt(self):
         stub_scoreboard(webapp, header_frame(FINAL_HEADER), line_frame(*FINAL_LINES))
         with self.app.test_request_context("/games"):
-            self.assertIs(webapp.fetch_games("2026-01-15", ttl_hash=1),
-                          webapp.fetch_games("2026-01-15", ttl_hash=1))
+            self.assertIs(webapp.fetch_games("2026-01-15"),
+                          webapp.fetch_games("2026-01-15"))
 
     def test_the_cache_window_is_sixty_seconds(self):
         """Pinned so the 'cached for a minute' copy on the page stays true."""
