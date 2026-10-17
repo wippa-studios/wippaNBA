@@ -330,10 +330,30 @@ class TestGamesRoute(WebappGamesTestCase):
         failure mode this repo's PredictionBoard side channel exists to prevent.
 
         Each case gets its OWN date rather than sharing one and clearing the
-        cache between them. The cache is keyed on (date, ttl bucket), so distinct
-        dates make the cases independent by construction rather than by a
-        cache_clear() that has to be remembered -- and this test was caught
-        relying on one, failing only when the whole suite ran it in one process.
+        cache between them.
+
+        WHY, since this version replaced one that passed alone and failed in a
+        full-suite run, and the original author could not account for it:
+
+        `WebappGamesTestCase.setUp` calls `fetch_games.cache_clear()` ONCE PER
+        TEST. Five cases inside a single `test_...` method are five `subTest`
+        iterations of that one test, so the cache was cleared once at the start
+        and not again between them. All five shared one date, so all five shared
+        one `(game_date, ttl_bucket)` key: the first miss cached "ok" and the
+        other four were cache HITS served that same answer.
+
+        Verified by reproduction, not inferred. Sharing a date WITHOUT clearing
+        fails 4 of 5 with every case returning the first case's result. Sharing a
+        date WITH a per-iteration `cache_clear()` passes 5 of 5. Distinct dates
+        pass 5 of 5 with no clearing at all.
+
+        Distinct dates are kept over the per-iteration clear because they make
+        the cases independent BY CONSTRUCTION rather than dependent on a clear
+        being remembered - which is precisely the mistake that caused the
+        original failure. There is only one module object here: the test loads
+        `Flask/app.py` under the synthetic name `flask_games_app`, and the route
+        resolves that same `lru_cache`d function object, so a duplicate-module
+        explanation was ruled out rather than left as a theory.
         """
         cases = (
             ("2026-01-01", header_frame(FINAL_HEADER), line_frame(*FINAL_LINES),

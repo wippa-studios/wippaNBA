@@ -202,6 +202,42 @@ cd Flask && flask run
 Do **not** run `flask --debug run` on any reachable host: debug mode serves
 application source, including any credentials, to unauthenticated visitors.
 
+#### `/games` — the NBA slate
+
+```bash
+curl 'http://127.0.0.1:5000/games'
+curl 'http://127.0.0.1:5000/games?date=2026-10-21&tz=America/New_York'
+```
+
+Server-rendered from `ScoreboardV3`, **one upstream call per 60-second window**
+shared across all viewers — the endpoint is documented as returning 403 under
+burst, so the page never polls from the browser. `?date=` defaults to today;
+`?tz=` takes any IANA zone and falls back to a `viewer_tz` cookie, then to UTC.
+The zone is always named on the page.
+
+Three upstream traps this route handles, all confirmed against live payloads:
+
+- **Nothing on `ScoreboardV3` says which team is home.** Neither `GameHeader` nor
+  `LineScore` carries a home/away flag. The only carrier is `gameCode`, formatted
+  `YYYYMMDD/AWAYHOME`, and `LineScore` orders rows **home first** — checked, not
+  assumed.
+- **`gameEt` is Eastern wall-clock with a `Z` stamped on it.** A 23:00 UTC tip-off
+  reads `19:00:00Z`. Only `gameTimeUTC` is used.
+- **`no_games` is a true answer, not a failure**, and is worded as such. So is a
+  403, a dead upstream, and a partial payload — each gets its own status and its
+  own sentence, because reporting one as another is the failure mode the existing
+  `PredictionBoard` side-channel exists to prevent.
+
+Team logos are CSS tricode monograms. `ScoreboardV3` exposes no logo URL, and
+hotlinking `cdn.nba.com` would put a second origin in the render path for
+something a CSS monogram does better; nothing can 404.
+
+**Known gaps, stated rather than glossed:** the in-progress branch (`gameStatus == 2`,
+rendering a quarter clock) is modelled from the endpoint's schema and was **not
+observed live** — no game was in progress during the build window. The scheduled
+and final paths were both confirmed against real payloads. 65 tests cover the
+route without touching the network.
+
 ---
 
 ## Verifying and testing
