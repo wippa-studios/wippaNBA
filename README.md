@@ -363,9 +363,26 @@ next game depends on where it **is**. Removing Elo's movement term costs 0.0083 
 — more than the entire gap between the best model and the base rate.
 
 **Player ratings are a null.** The project spec calls player ratings "likely your
-biggest edge". Across 2 estimation methods × 3 rating families they add nothing the
-team-level features do not already carry, and every interval straddles zero. It was
-built to be falsifiable, and it was falsified.
+biggest edge". Built to be falsifiable, it was falsified. Δ = loss(team) −
+loss(team + player), so **positive would mean the player features helped**:
+
+| estimate | Δ log loss | 95% CI | verdict |
+|---|---|---|---|
+| RAPM-style, two-pool | +0.00151 | [−0.00059, +0.00358] | null |
+| RAPM-style, shrunk | +0.00038 | [−0.00178, +0.00260] | null |
+| logistic | +0.00060 | [−0.00154, +0.00282] | null |
+| gradient boosting | −0.00243 | [−0.00815, +0.00295] | null |
+| XGBoost | −0.00614 | [−0.01273, +0.00062] | null |
+
+Every interval straddles zero, across both estimation methods and all three rating
+families. Player-level ratings add nothing the team-level features do not already
+carry — **with one exception**, and it is the important one.
+
+The same module also measures the *availability gap* the honest way. Substituting
+leaked actual minutes for expected minutes is worth −0.00975 nats,
+CI [−0.01349, −0.00590] — an order of magnitude larger than anything above. See
+[the one thing that is not a null](#the-one-thing-that-is-not-a-null): about a third
+of that survives honestly, and the rest does not exist before tip-off.
 
 ### The one thing that is not a null
 
