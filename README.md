@@ -115,7 +115,7 @@ Almost everything measured in this project came back flat. These did not:
 | **player-level expected minutes** | **+0.00382** | **[+0.00230, +0.00547]** | real, and small |
 | *actual minutes (a leak)* | *+0.01089* | *[+0.00746, +0.01432]* | *not available before tip-off* |
 | *roster size alone (leak control)* | *+0.00109* | *[-0.00073, +0.00299]* | *straddles zero* |
-| schedule block (7 cols) | −0.00194 | [−0.00349, −0.00043] | removing it hurts |
+| schedule block (7 cols) | −0.00194 | [−0.00349, −0.00043] | **lead, not a finding** |
 | rank columns (52 cols) | +0.00065 | [−0.00039, +0.00166] | null |
 | rebound block | +0.00040 | [−0.00026, +0.00104] | null |
 | recency weighting (halflife 5, 2) | worse | excludes zero | halflife 10 is already optimal |
@@ -142,11 +142,24 @@ below, and the answer there is still no. The models in the table are the committ
 artifacts, which predate the availability feature; `availability_features` is in the
 shared layer and the artifacts are being retrained against it.
 
-**The schedule block is the other surprise.** Rest days, back-to-backs, 3-in-4 and
-travel distance — seven columns, none of them a measure of team quality — are the
-cheapest feature block in the set and the only one whose removal is measurably
-harmful. Every effort in this project has gone into team *quality*, and that side is
-mostly flat; the signal is in when a team plays and where it travelled to get there.
+**The schedule block is the most interesting lead, and it is not yet a finding.**
+Rest days, back-to-backs, 3-in-4 and travel distance — seven columns, none of them a
+measure of team quality — are the only block whose removal has an interval entirely
+below zero, and they are the cheapest in the set. Every effort in this project has
+gone into team *quality*, and that side is flat; this is the one place the sign
+points somewhere.
+
+It does not survive scrutiny yet, and the arithmetic is worth stating rather than
+burying. Six blocks were scored. At |z| = 2.49 (p ≈ 0.013), a Bonferroni threshold for
+six looks is 0.0083, so the result **does not survive multiple-comparison
+correction** — and it does not clear the |z| > 3 bar this project applies to
+selection effects, from Vandenbruaene et al. 2022 (*J Sports Econ* 23(7)), where the
+null of unprofitability was never rejected across 628 implementations. Roughly a
+quarter of six-block runs will produce an exclusion like this by chance alone.
+
+So: a lead worth a pre-registered follow-up, not a discovery. It is seed-stable
+(seeds 0/7/123/2024 give the same sign and verdict), which is mildly encouraging,
+but seed-stability is not significance and is not offered as such.
 
 ### Compared with the original model
 
