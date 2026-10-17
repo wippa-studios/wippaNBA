@@ -82,18 +82,36 @@ class Experiment:
 # Feature frames. Each returns a numeric frame aligned to `games`.
 # --------------------------------------------------------------------------
 
+_BASE_CACHE: dict = {}
+
+
 def _base(games: pd.DataFrame) -> dict[str, pd.DataFrame]:
-    """Every block the shared layer can produce, named."""
-    roll = nd.rolling_team_features(games, halflife=HALFLIFE, min_games=5)
-    sched = nd.rest_and_travel(games)
-    opp = nd.opponent_adjusted_features(games, halflife=HALFLIFE)
-    elo = nd.player_elo_features(games, halflife=HALFLIFE)
-    return {
-        "roll": roll,
-        "schedule": sched,
-        "home_split": opp,
-        "player_elo": elo,
-    }
+    """Every block the shared layer can produce, named.
+
+    Cached per process. `build_frame` runs once per experiment and
+    `player_elo_features` re-executes the whole rating loop plus an as-of merge
+    over 281k player-games each time - roughly two and a half minutes a call.
+    Across seventeen experiments that is most of the wall clock spent rebuilding
+    an identical frame.
+
+    The key is the frame's identity and shape, so a different slice is a different
+    key rather than a silently wrong answer. Frames come back as copies, because
+    `build_frame` selects and drops columns on them and a shared mutable frame is
+    precisely the hazard `_cached_copy` documents.
+    """
+    key = (id(games), len(games),
+           str(games["GAME_ID"].iloc[0]) if len(games) else "",
+           str(games["GAME_ID"].iloc[-1]) if len(games) else "")
+    if key not in _BASE_CACHE:
+        _BASE_CACHE[key] = {
+            "roll": nd.rolling_team_features(games, halflife=HALFLIFE,
+                                             min_games=5),
+            "schedule": nd.rest_and_travel(games),
+            "home_split": nd.opponent_adjusted_features(games,
+                                                       halflife=HALFLIFE),
+            "player_elo": nd.player_elo_features(games, halflife=HALFLIFE),
+        }
+    return {k: v.copy() for k, v in _BASE_CACHE[key].items()}
 
 
 _HOME_SPLIT_COLS = (
