@@ -96,28 +96,44 @@ def feature_block(games: pd.DataFrame, halflife: float) -> pd.DataFrame:
     return block.reset_index(drop=True)
 
 
-def run_arm(games, splits, halflife, C=1.0, max_iter=300):
-    """Out-of-fold predictions for one decay speed, same splits as every other arm."""
+def make_pipeline(C=1.0, max_iter=300):
+    """The one estimator every arm in this repo is fit with.
+
+    Extracted so that a caller holding a feature FRAME (rather than raw games) can
+    fit the identical model - see `fit_oof`. sklearn is imported inside the
+    function to keep this module importable without the ML stack installed.
+    """
     from sklearn.impute import SimpleImputer
     from sklearn.linear_model import LogisticRegression
     from sklearn.pipeline import Pipeline
     from sklearn.preprocessing import StandardScaler
 
-    X = feature_block(games, halflife)
-    y = games["y"].to_numpy()
+    return Pipeline([
+        ("impute", SimpleImputer(strategy="median")),
+        ("scale", StandardScaler()),
+        ("clf", LogisticRegression(C=C, max_iter=max_iter, random_state=SEED)),
+    ])
+
+
+def fit_oof(X, y, splits, C=1.0, max_iter=300):
+    """Out-of-fold probabilities for `X`, one refit per walk-forward split.
+
+    Takes the feature frame directly so that a caller ablating columns - or a test
+    running on synthetic data - fits the SAME model as `run_arm`, rather than
+    growing a second copy of this loop that can drift from it.
+
+    Returns `(preds, y_out_of_fold, mask)`, where `mask` marks the out-of-fold rows
+    within the input frame.
+    """
+    y = np.asarray(y)
     oof = np.full(len(y), np.nan)
 
     for tr, te in splits:
-        pipe = Pipeline([
-            ("impute", SimpleImputer(strategy="median")),
-            ("scale", StandardScaler()),
-            ("clf", LogisticRegression(C=C, max_iter=max_iter,
-                                       random_state=SEED)),
-        ])
         # Imputation and scaling are fit on TRAIN ONLY. Fitting them on the whole
         # frame would let a test block's median and spread inform the model's
         # representation of it -- a leak that is invisible in the output and small
         # enough to look like noise.
+        pipe = make_pipeline(C=C, max_iter=max_iter)
         pipe.fit(X.iloc[tr], y[tr])
         oof[te] = pipe.predict_proba(X.iloc[te])[:, 1]
 
@@ -129,6 +145,12 @@ def run_arm(games, splits, halflife, C=1.0, max_iter=300):
     if not mask.any():
         raise AssertionError("no out-of-fold predictions were produced")
     return oof[mask], y[mask], mask
+
+
+def run_arm(games, splits, halflife, C=1.0, max_iter=300):
+    """Out-of-fold predictions for one decay speed, same splits as every other arm."""
+    X = feature_block(games, halflife)
+    return fit_oof(X, games["y"].to_numpy(), splits, C=C, max_iter=max_iter)
 
 
 def main() -> int:
