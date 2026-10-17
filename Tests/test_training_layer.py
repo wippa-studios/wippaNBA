@@ -451,16 +451,33 @@ class TestTotalsTrainerRuns(unittest.TestCase):
         # quietly changed C, the penalty, the solver or the seed depending on
         # the scikit-learn version would make two branches train different
         # models, which no version of scikit-learn asks for.
-        modern = logistic_training.logistic_regression_kwargs(
-            1.0, "l2", "lbfgs", random_state=42, num_classes=3
-        )
+        #
+        # BOTH branches are explicitly patched. Reading the real value for one of
+        # them makes the test depend on which scikit-learn happens to be
+        # installed: on the pinned 1.3.1 the parameter still EXISTS, so the
+        # unpatched call already includes it and the difference comes out empty.
+        # That is what failed CI on Python 3.10 and 3.11 while passing locally on
+        # 1.9.1. A version gate tested against the live version tests the
+        # environment, not the gate.
+        with mock.patch.object(
+            logistic_training, "supports_multi_class_parameter", return_value=False
+        ):
+            modern = logistic_training.logistic_regression_kwargs(
+                1.0, "l2", "lbfgs", random_state=42, num_classes=3
+            )
         with mock.patch.object(
             logistic_training, "supports_multi_class_parameter", return_value=True
         ):
             legacy = logistic_training.logistic_regression_kwargs(
                 1.0, "l2", "lbfgs", random_state=42, num_classes=3
             )
+        self.assertNotIn("multi_class", modern,
+                         "the modern branch must not send a removed parameter")
+        self.assertIn("multi_class", legacy,
+                      "the legacy branch must send it")
         self.assertEqual(set(legacy) - set(modern), {"multi_class"})
+        self.assertEqual(set(modern) - set(legacy), set(),
+                         "the modern branch must not invent extra parameters")
         self.assertEqual(
             {key: value for key, value in legacy.items() if key != "multi_class"},
             modern,

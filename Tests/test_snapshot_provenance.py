@@ -17,6 +17,7 @@ No network: record_snapshot and capture_once are driven directly.
 """
 import contextlib
 import importlib.util
+import io
 import sqlite3
 import sys
 import tempfile
@@ -172,18 +173,32 @@ class TestBackfilledRowsNeverCount(SnapshotStoreMixin, unittest.TestCase):
 
 class TestStaleAtIsRefusedUnlessDeclared(SnapshotStoreMixin, unittest.TestCase):
     def _run(self, at, extra=()):
+        """Run main() and return (exit_code, stdout).
+
+        stdout is returned because the EXIT CODE CANNOT DISTINGUISH THE TWO
+        FAILURE MODES. Both a staleness refusal and a capture failure return 1, so
+        a test asserting on the code alone passes in CI - where the sportsbook
+        fetch fails and everything returns 1 - while testing nothing. An earlier
+        draft of this file did exactly that and turned master red.
+        """
         real_argv = sys.argv
+        real_out = sys.stdout
+        buf = io.StringIO()
         sys.argv = ["glm", "--db", self.db, "--sportsbook", "fanduel",
                     "--date", "2026-01-05", "--at", at.isoformat(), *extra]
+        sys.stdout = buf
         try:
-            return glm.main()
+            return glm.main(), buf.getvalue()
         finally:
             sys.argv = real_argv
+            sys.stdout = real_out
 
     def test_materially_past_at_is_refused(self):
-        code = self._run(NOW - timedelta(hours=20))
+        code, out = self._run(NOW - timedelta(hours=20))
         self.assertEqual(code, 1,
                          "a past timestamp must not be silently accepted")
+        self.assertIn("CAPTURE REFUSED", out,
+                      "the refusal must say why, not just exit non-zero")
 
     def test_refusal_writes_nothing(self):
         self._run(NOW - timedelta(hours=20))
@@ -196,9 +211,14 @@ class TestStaleAtIsRefusedUnlessDeclared(SnapshotStoreMixin, unittest.TestCase):
         self.assertEqual(count, 0, "a refused capture must leave no rows behind")
 
     def test_backfill_flag_permits_it_and_marks_the_rows(self):
-        code = self._run(NOW - timedelta(hours=20), extra=["--backfill"])
-        # The fetch itself may fail without network; what matters is that the
-        # refusal path was NOT taken, i.e. we did not return 1 before the fetch.
+        code, out = self._run(NOW - timedelta(hours=20), extra=["--backfill"])
+        # The fetch itself may fail without network, so the exit code proves
+        # nothing here. What matters is that the REFUSAL PATH WAS NOT TAKEN,
+        # which is observable in the output rather than in the return value.
+        self.assertNotIn("CAPTURE REFUSED", out,
+                         "--backfill must permit a past --at; the guard fired anyway")
+        self.assertIn("BACKFILL MODE", out,
+                      "--backfill must announce that rows will be marked")
         with contextlib.closing(self.con()) as con:
             try:
                 rows = con.execute(
@@ -210,8 +230,16 @@ class TestStaleAtIsRefusedUnlessDeclared(SnapshotStoreMixin, unittest.TestCase):
                         "every back-filled row must be marked")
 
     def test_a_recent_at_is_accepted_without_the_flag(self):
-        code = self._run(NOW - timedelta(minutes=5))
-        self.assertNotEqual(code, 1, "a fresh timestamp is a normal observation")
+        """A fresh --at is an ordinary observation and must not be refused.
+
+        Asserted on the output, not the exit code: the capture then attempts a
+        real network fetch which fails in CI, and that failure also returns 1.
+        Checking the code would fail here and pass for the wrong reason.
+        """
+        _, out = self._run(NOW - timedelta(minutes=5))
+        self.assertNotIn("CAPTURE REFUSED", out,
+                         "a five-minute-old timestamp must not be treated as backfill")
+        self.assertNotIn("BACKFILL MODE", out)
 
 
 class TestColumnIsMigratedNotAssumed(SnapshotStoreMixin, unittest.TestCase):
