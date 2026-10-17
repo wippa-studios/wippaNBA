@@ -1,28 +1,69 @@
 # Legit NBA Predictions
 
-A fork of [kyleskom/NBA-Machine-Learning-Sports-Betting](https://github.com/kyleskom/NBA-Machine-Learning-Sports-Betting) —
-1,744 stars, 569 forks, maintained since 2019.
-
-This fork does two things: it **fixes defects it found in the original**, and it
-**rebuilds the modelling layer from NBA's own data** so the results can be read
-against each other honestly.
-
-**There is no demonstrated betting edge here, and we do not claim one.** What
-follows is an audit and a set of prediction models, judged on how well they
-predict — not on whether they make money.
+A fork of [kyleskom/NBA-Machine-Learning-Sports-Betting](https://github.com/kyleskom/NBA-Machine-Learning-Sports-Betting) — 1,744 stars, 569 forks, maintained since 2019.
 
 > **Credit:** all original code, pipelines and model scripts are the work of
-> **Kyle Skompinski and contributors**. Kyle built a substantial, well-maintained
-> project and did it in good faith. The defects below are the ordinary
-> accumulation of years of iteration by one maintainer — most are invisible
-> without measuring rather than reading. This fork corrects; it does not replace.
+> **Kyle Skompinski and contributors** ([github.com/kyleskom](https://github.com/kyleskom)).
+> Kyle built a substantial, well-maintained project and did it in good faith. The
+> defects below are the ordinary accumulation of years of iteration by one
+> maintainer — most are invisible without measuring rather than reading. This fork
+> corrects; it does not replace. Corrections, audit and documentation in this fork
+> are ours.
 
 ---
 
-## What this does
+## Summary
 
-Predicts the outcome of NBA games, then measures how good those predictions
-actually are.
+This fork does two things:
+
+1. **It fixes defects it found in the original** (an audit, see [What the audit found](#what-the-audit-found)).
+2. **It rebuilds the modelling layer from NBA's own data**, so results can be read against each other honestly (see [Results](#results)).
+
+**There is no demonstrated betting edge here, and we do not claim one.** What follows
+is an audit and a set of prediction models, judged on how well they predict — not on
+whether they make money.
+
+### Key takeaways
+
+| | |
+|---|---|
+| **The original 68.9% headline was target leakage** | Season-to-date stats were scraped with the game's own result already included. Rebuilt without the leak, accuracy is ~48% on the affected rows. |
+| **The model does not beat the market** | Closing-line favourite: 68.1% accuracy. Model: 65.7%. Model ROI is statistically indistinguishable from zero. |
+| **The best model is the simplest sensible one** | Logistic regression (log loss 0.6193) beats XGBoost, HistGradientBoosting and margin/total models. |
+| **Do not use the committed model files** | They were trained on the leaked dataset and must be retrained. |
+
+### Contents
+
+- [How the repo is organised](#how-the-repo-is-organised)
+- [Setup](#setup)
+- [Usage](#usage) — NBA-data models · original betting pipeline · Flask app
+- [Verifying and testing](#verifying-and-testing)
+- [Results](#results)
+- [What the audit found](#what-the-audit-found)
+- [What this fork changes](#what-this-fork-changes)
+- [Tooling added here](#tooling-added-here)
+- [Limitations](#limitations) — **read before using any number**
+- [Further reading](#further-reading)
+
+---
+
+## How the repo is organised
+
+There are two pipelines side by side. Knowing which one you are using is the most
+useful thing to settle first.
+
+| | **A. NBA-data models** (new) | **B. Original betting pipeline** (fixed) |
+|---|---|---|
+| **Purpose** | Predict game outcomes and measure how good the predictions are | Predict games against sportsbook odds, with Kelly sizing |
+| **Data** | NBA's own data via `nba_api` (310 CSVs, 11 seasons, 13,199 games) | Scraped team stats and sportsbook odds |
+| **Models** | Elo, logistic regression, margin/total, gradient boosting | XGBoost and neural networks |
+| **Judged on** | Log loss, Brier, AUC, calibration | Accuracy, log loss, market baseline, ROI |
+| **Entry points** | `download_nba_data.py`, `python -m src.Models.*` | `main.py`, `src/Process-Data/`, `src/Train-Models/` |
+
+Supporting pieces: a Flask app (`Flask/`), an evaluation harness (`scripts/evaluate.py`),
+and shared utilities (`src/Utils/`).
+
+### How pipeline A works
 
 ```
   NBA's own data          Features                 Models            Judgement
@@ -35,41 +76,146 @@ actually are.
                           travel distance
 ```
 
-**1. Pull the data.** `download_nba_data.py` fetches game logs, per-game team and
-player measures, schedules and season-end snapshots from `stats.nba.com`. It is
-resumable, and it drops `*_RANK` columns because those encode rank as of download
-time rather than as of any game.
+1. **Pull the data.** `download_nba_data.py` fetches game logs, per-game team and
+   player measures, schedules and season-end snapshots from `stats.nba.com`. It is
+   resumable, and it drops `*_RANK` columns because those encode rank as of download
+   time rather than as of any game.
+2. **Build features.** `src/DataProviders/nba_data.py` is shared by every model, so
+   their numbers are comparable. Each feature for a game is computed **only from
+   games that already happened**. That is tested rather than asserted: deleting
+   5,199 future games changes no historical feature by more than `0.000e+00`.
+3. **Split by date, walk forward.** Train always precedes test, and never overlaps.
+   Accuracy alone is useless here — always predicting "home" scores 55% — so log
+   loss leads, followed by Brier, AUC and a calibration table.
+4. **Run the models.** Each is standalone and prints its own results.
+
+---
+
+## Setup
+
+Python **3.10 or 3.11**. The ceiling is deliberate: `tensorflow==2.14.0` has no
+wheels for 3.12+, and it cannot be bumped without a Keras 3 migration that also
+invalidates the committed `.keras` artifacts. `requirements.txt` documents this in
+full.
 
 ```bash
-python download_nba_data.py                          # core, 11 seasons
-python download_nba_data.py --stages core,extras     # + tracking, synergy, shot charts
+pip install -r requirements.txt
 ```
 
-**2. Build features.** `src/DataProviders/nba_data.py` is shared by every model,
-so their numbers are comparable. Each feature for a game is computed **only from
-games that already happened**. That is tested rather than asserted: deleting 5,199
-future games changes no historical feature by more than `0.000e+00`.
+---
 
-**3. Split by date, walk forward.** Train always precedes test, and never
-overlaps. Accuracy alone is useless here — always predicting "home" scores 55% —
-so log loss leads, followed by Brier, AUC and a calibration table.
+## Usage
 
-**4. Run the models.** Each is standalone and prints its own results:
+### A. NBA-data models
 
 ```bash
+# 1. Download data
+python download_nba_data.py                          # core, 11 seasons
+python download_nba_data.py --stages core,extras     # + tracking, synergy, shot charts
+
+# 2. Run the models (each is standalone)
 python -m src.Models.baselines       # the bar everything else must beat
 python -m src.Models.logreg_rolling
 python -m src.Models.margin_total
 python -m src.Models.gbm
 ```
 
+### B. Original betting pipeline
+
+**Quick start**
+
+```bash
+python3 main.py -xgb -odds=fanduel
+```
+
+| flag | effect |
+|---|---|
+| `-xgb` | run the XGBoost models |
+| `-nn` | run the neural-network models |
+| `-A` | run all models |
+| `-kc` | add Kelly Criterion bankroll fractions |
+| `-odds=<book>` | fetch odds (`fanduel`, `draftkings`, `betmgm`, `pointsbet`, `caesars`, `wynn`, `bet_rivers_ny`) |
+
+> ⚠️ The committed model files predate every fix in this fork and must be retrained
+> before use. See [Limitations](#limitations).
+
+**Data pipeline and training** (run from the repository root)
+
+```bash
+python -m src.Process-Data.Get_Data          # scrape daily team stats
+python -m src.Process-Data.Get_Odds_Data      # scrape sportsbook odds + results
+python -m src.Process-Data.Create_Games       # build the training dataset
+
+python -m src.Train-Models.XGBoost_Model_ML   --dataset dataset_2012-26 --trials 15 --splits 5
+python -m src.Train-Models.XGBoost_Model_UO   --dataset dataset_2012-26 --trials 15 --splits 5
+```
+
+Fill gaps with `--backfill` (optionally `--season 2025-26`).
+
+`--trials` defaults to **15**, not 100. On this dataset the standard deviation of the
+cross-validation score *across configurations* is several times the entire true
+spread of held-out performance, so a bigger search ranks noise — and at 100 trials
+the expected winner's curse is 2.50 standard errors. Every trainer now prints that
+correction next to its own `Best val log loss`, so the number cannot be read without
+it. See [ROADMAP.md](ROADMAP.md) Level 6.2.
+
+> **Note on directory names.** `Process-Data` and `Train-Models` contain hyphens and
+> so are not importable as packages. All three of these work and are tested:
+> `python -m src.Train-Models.XGBoost_Model_ML` ·
+> `python src/Train-Models/XGBoost_Model_ML.py` ·
+> `cd src/Train-Models && python -m XGBoost_Model_ML`.
+> Renaming the directories is tracked as follow-up work.
+
+### Flask app
+
+```bash
+export RAPIDAPI_KEY="<your rapidapi key>"   # optional; team/player endpoints 503 without it
+cd Flask && flask run
+```
+
+Do **not** run `flask --debug run` on any reachable host: debug mode serves
+application source, including any credentials, to unauthenticated visitors.
+
+---
+
+## Verifying and testing
+
+### Reproduce every number in this README
+
+Nothing needs manual setup:
+
+```bash
+python scripts/evaluate.py
+```
+
+It opens with a leakage gate and **refuses to report accuracy at all** if the dataset
+is contaminated, so a passing run is itself evidence that the join is clean. Then it
+prints the baselines, the trained model, the closing-line favourite, and ROI across
+edge thresholds with standard errors.
+
+Useful flags: `--dataset`, `--test-size`, `--model {logreg,gbdt,none}`, `--skip-odds`.
+See `scripts/README.md` for the gate's checks and degradation rules.
+
+### Run the tests
+
+```bash
+pytest Tests/                       # or: python -m unittest discover -s Tests -t .
+```
+
+Most tests need no network access and no TensorFlow or XGBoost import. The model
+suites under `src/Models/` do need the downloaded NBA data described above; when
+`data/nba` is absent they skip rather than fail, so a fresh clone still gets a
+meaningful signal.
+
 ---
 
 ## Results
 
+### Pipeline A: model comparison
+
 All models below are scored on the **same 13,199 games** with the **same five
-walk-forward splits**, so they are directly comparable to each other. Lower log
-loss and Brier are better; higher AUC is better.
+walk-forward splits**, so they are directly comparable to each other. Lower log loss
+and Brier are better; higher AUC is better.
 
 | model | log loss ↓ | Brier ↓ | AUC ↑ | accuracy |
 |---|---|---|---|---|
@@ -86,19 +232,19 @@ loss and Brier are better; higher AUC is better.
 
 **Boosting loses, and the confidence interval proves it.** XGBoost trails logistic
 regression by 0.0039 log loss, CI [−0.0056, −0.0023] — excludes zero. The two GBMs
-agree with each other to within 0.0004, so it is not an implementation artifact.
-The GBMs do best with *one* feature and never reach the linear model.
+agree with each other to within 0.0004, so it is not an implementation artifact. The
+GBMs do best with *one* feature and never reach the linear model.
 
 **More complex targets do not pay.** Predicting margin and total, then converting
 with Φ(m̂/σ), reaches 0.6204 — no better than fitting the label directly on the same
 features (Δ +0.0006, CI [−0.0026, +0.0038]). Its value is the richer output: margin
-RMSE 14.01, total RMSE 18.78, and spread MAE 10.99 against 12.44 for a
-pick-no-edge line.
+RMSE 14.01, total RMSE 18.78, and spread MAE 10.99 against 12.44 for a pick-no-edge
+line.
 
 **Batch rating systems lose to the base rate.** Bradley-Terry (0.6929) and SRS
-(0.6890) both score *worse* than always predicting home (0.6883), with CIs
-straddling zero. The cause is structural: a batch fit over five seasons reports
-where a team **was**, while the next game depends on where it **is**.
+(0.6890) both score *worse* than always predicting home (0.6883), with CIs straddling
+zero. The cause is structural: a batch fit over five seasons reports where a team
+**was**, while the next game depends on where it **is**.
 
 ### Compared with the original model
 
@@ -107,12 +253,29 @@ where a team **was**, while the next game depends on where it **is**.
 | original logistic regression | scraped odds | 17,356 | chronological 90/10 | 0.6189 | 0.7084 |
 | logistic regression (this fork) | NBA game logs | 13,199 | 5× walk-forward | 0.6193 | 0.7089 |
 
-**These two numbers are not a like-for-like comparison, and the near-identical
-values are a coincidence rather than a result.** Different games, different
-coverage, different seasons, and different split geometry. What can be said is
-narrower and still worth saying: a linear model on team strength is hard to beat
-on this task, whether the features come from a scrape or from NBA directly, and
-the models built on top of it did not beat it here.
+**These two numbers are not a like-for-like comparison, and the near-identical values
+are a coincidence rather than a result.** Different games, different coverage,
+different seasons, and different split geometry. What can be said is narrower and
+still worth saying: a linear model on team strength is hard to beat on this task,
+whether the features come from a scrape or from NBA directly, and the models built on
+top of it did not beat it here.
+
+### Pipeline B: the model against the market
+
+On rebuilt, leak-free data over 1,722 held-out games:
+
+| strategy | accuracy | flat-bet ROI | SE |
+|---|---|---|---|
+| model | 0.657 | +1.5% to +8.3% | ±4.4 to ±9.4 |
+| **closing-line favourite** | **0.681** | **−5.46%** | ±1.62 |
+| always bet home | 0.547 | — | — |
+
+The market wins outright: 68.1% against 65.7%. The model's own ROI is
+**indistinguishable from zero** — every threshold sits within about one standard
+error, earlier measurements came out negative, and the sign depends on the window.
+The honest conclusion is not "the model loses money"; it is that **no edge is
+demonstrated in either direction.** The favourite's −5.46% ±1.62 *is* solid — that is
+the vig, which is what an efficient market should charge.
 
 ---
 
@@ -120,6 +283,15 @@ the models built on top of it did not beat it here.
 
 Six defects, all measured on the committed data. Reproduce with
 `python scripts/evaluate.py`.
+
+| # | Defect | Impact |
+|---|---|---|
+| 1 | [Target leakage](#1-the-689-headline-was-target-leakage) | Headline accuracy and ROI were inflated |
+| 2 | [No market baseline](#2-the-model-does-not-beat-the-market) | Model never compared against the market |
+| 3 | [Totals model has no signal](#3-the-totals-model-has-no-signal) | Worse than always predicting "over" |
+| 4 | [Harmful calibration](#4-calibration-was-actively-harmful) | Probabilities (and expected value) distorted |
+| 5 | [Leaked API key](#5-the-web-app-leaked-a-live-api-key) | Live credential committed since 2023 |
+| 6 | [Engineering gaps](#6-engineering-gaps) | Untested code, silent failures, bad labels |
 
 ### 1. The 68.9% headline was target leakage
 
@@ -153,36 +325,24 @@ Leakage was worth roughly **+2.8 points of accuracy and +6 points of phantom ROI
 
 ### 2. The model does not beat the market
 
-The original had no market baseline anywhere. On rebuilt, leak-free data over
-1,722 held-out games:
-
-| strategy | accuracy | flat-bet ROI | SE |
-|---|---|---|---|
-| model | 0.657 | +1.5% to +8.3% | ±4.4 to ±9.4 |
-| **closing-line favourite** | **0.681** | **−5.46%** | ±1.62 |
-| always bet home | 0.547 | — | — |
-
-The market wins outright: 68.1% against 65.7%. The model's own ROI is
-**indistinguishable from zero** — every threshold sits within about one standard
-error, earlier measurements came out negative, and the sign depends on the window.
-The honest conclusion is not "the model loses money"; it is that **no edge is
-demonstrated in either direction.** The favourite's −5.46% ±1.62 *is* solid — that
-is the vig, which is what an efficient market should charge.
+The original had no market baseline anywhere. Once one is added (see
+[Pipeline B results](#pipeline-b-the-model-against-the-market)), the closing-line
+favourite wins outright and the model shows no demonstrable edge in either direction.
 
 ### 3. The totals model has no signal
 
-`OU-Cover` is three-class (under / over / push) on a 49.5 / 49.4 / 1.1 split, with
-the rare push class up-weighted ~30×. It scores **0.497** against **0.504** for
-always predicting "over", and a worse log loss than the class prior.
+`OU-Cover` is three-class (under / over / push) on a 49.5 / 49.4 / 1.1 split, with the
+rare push class up-weighted ~30×. It scores **0.497** against **0.504** for always
+predicting "over", and a worse log loss than the class prior.
 
 ### 4. Calibration was actively harmful
 
-Inverse-frequency class weighting pushed mean home probability ~6 points off the
-true base rate (0.5079 vs 0.5694) while the sigmoid calibrator was fit on
-**unweighted** labels — correcting a distortion it had never been validated
-against. Expected value is computed straight off those probabilities. The
-calibration set was also used as the early-stopping set, the calibrator's fit set,
-and part of the final validation fold.
+Inverse-frequency class weighting pushed mean home probability ~6 points off the true
+base rate (0.5079 vs 0.5694) while the sigmoid calibrator was fit on **unweighted**
+labels — correcting a distortion it had never been validated against. Expected value
+is computed straight off those probabilities. The calibration set was also used as
+the early-stopping set, the calibrator's fit set, and part of the final validation
+fold.
 
 ### 5. The web app leaked a live API key
 
@@ -193,115 +353,78 @@ included — on any unhandled exception.
 
 ### 6. Engineering gaps
 
-No CI, no linting, no type checking. `pytest` and `unittest` both failed on a clean
-checkout. 74% of production code was in modules no test imported; the entry
-points were at 0% coverage. 255 games were silently dropped by a `len(rows) != 30`
-guard. Nine postponed games and one phantom 190–190 tie were labelled as losses.
-Documented commands silently exited 0 while doing nothing. Three mutually
-incompatible days-rest formulas existed across training and inference.
+- No CI, no linting, no type checking.
+- `pytest` and `unittest` both failed on a clean checkout.
+- 74% of production code was in modules no test imported; entry points were at 0% coverage.
+- 255 games were silently dropped by a `len(rows) != 30` guard.
+- Nine postponed games and one phantom 190–190 tie were labelled as losses.
+- Documented commands silently exited 0 while doing nothing.
+- Three mutually incompatible days-rest formulas existed across training and inference.
 
 ---
 
 ## What this fork changes
 
-**Correctness**
-- `Create_Games` joins each game to the most recent stats snapshot **strictly
-  before** the game date, eliminating the leak at its source.
-- Postponed, zero-score and phantom-tie games are excluded instead of labelled
+### Correctness
+
+- `Create_Games` joins each game to the most recent stats snapshot **strictly before**
+  the game date, eliminating the leak at its source.
+- Postponed, zero-score and phantom-tie games are excluded instead of being labelled
   as losses.
 - Days-rest is computed from **date-only UTC values against the team's previous
-  game**, in one shared implementation — replacing three divergent ones that
-  included the current game.
-- The UO model receives its `OU` column where it was trained on. It was being
-  appended, so XGBoost silently scored days-rest as the totals line.
-- A shared feature contract makes both runners **assert** the inference frame
-  matches training column order, so right-columns-wrong-order is rejected.
+  game**, in one shared implementation — replacing three divergent ones that included
+  the current game and varied with the runner's timezone.
+- The UO model receives its `OU` column at the position it was trained on. It was
+  being appended, so XGBoost silently scored days-rest as the totals line.
+- A shared `src/Utils/features.py` defines the feature contract once, and both
+  runners now **assert** the inference frame matches the training column order — a
+  right-columns-wrong-order frame is rejected rather than scored.
 
-**Model evaluation**
+### Model evaluation
+
 - Class weighting is opt-in and defaults to **off**; probabilities need to be
   calibrated, not balanced.
 - Train / early-stop / calibration / test are four disjoint chronological segments.
-- Every trainer persists its ordered feature list alongside the model.
-- Reported metrics include **log loss, a market baseline, and realised ROI** — not
-  accuracy alone.
+- Each trainer persists its ordered feature list alongside the model.
+- Reported metrics include **log loss, the closing-line favourite baseline, and
+  realised ROI** — not accuracy alone.
 - The hyperparameter search was ranking on noise: it reseeded per trial, so each
-  trial ranked configurations differently rather than finding a better one. Seed is
-  now fixed, and the expected winner's curse is printed next to every headline.
-- Imputation is fitted on train inside each fold. It was fitted before the split,
-  and 14 of 106 columns have a median that moves more than 1% as a result.
+  trial ranked configurations differently rather than finding a better one. The seed
+  is now fixed, and the expected winner's curse is printed next to every headline.
+- Imputation is fitted on train inside each fold. It was fitted before the split, and
+  14 of 106 columns have a median that moves more than 1% as a result.
 
-**Security & operations**
-- The API key comes from `RAPIDAPI_KEY`; endpoints fail closed with a 503.
+### Security and operations
+
+- The API key is read from `RAPIDAPI_KEY`; endpoints fail closed with a 503.
 - Debug mode is gone; unhandled exceptions return a generic response, logged
-  server-side.
+  server-side. Raw exception text is no longer returned to clients.
+- `player_id` is validated.
 - Every `requests.get` and `subprocess` call has a timeout; the per-request
   triple-subprocess spawn is single-flighted and semaphore-capped.
-- Upstream failures raise a typed error instead of becoming an empty DataFrame
-  three frames downstream.
+- Upstream fetch failures raise a typed error instead of being swallowed into an
+  empty DataFrame three frames downstream.
 
-**Engineering**
+### Engineering
+
 - CI on Python 3.10–3.11 running both `pytest` and `unittest`.
-- Six near-identical training scripts collapsed to shared modules (2255 → 1551
-  lines) with byte-identical output.
+- `pyproject.toml`, a working `conftest.py`, and a declared Python ceiling.
+- `requests`, `numpy` and `joblib` are declared instead of resolving transitively.
+- Odds-date holes are backfilled; missing-season runs exit non-zero.
+- SQLite connections are closed; `Add_Days_Rest.py` refuses to overwrite a table it
+  could not parse.
+- Season values come from `config.toml`, not from 19 hand-edited literals.
+- Six near-identical training scripts collapsed to shared modules (2255 → 1551 lines)
+  with byte-identical output.
 - Six trainers disagreed about which dataset table to train on; they now share one
   name, resolved through a function that refuses same-day-join builds by name.
 
 ---
 
-<details>
-<summary>Older fixes carried over from the first round of this audit</summary>
-
-**Correctness**
-- `Create_Games` joins each game to the most recent stats snapshot **strictly
-  before** the game date, eliminating the leak at its source.
-- Postponed, zero-score and phantom-tie games are excluded instead of being
-  labelled as losses.
-- Days-rest is computed from **date-only UTC values against the team's previous
-  game**, in one shared implementation — replacing three divergent ones that
-  included the current game and varied with the runner's timezone.
-- The UO model receives its `OU` column at the position it was trained on. It was
-  being appended, so XGBoost silently scored days-rest as the totals line.
-- A shared `src/Utils/features.py` defines the feature contract once, and both
-  runners now **assert** the inference frame matches the training column order —
-  a right-columns-wrong-order frame is rejected rather than scored.
-
-**Model evaluation**
-- Class weighting is opt-in and defaults to **off**; probabilities need to be
-  calibrated, not balanced.
-- Train / early-stop / calibration / test are four disjoint chronological segments.
-- Each trainer now persists its ordered feature list alongside the model.
-- Reported metrics include **log loss, the closing-line favourite baseline, and
-  realised ROI** — not accuracy alone.
-
-**Security & operations**
-- The API key is read from `RAPIDAPI_KEY`; the endpoints fail closed with a 503.
-- Debug mode is gone; unhandled exceptions return a generic response, logged
-  server-side.
-- Every `requests.get` and `subprocess` call has a timeout; the per-request
-  triple-subprocess spawn is single-flighted and semaphore-capped.
-- `player_id` is validated; raw exception text is no longer returned to clients.
-- Upstream fetch failures raise a typed error instead of being swallowed into an
-  empty DataFrame three frames downstream.
-
-**Engineering**
-- CI on Python 3.10–3.11 running both `pytest` and `unittest`.
-- `pyproject.toml`, a working `conftest.py`, and a declared Python ceiling.
-- `requests`, `numpy` and `joblib` are declared instead of resolving transitively.
-- Odds-date holes are backfilled; missing-season runs exit non-zero.
-- SQLite connections are closed; `Add_Days_Rest.py` refuses to overwrite a table
-  it could not parse.
-- Season values come from `config.toml`, not from 19 hand-edited literals.
-- Six near-identical training scripts collapsed to shared modules (2255 → 1551
-  lines) with byte-identical output.
-
-</details>
-
----
-
 ## Tooling added here
 
-Each of these is built and tested. None is wired into the runtime yet — that is
-the next deliberate step, tracked in [ROADMAP.md](ROADMAP.md).
+Each of these is built and tested. None is wired into the runtime yet — that is the
+next deliberate step, tracked in [ROADMAP.md](ROADMAP.md).
 
 | Module | What it is for |
 |---|---|
@@ -313,164 +436,73 @@ the next deliberate step, tracked in [ROADMAP.md](ROADMAP.md).
 | `src/Process-Data/Create_Recency_Features.py` | EWMA and rolling features replacing season-to-date cumulative averages, with an as-of assertion that raises on leakage. |
 | `src/Utils/nba_client.py` | Thin, lazily-imported `nba_api` wrapper. |
 
-Two of these are worth reading the reasoning for, because both encode a lesson:
+Two of these are worth reading the reasoning for, because both encode a lesson.
 
 **`size_bet` exists because full Kelly is the wrong policy, not wrong maths.** The
-underlying formula is correct — it is exactly `f* = (bp−q)/b`. But on a
-mis-specified edge, a Monte-Carlo over 20,000 seasons ends at a **median 0.278×
-bankroll with a 100% chance of a 50% drawdown**; at quarter Kelly, a median 0.946×
-and no such drawdown. The honest counterpoint is in the same report: when the
-edge is exactly right, full Kelly returns 3.97× against quarter Kelly's 1.83×.
-Roughly half the growth when you are right, in exchange for not going broke when
-you are wrong.
+underlying formula is correct — it is exactly `f* = (bp−q)/b`. But on a mis-specified
+edge, a Monte-Carlo over 20,000 seasons ends at a **median 0.278× bankroll with a
+100% chance of a 50% drawdown**; at quarter Kelly, a median 0.946× and no such
+drawdown. The honest counterpoint is in the same report: when the edge is exactly
+right, full Kelly returns 3.97× against quarter Kelly's 1.83×. Roughly half the
+growth when you are right, in exchange for not going broke when you are wrong.
 
 **`closing_line_value` exists because anything measured at the close is not a
-signal.** Betting the closing line returns CLV of exactly `0.0` by construction.
-You cannot beat a price you already have. An honest limit the module documents:
-the historical odds tables are single scrapes, so there is **no intraday history
-to recover** and past CLV cannot be computed. That question is permanently
-unanswerable for games already played.
-
----
-
-## Requirements
-
-Python **3.10 or 3.11**. The ceiling is deliberate: `tensorflow==2.14.0` has no
-wheels for 3.12+, and it cannot be bumped without a Keras 3 migration that also
-invalidates the committed `.keras` artifacts. `requirements.txt` documents this in
-full.
-
-```bash
-pip install -r requirements.txt
-```
-
-## Quick start
-
-```bash
-python3 main.py -xgb -odds=fanduel
-```
-
-| flag | effect |
-|---|---|
-| `-xgb` | run the XGBoost models |
-| `-nn` | run the neural-network models |
-| `-A` | run all models |
-| `-kc` | add Kelly Criterion bankroll fractions |
-| `-odds=<book>` | fetch odds (`fanduel`, `draftkings`, `betmgm`, `pointsbet`, `caesars`, `wynn`, `bet_rivers_ny`) |
-
-## Data pipeline and training
-
-Run from the repository root:
-
-```bash
-python -m src.Process-Data.Get_Data          # scrape daily team stats
-python -m src.Process-Data.Get_Odds_Data      # scrape sportsbook odds + results
-python -m src.Process-Data.Create_Games       # build the training dataset
-
-python -m src.Train-Models.XGBoost_Model_ML   --dataset dataset_2012-26 --trials 15 --splits 5
-python -m src.Train-Models.XGBoost_Model_UO   --dataset dataset_2012-26 --trials 15 --splits 5
-```
-
-`--trials` defaults to **15**, not 100. On this dataset the standard deviation
-of the cross-validation score *across configurations* is several times the entire
-true spread of held-out performance, so a bigger search ranks noise — and at 100
-trials the expected winner's curse is 2.50 standard errors. Every trainer now
-prints that correction next to its own `Best val log loss`, so the number cannot
-be read without it. See [ROADMAP.md](ROADMAP.md) Level 6.2.
-
-Fill gaps with `--backfill` (optionally `--season 2025-26`).
-
-> `Process-Data` and `Train-Models` contain hyphens and so are not importable as
-> packages. All three of these work and are tested:
-> `python -m src.Train-Models.XGBoost_Model_ML` ·
-> `python src/Train-Models/XGBoost_Model_ML.py` ·
-> `cd src/Train-Models && python -m XGBoost_Model_ML`.
-> Renaming the directories is tracked as follow-up work.
-
-## Verifying the numbers in this README
-
-Every performance figure here is reproducible. Nothing needs manual setup:
-
-```bash
-python scripts/evaluate.py
-```
-
-It opens with a leakage gate and **refuses to report accuracy at all** if the
-dataset is contaminated, so a passing run is itself evidence that the join is
-clean. Then it prints the baselines, the trained model, the closing-line
-favourite, and ROI across edge thresholds with standard errors.
-
-Useful flags: `--dataset`, `--test-size`, `--model {logreg,gbdt,none}`,
-`--skip-odds`. See `scripts/README.md` for the gate's checks and degradation
-rules.
-
-## Tests
-
-```bash
-pytest Tests/                       # or: python -m unittest discover -s Tests -t .
-```
-
-Most tests need no network access and no TensorFlow or XGBoost import. The model
-suites under `src/Models/` do need the downloaded NBA data described above; when
-`data/nba` is absent they skip rather than fail, so a fresh clone still gets a
-meaningful signal.
-
-## Flask app
-
-```bash
-export RAPIDAPI_KEY="<your rapidapi key>"   # optional; team/player endpoints 503 without it
-cd Flask && flask run
-```
-
-Do **not** run `flask --debug run` on any reachable host: debug mode serves
-application source, including any credentials, to unauthenticated visitors.
+signal.** Betting the closing line returns CLV of exactly `0.0` by construction. You
+cannot beat a price you already have. An honest limit the module documents: the
+historical odds tables are single scrapes, so there is **no intraday history to
+recover** and past CLV cannot be computed. That question is permanently unanswerable
+for games already played.
 
 ---
 
 ## Limitations
 
-Read this before using any number from this repository.
+**Read this before using any number from this repository.**
 
-1. **No demonstrated betting edge.** The model's ROI at the closing line is
-   +1.5% to +8.3% with standard errors of ±4.4 to ±9.4 — inside one standard
-   error of zero at every threshold, with the sign depending on the evaluation
-   window. Treat it as no result, not as a profit and not as a loss. The
-   measurements are reproducible with `python scripts/evaluate.py`.
+### About the results
+
+1. **No demonstrated betting edge.** The model's ROI at the closing line is +1.5% to
+   +8.3% with standard errors of ±4.4 to ±9.4 — inside one standard error of zero at
+   every threshold, with the sign depending on the evaluation window. Treat it as no
+   result, not as a profit and not as a loss. The measurements are reproducible with
+   `python scripts/evaluate.py`.
 2. **The model is worse than the market it is trying to beat.** The closing-line
    favourite wins 68.1% where the model wins 65.7%.
 3. **Accuracy is not profitability.** 65.7% accuracy loses money when the market
-   prices that accuracy into the line. Only ROI and closing-line value measure
-   this product.
-4. **The `68.9%` figure is retired.** It is reproduced here only to explain the
-   leak. It is not a forecasting result.
-5. **The committed model artifacts predate every fix in this fork and must be
+   prices that accuracy into the line. Only ROI and closing-line value measure this
+   product.
+4. **The `68.9%` figure is retired.** It is reproduced here only to explain the leak.
+   It is not a forecasting result.
+5. **Small test set.** ~1.7k held-out rows spanning ~1.2 seasons. Too small to resolve
+   a 1–2 point edge, with no way to re-test on new data.
+
+### About the code and models
+
+6. **The committed model artifacts predate every fix in this fork and must be
    retrained before use.** They were fitted on the leaked dataset above, and
    `Models/NN_Models/Trained-Model-OU-49.2_*.keras` additionally carries the old
-   totals column order — it has 107 inputs either way, so nothing will raise, it
-   will simply be wrong. Treat everything in `Models/` as untrusted until
-   retrained.
-6. **The totals model should not be used.** It does not beat a coin flip or a
-   constant prior.
-7. **Small test set.** ~1.7k held-out rows spanning ~1.2 seasons. Too small to
-   resolve a 1–2 point edge, with no way to re-test on new data.
+   totals column order — it has 107 inputs either way, so nothing will raise, it will
+   simply be wrong. Treat everything in `Models/` as untrusted until retrained.
+7. **The totals model should not be used.** It does not beat a coin flip or a constant
+   prior.
 8. **Kelly sizing is full Kelly** with no fractional scaling, bankroll cap,
    simultaneous-exposure limit, or discount for model uncertainty. Full Kelly on a
    marginally-uncertain edge has a high probability of severe drawdown.
-9. **Not financial advice.** Nothing here is a recommendation to wager. Sports
-   betting carries real financial risk; this is an educational data-science project.
+
+### Legal and usage
+
+9. **Not financial advice.** Nothing here is a recommendation to wager. Sports betting
+   carries real financial risk; this is an educational data-science project.
 10. **Data provenance.** Team stats come from `stats.nba.com` (whose Terms of Use
-   restrict redistribution) and odds from a scraped source. Neither is licensed
-   for redistribution by this project.
+    restrict redistribution) and odds from a scraped source. Neither is licensed for
+    redistribution by this project.
 11. **No license.** Neither this fork nor its upstream grants reuse rights.
 
-## Credit
-
-Original project by [Kyle Skompinski](https://github.com/kyleskom) and
-contributors. Corrections, audit and documentation in this fork are ours.
+---
 
 ## Further reading
 
 - [ROADMAP.md](ROADMAP.md) — the levels between this working pipeline and a real
-  forecasting or betting engine, with the measured case for why model tuning is
-  not the bottleneck.
+  forecasting or betting engine, with the measured case for why model tuning is not
+  the bottleneck.
 - `scripts/README.md` — what the evaluation harness measures and how it degrades.
