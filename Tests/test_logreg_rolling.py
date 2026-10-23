@@ -82,6 +82,30 @@ def real_design(halflife: float = 10.0):
     return _DESIGN_CACHE[key]
 
 
+def assert_truncation_equal(full: pd.DataFrame, cut: pd.DataFrame) -> None:
+    """``full.iloc[:len(cut)]`` must equal ``cut`` - the leakage contract, with
+    one stated tolerance.
+
+    The canonical columns must match BIT-FOR-BIT: a centred rolling mean, a
+    full-sample standardisation or a season-end prior moves them and fails. The
+    shared availability block (issue #36) is truncation-invariant only to float
+    SUMMATION noise: rebuilding it on fewer games can reorder same-date rows
+    inside the per-squad player sums and moves values by ~1e-13 (measured
+    8.5e-14 on the 4,000-game cut; the round3 P1 gate's own pass bar is 1e-12).
+    A leak moves these columns by O(0.01), so the tight bar still catches one,
+    and the NaN pattern is compared exactly either way.
+    """
+    n = len(cut)
+    prefix = full.iloc[:n].reset_index(drop=True)
+    cut = cut.reset_index(drop=True)
+    avail = [c for c in lr.AVAILABILITY_COLUMNS if c in prefix.columns]
+    base = [c for c in prefix.columns if c not in avail]
+    pd.testing.assert_frame_equal(prefix[base], cut[base], check_exact=True)
+    if avail:
+        pd.testing.assert_frame_equal(prefix[avail], cut[avail],
+                                      check_exact=False, rtol=0.0, atol=1e-12)
+
+
 # --------------------------------------------------------------------------- #
 # Synthetic fixtures - a world where the answer is known
 # --------------------------------------------------------------------------- #
@@ -247,11 +271,7 @@ class TestFeaturesAreStrictlyCausal(unittest.TestCase):
         cut = lr.load_design(halflife=10.0, games=trunc)
 
         self.assertEqual(len(cut), _TRUNC_N)
-        pd.testing.assert_frame_equal(
-            full.iloc[:_TRUNC_N].reset_index(drop=True),
-            cut.reset_index(drop=True),
-            check_exact=True,
-        )
+        assert_truncation_equal(full, cut)
 
     def test_rolling_features_are_truncation_invariant(self):
         """Pin the SHARED builder too, not just this model's wrapper.
@@ -315,6 +335,12 @@ class TestFeaturesAreStrictlyCausal(unittest.TestCase):
                    | {n for n, _, _ in lr.REBOUND_PAIRS}
                    | {n for n, _, _ in lr.HOME_SPLIT_PAIRS}
                    | {"pace_mean", lr.HOME_COLUMN}
+                   # The availability block (issue #36): player-level expected
+                   # minutes over the PRIOR-game squad, built by the shared
+                   # `nba_data.availability_features` from strictly-past player
+                   # rows. Declared origin: the shared per-player loader, never
+                   # snapshots/ and never tonight's participants.
+                   | set(lr.AVAILABILITY_COLUMNS)
                    | sched_cols)
         produced = set(real_design().columns)
         self.assertEqual(produced - allowed, set(),
@@ -629,25 +655,37 @@ _SYNTH_ROOT = None
 
 def _build_synthetic_data_root() -> Path:
     """Write a minimal on-disk dataset in the exact layout the shared loader
-    expects: league team game logs + advanced + four factors, one season.
+    expects: league team game logs + advanced + four factors + player minutes,
+    one season.
 
     The signal lives in the RATINGS, not in the margin, because that is what the
     rolling features read. ATL is the better team by ~4 net-rating points in
     every game, and the margin is then GENERATED from those ratings plus a
     2.5-point home bonus. If the ratings were noise the model would be right to
     find nothing and the test would be asserting a fantasy.
+
+    The player-minutes table exists so the shared availability block
+    (`nba_data.availability_features`, wired into `load_design` by issue #36)
+    builds end to end in this world too - a fixed six-man rotation per club with
+    jittered minutes. It is generated from its OWN rng stream so the world's
+    margins and ratings stay exactly as they were before the block landed.
     """
     root = Path(tempfile.mkdtemp(prefix="logreg_synth_"))
-    for sub in ("game_logs", "team_gamelogs", "schedule", "meta", "snapshots"):
+    for sub in ("game_logs", "team_gamelogs", "player_gamelogs", "schedule",
+                "meta", "snapshots"):
         (root / sub).mkdir(parents=True, exist_ok=True)
 
     rng = np.random.default_rng(19)
+    rng_players = np.random.default_rng(23)
     n_games = 120
     dates = pd.date_range("2021-01-01", periods=n_games, freq="D")
     latent = {"ATL": 4.0, "BOS": -4.0}
     HOME_BONUS = 2.5
+    player_minutes = (32.0, 30.0, 28.0, 24.0, 20.0, 16.0)
+    player_ids = {"ATL": (1101, 1102, 1103, 1104, 1105, 1106),
+                  "BOS": (2101, 2102, 2103, 2104, 2105, 2106)}
 
-    rows_team, rows_adv, rows_ff = [], [], []
+    rows_team, rows_adv, rows_ff, rows_players = [], [], [], []
     schedule = []
     for i, d in enumerate(dates):
         home, away = ("ATL", "BOS") if i % 2 == 0 else ("BOS", "ATL")
@@ -689,6 +727,13 @@ def _build_synthetic_data_root() -> Path:
                 "OPP_EFG_PCT": float(rng.normal(0.50, 0.02)),
                 "SEASON_TYPE": "Regular Season",
             })
+            for slot, base_min in enumerate(player_minutes):
+                rows_players.append({
+                    "SEASON": "2020-21", "SEASON_TYPE": "Regular Season",
+                    "TEAM_ABBREVIATION": team, "GAME_ID": gid,
+                    "PLAYER_ID": player_ids[team][slot],
+                    "MIN": float(max(0.0, rng_players.normal(base_min, 2.0))),
+                })
         schedule.append({"gameId": gid, "gameDate": d.strftime("%m/%d/%Y 19:00:00"),
                          "gameStatus": 3, "gameLabel": None,
                          "homeTeam_teamTricode": home, "awayTeam_teamTricode": away})
@@ -699,6 +744,8 @@ def _build_synthetic_data_root() -> Path:
                                    index=False)
     pd.DataFrame(rows_ff).to_csv(root / "team_gamelogs" / "four_factors_2020-21.csv",
                                   index=False)
+    pd.DataFrame(rows_players).to_csv(
+        root / "player_gamelogs" / "advanced_2020-21.csv", index=False)
     pd.DataFrame(schedule).to_csv(root / "schedule" / "LeagueGameV2_2020-21.csv",
                                   index=False)
     return root
@@ -706,6 +753,7 @@ def _build_synthetic_data_root() -> Path:
 
 def _clear_shared_caches():
     for name in ("load_team_games", "load_team_advanced", "load_team_fourfactors",
+                 "load_player_advanced", "load_player_usage",
                  "load_schedule", "build_games"):
         fn = getattr(nd, name, None)
         if fn is not None and hasattr(fn, "cache_clear"):
@@ -746,8 +794,7 @@ class TestEndToEndOnSyntheticDataRoot(unittest.TestCase):
         cut = lr.load_design(halflife=5.0,
                              games=self.games.iloc[:60].reset_index(drop=True),
                              with_rebounds=False)
-        pd.testing.assert_frame_equal(
-            self.design.iloc[:60].reset_index(drop=True), cut, check_exact=True)
+        assert_truncation_equal(self.design, cut)
 
     def test_the_better_team_is_the_one_that_wins_more(self):
         """ATL carries a 4-point net-rating edge, so a correctly-signed net_diff
@@ -1008,6 +1055,58 @@ class TestEvaluationHarness(unittest.TestCase):
         for k in ("log_loss_se", "brier_se", "auc_se"):
             self.assertGreater(a[k], 0.0)
             self.assertTrue(np.isfinite(a[k]))
+
+
+class TestAvailabilityBlockIsTheSharedBlock(unittest.TestCase):
+    """Issue #36 contract: the shared availability block enters the canonical
+    frame VERBATIM - the block's own columns, in the block's own order, exactly
+    once - and the canonical feature recipe consumes it.
+
+    The block is `nba_data.availability_features`, the strict-roster expected-
+    minutes construction measured at +0.0038 nats (CI [+0.0023, +0.0055]) and
+    reproduced at +0.00399 on the ablation frame. Nothing in this model may
+    re-derive those columns: one implementation, one order, one append.
+    """
+
+    def test_the_declared_order_is_the_blocks_order(self):
+        avail = nd.availability_features(real_games())
+        self.assertEqual(list(avail.columns), list(lr.AVAILABILITY_COLUMNS),
+                         "AVAILABILITY_COLUMNS must be the block's own columns "
+                         "in the block's own order")
+
+    def test_the_block_is_appended_once_after_the_canonical_columns(self):
+        X = real_design(halflife=10.0).reset_index(drop=True)
+        base = lr.load_design(halflife=10.0, with_availability=False)
+        avail = nd.availability_features(real_games()).reset_index(drop=True)
+        self.assertEqual(list(X.columns)[:len(base.columns)], list(base.columns),
+                         "the block must follow the canonical columns without "
+                         "replacing or reordering them")
+        self.assertEqual(list(X.columns)[len(base.columns):], list(avail.columns),
+                         "the block must be appended in its own order")
+        self.assertEqual(len(X.columns), len(set(X.columns)),
+                         "no column - the block especially - may appear twice")
+        pd.testing.assert_frame_equal(
+            X[list(avail.columns)].reset_index(drop=True), avail,
+            obj="the block's values must be the shared builder's, verbatim")
+
+    def test_the_off_flag_returns_the_pre_36_canonical_frame(self):
+        base = lr.load_design(halflife=10.0, with_availability=False)
+        full_cols = list(real_design(halflife=10.0).columns)
+        self.assertEqual(
+            list(base.columns),
+            [c for c in full_cols if c not in set(lr.AVAILABILITY_COLUMNS)],
+            "with_availability=False must be the historical frame, unchanged")
+        for col in lr.AVAILABILITY_COLUMNS:
+            self.assertNotIn(col, base.columns)
+
+    def test_the_canonical_recipe_consumes_the_block_exactly_once(self):
+        feats = lr.resolve_features("full")
+        avail = [f for f in feats if f in set(lr.AVAILABILITY_COLUMNS)]
+        self.assertEqual(avail, list(lr.AVAILABILITY_COLUMNS),
+                         "the canonical model must consume the whole block, in "
+                         "canonical order, without repeats")
+        for col in lr.AVAILABILITY_COLUMNS:
+            self.assertEqual(feats.count(col), 1)
 
 
 class TestModelSurface(unittest.TestCase):

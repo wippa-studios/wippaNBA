@@ -152,6 +152,29 @@ SHRINKABLE: list[str] = [
     "ewm_pace", "ewm_ts_pct", "ewm_efg", "ewm_tov", "ewm_ftr",
 ]
 
+# Player-level EXPECTED minutes, summed over the squad that played each team's
+# PREVIOUS game - the shared `nba_data.availability_features` block (issue #36).
+# This is the project's one feature mechanism whose interval excludes zero:
+# +0.0038 nats, CI [+0.0023, +0.0055] (results/availability.json ::
+# strict_roster_expected), reproduced at +0.00399 on the ablation frame.
+#
+# The block is consumed VERBATIM, never re-derived: these four names and their
+# order are the BLOCK's own, and `load_design` refuses a block that disagrees
+# with this tuple, so the columns can neither drift nor be appended twice. The
+# `*_diff` pair is one degree of freedom in two columns (the second is the exact
+# negation of the first); it is kept as shipped because the measured arms were
+# measured that way and the market comparison must stay comparable to them.
+#
+# DO NOT swap the prior-game squad for tonight's ACTUAL participants. That is a
+# membership leak worth a flattering +0.0108 nats and is exactly what issue #30
+# ruled out: who dresses is knowable only after tip-off.
+AVAILABILITY_COLUMNS: tuple[str, ...] = (
+    "home_expected_minutes",
+    "away_expected_minutes",
+    "home_expected_minutes_diff",
+    "away_expected_minutes_diff",
+)
+
 # The home indicator. Constant 1.0 by construction: see note 3 in the docstring.
 HOME_COLUMN = "home_adv"
 
@@ -208,15 +231,24 @@ def feature_groups(with_rebounds: bool = True) -> dict[str, list[str]]:
         # performance row.
         "signs": ["off_diff", "def_diff"],
         "home": [HOME_COLUMN],
+        # Player-level expected minutes over the prior-game squad (issue #36),
+        # the only measured non-null block in this project. Consumed verbatim
+        # from the shared `nba_data.availability_features`; the canonical order
+        # is `AVAILABILITY_COLUMNS` and `load_design` pins the block to it.
+        "availability": list(AVAILABILITY_COLUMNS),
     }
 
 
 # Feature set for each reported model. ``DEFAULT_MODELS`` is the results table.
+# ``full`` is THE canonical model and carries the availability block (issue
+# #36): the block is the project's one proven accuracy gain, so the canonical
+# feature set includes it. The ablation rows below are base-block rows and are
+# left as they were measured.
 DEFAULT_MODELS: dict[str, list[str]] = {
     "rating+home": ["rating", "home"],
     "rating+matchup+home": ["rating", "matchup", "home"],
     "rating+schedule+home": ["rating", "schedule", "home"],
-    "full": ["rating", "matchup", "schedule", "home"],
+    "full": ["rating", "matchup", "schedule", "home", "availability"],
     "full_sched_diff": ["rating", "matchup", "schedule_diff", "home"],
     "net+home": ["net_diff", HOME_COLUMN],
 }
@@ -862,8 +894,26 @@ def load_design(halflife: float = 10.0, min_games: int = 5,
                 with_prior: bool = False, prior_k: float = 0.0,
                 with_rebounds: bool = True,
                 with_home_split: bool = True,
+                with_availability: bool = True,
                 games: pd.DataFrame | None = None) -> pd.DataFrame:
-    """Everything from the shared module, assembled into one design matrix."""
+    """Everything from the shared module, assembled into one design matrix.
+
+    ``with_availability`` (default ON) appends the shared
+    ``nba_data.availability_features`` block - player-level expected minutes
+    summed over the squad that played each team's PREVIOUS game - after the
+    canonical columns, in the block's own order (``AVAILABILITY_COLUMNS``).
+    That block is the project's one proven non-null feature (+0.0038 nats, CI
+    [+0.0023, +0.0055]; issue #36) and is consumed VERBATIM, never re-derived
+    here: there is exactly one implementation of it (issue #30's duplicated-copy
+    lesson) and this flag decides only whether the canonical frame carries it.
+
+    The prior-game squad is deliberate - the sum must not depend on who actually
+    dresses tonight - and the block keeps its own measured halflife (15 games of
+    player history), NOT the ``halflife`` argument, which governs team form.
+    Callers that must compare against the pre-#36 frame pass
+    ``with_availability=False`` and get exactly the historical 28-column matrix;
+    ``scripts/closing_line.py``'s two arms are spelled out that way on purpose.
+    """
     g = nd.build_games() if games is None else games
     roll = nd.rolling_team_features(g, halflife=halflife, min_games=min_games)
     rest = nd.rest_and_travel(g)
@@ -895,6 +945,27 @@ def load_design(halflife: float = 10.0, min_games: int = 5,
         roll = shrink_to_prior(roll, g, prior_season_features(g, halflife=halflife),
                                prior_k)
     X = assemble_features(g, roll, rest)
+    if with_availability:
+        # The shared block, appended ONCE after the canonical columns and in
+        # the block's own order. The column guard is the feature-order contract
+        # for this block: `AVAILABILITY_COLUMNS` (and the `availability` feature
+        # group that resolves from it) names these columns positionally, so a
+        # block that changed shape must be re-declared rather than silently
+        # absorbed into the model in a new order.
+        avail = nd.availability_features(g).reset_index(drop=True)
+        if list(avail.columns) != list(AVAILABILITY_COLUMNS):
+            raise ValueError(
+                "nba_data.availability_features returned columns "
+                f"{list(avail.columns)} but the canonical order is "
+                f"{list(AVAILABILITY_COLUMNS)}; the block and the model recipe "
+                "have drifted apart and must be re-declared together, not "
+                "concatenated and hoped")
+        if len(avail) != len(X):
+            raise ValueError(
+                f"availability_features returned {len(avail)} rows for "
+                f"{len(X)} games; concatenating it would NaN-pad and shift "
+                "rows rather than fail")
+        X = pd.concat([X.reset_index(drop=True), avail], axis=1)
     return X
 
 
