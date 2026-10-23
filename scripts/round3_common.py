@@ -37,11 +37,42 @@ for _c in (ROOT, ROOT / "src", ROOT / "scripts"):
     if str(_c) not in sys.path:
         sys.path.insert(0, str(_c))
 
-from scripts.round2_common import (              # noqa: E402,F401
-    SEED, N_SPLITS, HALFLIFE,
-    build_e14_frame, e14_pipeline, score, delta_vs,
-    walk_forward_oof, verify_sign_convention, append,
-)
+# --------------------------------------------------------------------------- #
+# The round-2 dependency, and why its absence is fatal rather than fixable
+# --------------------------------------------------------------------------- #
+# `scripts/round2_common.py` is imported here and named throughout
+# results/round3_summary.md as the shared round-2 harness ("re-exports the
+# round-2 harness unchanged"), but it was NEVER COMMITTED to this repository:
+# `git log --all -- scripts/round2_common.py` is empty on every branch. The
+# round-3 promoted-frame numbers are therefore not reproducible in this
+# checkout, and nothing below can run without it.
+#
+# It is deliberately NOT reimplemented here. A substitute would be a DIFFERENT
+# harness than the one that measured those numbers -- the bar reproduced to
+# 1e-9 against results/round2_experiments.jsonl via this exact module -- and
+# silently swapping in a lookalike would turn a documented gap into an
+# undocumented one. The gap stays loud instead. (Round-3 tree-audit finding:
+# process debt from prior round-3 work, uncommitted round-2 harness dependency.)
+try:
+    from scripts.round2_common import (              # noqa: E402,F401
+        SEED, N_SPLITS, HALFLIFE,
+        build_e14_frame, e14_pipeline, score, delta_vs,
+        walk_forward_oof, verify_sign_convention, append,
+    )
+except ModuleNotFoundError as exc:
+    if exc.name not in ("scripts.round2_common", "round2_common"):
+        raise      # a real missing dependency inside a present module: not ours
+    raise ModuleNotFoundError(
+        "scripts/round2_common has never existed in this repository (it is "
+        "absent from the entire git history), so the round-3 scoring harness "
+        "cannot run in this checkout and the round-3 promoted-frame numbers in "
+        "results/round3_summary.md are NOT reproducible here. round2_common is "
+        "deliberately not reimplemented: a substitute would be a different "
+        "harness than the one that measured those numbers. Recover the original "
+        "module (or re-derive the numbers) before trusting anything downstream "
+        "of it. See the round-3 tree-audit finding on uncommitted round-2 "
+        "harness dependencies."
+    ) from exc
 from src.DataProviders import nba_data as nd    # noqa: E402
 
 JSONL3 = ROOT / "results" / "round3_experiments.jsonl"
