@@ -1,0 +1,41 @@
+# Run record: the exact leave-one-column-out driver executed for the schedule-block
+# decomposition (results/issue45/decomposition_s42_f5.json). Not part of any pipeline.
+# Reproduce: save as e.g. /tmp/decomp.py and run ` .venv/bin/python /tmp/decomp.py `
+# from the repo root. Reuses the instrument's own functions; touches no repo code.
+import sys, json, time
+from pathlib import Path
+import numpy as np
+ROOT = Path.cwd()
+for c in (ROOT, ROOT / "src", ROOT / "scripts"):
+    sys.path.insert(0, str(c))
+from DataProviders import nba_data as nd
+import feature_block_ablation as fba
+import recency_ablation as ra
+
+SEED, N_SPLITS, N_BOOT = 42, 5, 2000
+games = nd.build_games()
+splits = nd.walk_forward_split(games, n_splits=N_SPLITS)
+frame = fba.build_feature_frame(games)
+y = games["y"].to_numpy()
+cols = fba.resolve_block("schedule", frame)
+p_full, y_oof, mask = ra.fit_oof(frame, y, splits)
+full_ll = nd.evaluate(y_oof, p_full)["log_loss"]
+out = {}
+for col in cols:
+    t0 = time.time()
+    p_m, y_m, mask_m = ra.fit_oof(fba.drop_block(frame, [col]), y, splits)
+    assert np.array_equal(mask, mask_m) and np.array_equal(y_oof, y_m), "arms disagree on OOF rows"
+    d = nd.paired_bootstrap_delta(y_oof, p_full, p_m, n_boot=N_BOOT, seed=SEED)
+    se = (d["ci_hi"] - d["ci_lo"]) / (2 * 1.959964)
+    z = abs(d["delta"] / se) if se > 0 else float("nan")
+    out[col] = {"delta": d["delta"], "ci_lo": d["ci_lo"], "ci_hi": d["ci_hi"],
+                "p_positive": d["p_positive"], "z": z,
+                "verdict": fba.classify(d["ci_lo"], d["ci_hi"]),
+                "log_loss_minus": nd.evaluate(y_oof, p_m)["log_loss"],
+                "seconds": round(time.time() - t0, 1)}
+Path("results/issue45/decomposition_s42_f5.json").write_text(json.dumps({
+    "setting": {"seed": SEED, "n_splits": N_SPLITS, "n_boot": N_BOOT},
+    "sign_convention": "delta = loss(full) - loss(full minus <column>); NEGATIVE means "
+                       "the column earns its place",
+    "n_scored": int(len(y_oof)), "log_loss_full": full_ll, "columns": cols, "results": out,
+}, indent=2) + "\n")

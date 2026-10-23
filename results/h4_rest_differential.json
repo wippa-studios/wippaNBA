@@ -1,0 +1,594 @@
+{
+  "generated_utc": "2026-10-23T09:26:52.875820+00:00",
+  "pre_registration": "results/experiments.jsonl :: H4-prereg-relative-rest",
+  "frame": {
+    "full": 73,
+    "A1_canonical": 67,
+    "A2": 73,
+    "A3": 66,
+    "candidate_columns": [
+      "rest_diff_cap4",
+      "b2b_diff",
+      "rel_rest_d_le_m2",
+      "rel_rest_d_m1",
+      "rel_rest_d_p1",
+      "rel_rest_d_ge_p2"
+    ],
+    "schedule_columns": [
+      "home_rest_days",
+      "away_rest_days",
+      "home_back_to_back",
+      "away_back_to_back",
+      "home_in_3_of_4",
+      "away_in_3_of_4",
+      "travel_miles"
+    ]
+  },
+  "results": [
+    {
+      "seed": 42,
+      "n_boot": 2000,
+      "delta": -0.00011027550373421402,
+      "ci_lo": -0.0004601696968333319,
+      "ci_hi": 0.00024909029887434654,
+      "p_positive": 0.268,
+      "se": 0.00018093699570698198,
+      "z": 0.6094690768094737,
+      "name": "H4-run-C1-s42-f5",
+      "comparison": "C1",
+      "arms": "A2 vs A1",
+      "sign_convention": "delta = loss(first) - loss(second); POSITIVE = the second arm is better",
+      "n_splits": 5,
+      "n_scored": 6600,
+      "log_loss_first": 0.6194458348026399,
+      "log_loss_second": 0.6195561103063741,
+      "per_fold_deltas": [
+        {
+          "fold": 1,
+          "n": 1320,
+          "delta": -0.0010814985942104727
+        },
+        {
+          "fold": 2,
+          "n": 1320,
+          "delta": -0.00022322969831833905
+        },
+        {
+          "fold": 3,
+          "n": 1320,
+          "delta": 0.00044392811277871314
+        },
+        {
+          "fold": 4,
+          "n": 1320,
+          "delta": 0.0002786577441373783
+        },
+        {
+          "fold": 5,
+          "n": 1320,
+          "delta": 3.07649169417612e-05
+        }
+      ]
+    },
+    {
+      "seed": 42,
+      "n_boot": 2000,
+      "delta": 0.00033534772565224635,
+      "ci_lo": -0.00041204386658366953,
+      "ci_hi": 0.0011272280601756105,
+      "p_positive": 0.79,
+      "se": 0.0003926786223520636,
+      "z": 0.8540004638999266,
+      "name": "H4-run-C2-s42-f5",
+      "comparison": "C2",
+      "arms": "A3 vs A1",
+      "sign_convention": "delta = loss(first) - loss(second); POSITIVE = the second arm is better",
+      "n_splits": 5,
+      "n_scored": 6600,
+      "log_loss_first": 0.6194458348026399,
+      "log_loss_second": 0.6191104870769877,
+      "per_fold_deltas": [
+        {
+          "fold": 1,
+          "n": 1320,
+          "delta": -0.0012938540257090292
+        },
+        {
+          "fold": 2,
+          "n": 1320,
+          "delta": -9.532834175707272e-06
+        },
+        {
+          "fold": 3,
+          "n": 1320,
+          "delta": 0.0002763063897839313
+        },
+        {
+          "fold": 4,
+          "n": 1320,
+          "delta": 0.0016700057407742497
+        },
+        {
+          "fold": 5,
+          "n": 1320,
+          "delta": 0.0010338133575882313
+        }
+      ]
+    },
+    {
+      "seed": 42,
+      "n_boot": 2000,
+      "delta": 0.0004456232293864604,
+      "ci_lo": -0.0002764677301626439,
+      "ci_hi": 0.001137494191479829,
+      "p_positive": 0.8905,
+      "se": 0.00036071119715527246,
+      "z": 1.2354017089040807,
+      "name": "H4-run-C3-s42-f5",
+      "comparison": "C3",
+      "arms": "A3 vs A2",
+      "sign_convention": "delta = loss(first) - loss(second); POSITIVE = the second arm is better",
+      "n_splits": 5,
+      "n_scored": 6600,
+      "log_loss_first": 0.6195561103063741,
+      "log_loss_second": 0.6191104870769877,
+      "per_fold_deltas": [
+        {
+          "fold": 1,
+          "n": 1320,
+          "delta": -0.0002123554314985565
+        },
+        {
+          "fold": 2,
+          "n": 1320,
+          "delta": 0.00021369686414263178
+        },
+        {
+          "fold": 3,
+          "n": 1320,
+          "delta": -0.00016762172299478184
+        },
+        {
+          "fold": 4,
+          "n": 1320,
+          "delta": 0.0013913479966368714
+        },
+        {
+          "fold": 5,
+          "n": 1320,
+          "delta": 0.0010030484406464701
+        }
+      ]
+    },
+    {
+      "seed": 137,
+      "n_boot": 2000,
+      "delta": -0.00011027550373421402,
+      "ci_lo": -0.00046026756035682235,
+      "ci_hi": 0.00022467377851803836,
+      "p_positive": 0.2755,
+      "se": 0.000174733142770699,
+      "z": 0.631108111406934,
+      "name": "H4-run-C1-s137-f5",
+      "comparison": "C1",
+      "arms": "A2 vs A1",
+      "sign_convention": "delta = loss(first) - loss(second); POSITIVE = the second arm is better",
+      "n_splits": 5,
+      "n_scored": 6600,
+      "log_loss_first": 0.6194458348026399,
+      "log_loss_second": 0.6195561103063741,
+      "per_fold_deltas": [
+        {
+          "fold": 1,
+          "n": 1320,
+          "delta": -0.0010814985942104727
+        },
+        {
+          "fold": 2,
+          "n": 1320,
+          "delta": -0.00022322969831833905
+        },
+        {
+          "fold": 3,
+          "n": 1320,
+          "delta": 0.00044392811277871314
+        },
+        {
+          "fold": 4,
+          "n": 1320,
+          "delta": 0.0002786577441373783
+        },
+        {
+          "fold": 5,
+          "n": 1320,
+          "delta": 3.07649169417612e-05
+        }
+      ]
+    },
+    {
+      "seed": 137,
+      "n_boot": 2000,
+      "delta": 0.00033534772565224635,
+      "ci_lo": -0.00047071609749675116,
+      "ci_hi": 0.001173181137862958,
+      "p_positive": 0.7915,
+      "se": 0.00041936924233294825,
+      "z": 0.7996478801991038,
+      "name": "H4-run-C2-s137-f5",
+      "comparison": "C2",
+      "arms": "A3 vs A1",
+      "sign_convention": "delta = loss(first) - loss(second); POSITIVE = the second arm is better",
+      "n_splits": 5,
+      "n_scored": 6600,
+      "log_loss_first": 0.6194458348026399,
+      "log_loss_second": 0.6191104870769877,
+      "per_fold_deltas": [
+        {
+          "fold": 1,
+          "n": 1320,
+          "delta": -0.0012938540257090292
+        },
+        {
+          "fold": 2,
+          "n": 1320,
+          "delta": -9.532834175707272e-06
+        },
+        {
+          "fold": 3,
+          "n": 1320,
+          "delta": 0.0002763063897839313
+        },
+        {
+          "fold": 4,
+          "n": 1320,
+          "delta": 0.0016700057407742497
+        },
+        {
+          "fold": 5,
+          "n": 1320,
+          "delta": 0.0010338133575882313
+        }
+      ]
+    },
+    {
+      "seed": 2718,
+      "n_boot": 2000,
+      "delta": -0.00011027550373421402,
+      "ci_lo": -0.0004629483876072454,
+      "ci_hi": 0.00024841450664598853,
+      "p_positive": 0.2835,
+      "se": 0.00018147345927099526,
+      "z": 0.6076673921200733,
+      "name": "H4-run-C1-s2718-f5",
+      "comparison": "C1",
+      "arms": "A2 vs A1",
+      "sign_convention": "delta = loss(first) - loss(second); POSITIVE = the second arm is better",
+      "n_splits": 5,
+      "n_scored": 6600,
+      "log_loss_first": 0.6194458348026399,
+      "log_loss_second": 0.6195561103063741,
+      "per_fold_deltas": [
+        {
+          "fold": 1,
+          "n": 1320,
+          "delta": -0.0010814985942104727
+        },
+        {
+          "fold": 2,
+          "n": 1320,
+          "delta": -0.00022322969831833905
+        },
+        {
+          "fold": 3,
+          "n": 1320,
+          "delta": 0.00044392811277871314
+        },
+        {
+          "fold": 4,
+          "n": 1320,
+          "delta": 0.0002786577441373783
+        },
+        {
+          "fold": 5,
+          "n": 1320,
+          "delta": 3.07649169417612e-05
+        }
+      ]
+    },
+    {
+      "seed": 2718,
+      "n_boot": 2000,
+      "delta": 0.00033534772565224635,
+      "ci_lo": -0.0004333937948247407,
+      "ci_hi": 0.0011514405550606009,
+      "p_positive": 0.7925,
+      "se": 0.0004043019029648865,
+      "z": 0.8294487935699161,
+      "name": "H4-run-C2-s2718-f5",
+      "comparison": "C2",
+      "arms": "A3 vs A1",
+      "sign_convention": "delta = loss(first) - loss(second); POSITIVE = the second arm is better",
+      "n_splits": 5,
+      "n_scored": 6600,
+      "log_loss_first": 0.6194458348026399,
+      "log_loss_second": 0.6191104870769877,
+      "per_fold_deltas": [
+        {
+          "fold": 1,
+          "n": 1320,
+          "delta": -0.0012938540257090292
+        },
+        {
+          "fold": 2,
+          "n": 1320,
+          "delta": -9.532834175707272e-06
+        },
+        {
+          "fold": 3,
+          "n": 1320,
+          "delta": 0.0002763063897839313
+        },
+        {
+          "fold": 4,
+          "n": 1320,
+          "delta": 0.0016700057407742497
+        },
+        {
+          "fold": 5,
+          "n": 1320,
+          "delta": 0.0010338133575882313
+        }
+      ]
+    },
+    {
+      "seed": 42,
+      "n_boot": 2000,
+      "delta": -0.00011581490944578832,
+      "ci_lo": -0.0004620925609864629,
+      "ci_hi": 0.0002441463331485202,
+      "p_positive": 0.261,
+      "se": 0.0001801662923744985,
+      "z": 0.6428222944448029,
+      "name": "H4-run-C1-s42-f8",
+      "comparison": "C1",
+      "arms": "A2 vs A1",
+      "sign_convention": "delta = loss(first) - loss(second); POSITIVE = the second arm is better",
+      "n_splits": 8,
+      "n_scored": 6600,
+      "log_loss_first": 0.6197966684436848,
+      "log_loss_second": 0.6199124833531305,
+      "per_fold_deltas": [
+        {
+          "fold": 1,
+          "n": 825,
+          "delta": -0.00028102523372652843
+        },
+        {
+          "fold": 2,
+          "n": 825,
+          "delta": -0.0014216134455379281
+        },
+        {
+          "fold": 3,
+          "n": 825,
+          "delta": -0.0002807908126273295
+        },
+        {
+          "fold": 4,
+          "n": 825,
+          "delta": 0.00018098501946806067
+        },
+        {
+          "fold": 5,
+          "n": 825,
+          "delta": 0.00036398543412508033
+        },
+        {
+          "fold": 6,
+          "n": 825,
+          "delta": 0.000364261725896875
+        },
+        {
+          "fold": 7,
+          "n": 825,
+          "delta": -0.0003413413666003562
+        },
+        {
+          "fold": 8,
+          "n": 825,
+          "delta": 0.0004890194034360418
+        }
+      ]
+    },
+    {
+      "seed": 42,
+      "n_boot": 2000,
+      "delta": 0.00035154446473595335,
+      "ci_lo": -0.0003959864492445786,
+      "ci_hi": 0.0011375014751362933,
+      "p_positive": 0.804,
+      "se": 0.0003912030844395284,
+      "z": 0.8986239595723192,
+      "name": "H4-run-C2-s42-f8",
+      "comparison": "C2",
+      "arms": "A3 vs A1",
+      "sign_convention": "delta = loss(first) - loss(second); POSITIVE = the second arm is better",
+      "n_splits": 8,
+      "n_scored": 6600,
+      "log_loss_first": 0.6197966684436848,
+      "log_loss_second": 0.6194451239789488,
+      "per_fold_deltas": [
+        {
+          "fold": 1,
+          "n": 825,
+          "delta": -0.002212527555780386
+        },
+        {
+          "fold": 2,
+          "n": 825,
+          "delta": 0.0011375229785269836
+        },
+        {
+          "fold": 3,
+          "n": 825,
+          "delta": 0.0002872971316272288
+        },
+        {
+          "fold": 4,
+          "n": 825,
+          "delta": -0.00020516866770725617
+        },
+        {
+          "fold": 5,
+          "n": 825,
+          "delta": -0.0002738433683411312
+        },
+        {
+          "fold": 6,
+          "n": 825,
+          "delta": 0.002071515256315326
+        },
+        {
+          "fold": 7,
+          "n": 825,
+          "delta": 0.0008833344832466228
+        },
+        {
+          "fold": 8,
+          "n": 825,
+          "delta": 0.0011242254600002388
+        }
+      ]
+    }
+  ],
+  "verdict": {
+    "rule": "earn-its-place iff primary C1 CI excludes zero in the helpful direction, |z| > 3 at the primary setting, and the sign is consistent across every replication setting (H4-prereg-relative-rest)",
+    "primary": {
+      "setting": "seed 42 / 5 folds",
+      "delta": -0.00011027550373421402,
+      "ci_lo": -0.0004601696968333319,
+      "ci_hi": 0.00024909029887434654,
+      "z": 0.6094690768094737
+    },
+    "replications": [
+      {
+        "setting": "seed 137 / 5 folds",
+        "delta": -0.00011027550373421402,
+        "ci_lo": -0.00046026756035682235,
+        "ci_hi": 0.00022467377851803836,
+        "z": 0.631108111406934
+      },
+      {
+        "setting": "seed 2718 / 5 folds",
+        "delta": -0.00011027550373421402,
+        "ci_lo": -0.0004629483876072454,
+        "ci_hi": 0.00024841450664598853,
+        "z": 0.6076673921200733
+      },
+      {
+        "setting": "seed 42 / 8 folds",
+        "delta": -0.00011581490944578832,
+        "ci_lo": -0.0004620925609864629,
+        "ci_hi": 0.0002441463331485202,
+        "z": 0.6428222944448029
+      }
+    ],
+    "signs_consistent": false,
+    "decision": "H4 candidate FAILS the pre-registered rule: no earn-its-place",
+    "c2_replacement": {
+      "setting": "seed 42 / 5 folds",
+      "delta": 0.00033534772565224635,
+      "ci_lo": -0.00041204386658366953,
+      "ci_hi": 0.0011272280601756105,
+      "z": 0.8540004638999266,
+      "reading": "positive delta = the replacement arm (relative rest in, absolute rest out) beats the canonical frame"
+    },
+    "c3_drop_absolute_rest_given_candidate": {
+      "delta": 0.0004456232293864604,
+      "ci_lo": -0.0002764677301626439,
+      "ci_hi": 0.001137494191479829,
+      "z": 1.2354017089040807,
+      "reading": "positive delta = dropping the schedule block once the candidate is present HELPS"
+    },
+    "multiplicity": "9 looks (C1 x 4 + C2 x 4 + C3 x 1) -> Bonferroni 0.05/9 = 0.00556 one-sided (|z| ~ 2.54); the project bar |z| > 3 governs on top",
+    "target_nats": 0.0024,
+    "coef_shrink_diagnostic": {
+      "A1": {
+        "per_fold": {
+          "home_back_to_back": [
+            -0.03374,
+            -0.05168,
+            -0.04784,
+            -0.05097,
+            -0.0703
+          ],
+          "away_back_to_back": [
+            0.11564,
+            0.11884,
+            0.11451,
+            0.12599,
+            0.12687
+          ],
+          "home_rest_days": [
+            0.02513,
+            0.02579,
+            0.0501,
+            0.04226,
+            0.01342
+          ],
+          "away_rest_days": [
+            0.00281,
+            0.00519,
+            -0.03157,
+            -0.02936,
+            -0.01266
+          ]
+        },
+        "mean_abs": {
+          "home_back_to_back": 0.05091,
+          "away_back_to_back": 0.12037,
+          "home_rest_days": 0.03134,
+          "away_rest_days": 0.01632
+        }
+      },
+      "A2": {
+        "per_fold": {
+          "home_back_to_back": [
+            0.00538,
+            -0.00522,
+            -0.00682,
+            -0.00338,
+            -0.01763
+          ],
+          "away_back_to_back": [
+            0.05456,
+            0.06011,
+            0.06609,
+            0.07651,
+            0.06734
+          ],
+          "home_rest_days": [
+            0.03087,
+            0.02221,
+            0.04707,
+            0.03923,
+            0.00729
+          ],
+          "away_rest_days": [
+            -0.00035,
+            0.00919,
+            -0.02842,
+            -0.02744,
+            -0.00663
+          ]
+        },
+        "mean_abs": {
+          "home_back_to_back": 0.00768,
+          "away_back_to_back": 0.06492,
+          "home_rest_days": 0.02933,
+          "away_rest_days": 0.0144
+        }
+      }
+    }
+  }
+}

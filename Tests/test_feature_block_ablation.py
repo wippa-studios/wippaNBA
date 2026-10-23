@@ -14,7 +14,10 @@ WRONG while still producing a confident-looking interval:
   * `drop_block` really removes the named columns (a silent no-op ablation fits the
     same model twice and reports a beautiful zero-width interval);
   * the sign convention, against a case where the correct answer is forced;
-  * a synthetic block of PURE NOISE yields a null rather than a spurious win.
+  * a synthetic block of PURE NOISE yields a null rather than a spurious win;
+  * the JSON artifact records the run's OWN --seed/--splits, not the module
+    defaults (the writer once logged SEED/N_SPLITS and mislabelled every
+    replication run in results/experiments.jsonl as a default run).
 
 The last one is the important one. An ablation harness that reports findings when
 there is nothing to find is worse than no harness, because its positive results
@@ -29,8 +32,10 @@ from __future__ import annotations
 
 import json
 import sys
+import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
 import numpy as np
 import pandas as pd
@@ -449,6 +454,93 @@ class TestMeasuredArtifact(unittest.TestCase):
         for name, columns in self.data["registry"].items():
             self.assertEqual(columns, list(fba.FEATURE_BLOCKS[name]["columns"]),
                              f"registry for {name!r} drifted from the artifact")
+
+
+class TestArtifactRecordsRunArgsNotModuleDefaults(unittest.TestCase):
+    """The artifact must describe the run that produced it, not the defaults.
+
+    The JSON writer once recorded the module constants SEED and N_SPLITS instead
+    of the parsed command-line args, so every replication run - the runs whose
+    entire point is a non-default --seed or --splits - was logged under the
+    DEFAULT configuration. Twenty records in results/experiments.jsonl carry that
+    wrong label (an erratum there records it). A record that lies about its own
+    configuration is worse than no record: it turns a replication on paper into a
+    second copy of the original, which is the one thing a replication must not be.
+    """
+
+    def test_written_record_carries_the_run_args_not_the_module_constants(self):
+        seed, n_splits, n_boot = 137, 4, 100
+        self.assertNotEqual(
+            (seed, n_splits), (fba.SEED, fba.N_SPLITS),
+            "the probe must run non-default args or it proves nothing",
+        )
+
+        # A fabricated run through the REAL parse-and-write path: only the model
+        # fitting is stubbed, because the bug this pins is in what main() records.
+        frame, y, _ = _synthetic_games(0)
+        games = pd.DataFrame({"y": y})
+        splits = nd.walk_forward_split(games, n_splits=n_splits)
+        n_oof = sum(len(te) for _, te in splits)
+
+        def fake_fit_oof(frame, y, splits, **kwargs):
+            order = np.concatenate([te for _, te in splits])
+            mask = np.zeros(len(y), dtype=bool)
+            mask[order] = True
+            return np.full(len(order), 0.5), np.asarray(y)[order], mask
+
+        scored_with: dict = {}
+
+        def fake_score_block(frame, y, splits, block, *, n_boot, seed):
+            scored_with.update(seed=seed, n_boot=n_boot)
+            return {
+                "block": block, "n_columns": 1, "columns": ["signal"],
+                "delta": 0.0, "ci_lo": -0.01, "ci_hi": 0.01,
+                "p_positive": 0.5, "n_boot": n_boot, "z": 0.0,
+                "verdict": fba.NULL, "log_loss_full": 0.69,
+                "log_loss_minus": 0.69, "auc_full": 0.5, "auc_minus": 0.5,
+                "n_scored": n_oof,
+            }
+
+        # Registered like the tests above mutate the registry, so `resolve_block`
+        # runs for real against the synthetic frame.
+        fba.FEATURE_BLOCKS["meta_probe"] = {
+            "columns": ["signal"],
+            "note": "test-only probe block",
+        }
+        try:
+            with tempfile.TemporaryDirectory() as tmp:
+                out = Path(tmp) / "artifact.json"
+                argv = ["feature_block_ablation.py",
+                        "--blocks", "meta_probe",
+                        "--seed", str(seed), "--splits", str(n_splits),
+                        "--n-boot", str(n_boot), "--out", str(out)]
+                with mock.patch.object(sys, "argv", argv), \
+                        mock.patch.object(fba.nd, "build_games",
+                                          return_value=games), \
+                        mock.patch.object(fba, "build_feature_frame",
+                                          return_value=frame), \
+                        mock.patch.object(fba.ra, "fit_oof",
+                                          side_effect=fake_fit_oof), \
+                        mock.patch.object(fba, "score_block",
+                                          side_effect=fake_score_block):
+                    self.assertEqual(fba.main(), 0)
+                record = json.loads(out.read_text())
+        finally:
+            fba.FEATURE_BLOCKS.pop("meta_probe", None)
+
+        # The point of the exercise: the RUN's args, not SEED/N_SPLITS.
+        self.assertEqual(record["seed"], seed,
+                         "the artifact recorded the module SEED, not the run's "
+                         "--seed; every non-default run is logged as a default one")
+        self.assertEqual(record["n_splits"], n_splits,
+                         "the artifact recorded the module N_SPLITS, not the "
+                         "run's --splits")
+        self.assertEqual(scored_with, {"seed": seed, "n_boot": n_boot},
+                         "scoring was not handed the run's args either")
+        # And no other field may describe anything but THIS run.
+        self.assertEqual(record["n_games"], len(games))
+        self.assertEqual(record["n_out_of_fold"], n_oof)
+        self.assertEqual(record["n_features_full"], frame.shape[1])
 
 
 if __name__ == "__main__":

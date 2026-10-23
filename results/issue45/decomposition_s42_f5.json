@@ -1,0 +1,91 @@
+{
+  "setting": {
+    "seed": 42,
+    "n_splits": 5,
+    "n_boot": 2000
+  },
+  "sign_convention": "delta = loss(full) - loss(full minus <column>); NEGATIVE means the column earns its place",
+  "n_scored": 6600,
+  "log_loss_full": 0.6194458348026399,
+  "columns": [
+    "home_rest_days",
+    "away_rest_days",
+    "home_back_to_back",
+    "away_back_to_back",
+    "home_in_3_of_4",
+    "away_in_3_of_4",
+    "travel_miles"
+  ],
+  "results": {
+    "home_rest_days": {
+      "delta": 5.4385797743750075e-05,
+      "ci_lo": -4.4072103930672954e-05,
+      "ci_hi": 0.00015707951279780305,
+      "p_positive": 0.853,
+      "z": 1.0598394129033255,
+      "verdict": "null: interval straddles zero",
+      "log_loss_minus": 0.6193914490048962,
+      "seconds": 27.6
+    },
+    "away_rest_days": {
+      "delta": 4.113186288223769e-05,
+      "ci_lo": -6.071525005113542e-06,
+      "ci_hi": 0.00010487721212796284,
+      "p_positive": 0.947,
+      "z": 1.453229168447891,
+      "verdict": "null: interval straddles zero",
+      "log_loss_minus": 0.6194047029397577,
+      "seconds": 30.1
+    },
+    "home_back_to_back": {
+      "delta": -0.0007882742694063083,
+      "ci_lo": -0.0013685998626681017,
+      "ci_hi": -0.0002275015759867467,
+      "p_positive": 0.0025,
+      "z": 2.7078985363407084,
+      "verdict": "earns its place",
+      "log_loss_minus": 0.6202341090720462,
+      "seconds": 28.1
+    },
+    "away_back_to_back": {
+      "delta": -0.0009236914670132101,
+      "ci_lo": -0.0020616220451650513,
+      "ci_hi": 0.00019177885860381357,
+      "p_positive": 0.049,
+      "z": 1.6068175169586028,
+      "verdict": "null: interval straddles zero",
+      "log_loss_minus": 0.6203695262696531,
+      "seconds": 23.5
+    },
+    "home_in_3_of_4": {
+      "delta": 4.189982898683553e-05,
+      "ci_lo": -5.797952784634963e-05,
+      "ci_hi": 0.00013361066801643716,
+      "p_positive": 0.791,
+      "z": 0.8572688811192449,
+      "verdict": "null: interval straddles zero",
+      "log_loss_minus": 0.6194039349736531,
+      "seconds": 27.9
+    },
+    "away_in_3_of_4": {
+      "delta": -2.371580130977602e-05,
+      "ci_lo": -0.00024077843146325938,
+      "ci_hi": 0.00018292719615896623,
+      "p_positive": 0.4135,
+      "z": 0.2194075970109943,
+      "verdict": "null: interval straddles zero",
+      "log_loss_minus": 0.6194695506039497,
+      "seconds": 25.6
+    },
+    "travel_miles": {
+      "delta": -9.578749095351391e-05,
+      "ci_lo": -0.0005056588946692947,
+      "ci_hi": 0.00031550310076778595,
+      "p_positive": 0.3285,
+      "z": 0.4572545611278184,
+      "verdict": "null: interval straddles zero",
+      "log_loss_minus": 0.6195416222935934,
+      "seconds": 24.6
+    }
+  }
+}

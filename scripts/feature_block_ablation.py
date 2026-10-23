@@ -138,6 +138,15 @@ RANK_METRICS = ("margin", "net_rating", "off_rating", "def_rating")
 # rebounding features were silently absent from every model here.
 FOUR_FACTOR_METRICS = ("efg", "tov", "ftr", "orb", "drb")
 
+# The relative-rest candidate block (theory dossier H4), declared before it was
+# measured in results/experiments.jsonl ("H4-prereg-relative-rest"). Kept here,
+# above the registry, because FEATURE_BLOCKS names these columns. Built by
+# `relative_rest_features` below from rest_and_travel() outputs.
+RELATIVE_REST_COLUMNS = (
+    "rest_diff_cap4", "b2b_diff",
+    "rel_rest_d_le_m2", "rel_rest_d_m1", "rel_rest_d_p1", "rel_rest_d_ge_p2",
+)
+
 
 def _sides(*stems: str) -> list[str]:
     """Every stem as its home and away column, in a stable order."""
@@ -179,6 +188,26 @@ FEATURE_BLOCKS: dict[str, dict[str, object]] = {
             "travel_miles",
         ],
         "note": "rest, back-to-back, 3-in-4, travel",
+    },
+    # ---------------------------------------------------------------------
+    # RELATIVE REST - pre-registered candidate (theory dossier H4), declared in
+    # results/experiments.jsonl ("H4-prereg-relative-rest") BEFORE it was
+    # measured. Rest as a DIFFERENTIAL between the clubs (Esteves et al. 2021),
+    # not as two absolute day counts. New column names by design: the schedule
+    # block keeps its absolute rest columns, so test_blocks_do_not_overlap holds
+    # and the two blocks can be ablated independently.
+    #
+    # NOTE ON THE FRAME: these columns are emitted by build_feature_frame (see
+    # relative_rest_features), so `full` here carries them. H4's own comparisons
+    # pin the canonical 67-column base explicitly
+    # (scripts/h4_rest_differential.py, arms A1/A2/A3) rather than relying on
+    # whatever the frame currently totals.
+    # ---------------------------------------------------------------------
+    "relative_rest": {
+        "columns": list(RELATIVE_REST_COLUMNS),
+        "note": "rest-day DIFFERENTIAL capped at 4+ days, B2B differential, and "
+                "Esteves-style relative-rest categories (equal rest is the "
+                "reference level)",
     },
     # Games played by each side. Included because it is the variable
     # recency_followup.py stratified on, and a block that cannot be scored under
@@ -368,6 +397,62 @@ def league_rank_features(games: pd.DataFrame, roll: pd.DataFrame,
     return pd.DataFrame(out, index=games.index).reset_index(drop=True)
 
 
+# --------------------------------------------------------------------------- #
+# RELATIVE REST - pre-registered candidate block (theory dossier H4)
+# --------------------------------------------------------------------------- #
+#
+# Declared in results/experiments.jsonl ("H4-prereg-relative-rest") BEFORE it
+# was measured. Built from rest_and_travel() outputs - the existing schedule
+# data - as DERIVED columns with new names, so the `schedule` block keeps its
+# absolute rest columns and test_blocks_do_not_overlap holds. This is the same
+# pattern as league_rank_features: new feature-block code lives here, and the
+# shared layer is not touched. Column names: RELATIVE_REST_COLUMNS above.
+
+
+def relative_rest_features(games: pd.DataFrame,
+                           sched: pd.DataFrame | None = None) -> pd.DataFrame:
+    """Rest as a DIFFERENTIAL between the two clubs, not as two day counts.
+
+    ``rest_diff_cap4``
+        clip(rest_days, 1, 4) per side, then home minus away, in [-3, 3]. The
+        cap makes "4+ days" one category, which also kills the October
+        season-indicator artifact the raw column carries (a 288-day offseason
+        rest is not rest information).
+    ``b2b_diff``
+        home_back_to_back - away_back_to_back, in [-1, 1]: nonzero exactly when
+        one side is on a back-to-back and the other is not.
+    ``rel_rest_d_*``
+        the Esteves-style relative-rest factor, as dummies on
+        d = rest_diff_cap4 with equal rest (d == 0) as the reference level.
+
+    Pre-declared caveat (H4-prereg-relative-rest): the continuous diff and the
+    factor dummies are collinear by construction. The block is scored as ONE
+    unit and no per-column attribution is claimed.
+
+    Causality is inherited from rest_and_travel: every input is knowable from
+    the schedule before tip-off. NaN stays NaN (a team's first game on record
+    has no prior date) and is left to the pipeline's train-only imputer.
+    """
+    if sched is None:
+        sched = nd.rest_and_travel(games)
+    h = sched["home_rest_days"].to_numpy(dtype=float)
+    a = sched["away_rest_days"].to_numpy(dtype=float)
+    d = np.clip(h, 1.0, 4.0) - np.clip(a, 1.0, 4.0)
+
+    out = pd.DataFrame(index=games.reset_index(drop=True).index)
+    out["rest_diff_cap4"] = d
+    out["b2b_diff"] = (sched["home_back_to_back"].to_numpy(dtype=float)
+                       - sched["away_back_to_back"].to_numpy(dtype=float))
+    for col, mask in (("rel_rest_d_le_m2", d <= -2.0),
+                      ("rel_rest_d_m1", d == -1.0),
+                      ("rel_rest_d_p1", d == 1.0),
+                      ("rel_rest_d_ge_p2", d >= 2.0)):
+        # NaN in, NaN out: a missing differential must not land on the
+        # reference level as if the teams were equally rested.
+        out[col] = np.where(np.isnan(d), np.nan, mask.astype(float))
+    return out.reset_index(drop=True)
+
+
 def build_feature_frame(games: pd.DataFrame, halflife: float = HALFLIFE,
                         include_ranks: bool = True) -> pd.DataFrame:
     """The standard modelling frame, plus the causal league-rank block.
@@ -387,6 +472,7 @@ def build_feature_frame(games: pd.DataFrame, halflife: float = HALFLIFE,
     """
     roll = nd.rolling_team_features(games, halflife=halflife, min_games=MIN_GAMES)
     sched = nd.rest_and_travel(games)
+    rel = relative_rest_features(games, sched)
     opp = nd.opponent_adjusted_features(games, halflife=halflife)
     elo = nd.player_elo_features(games, halflife=halflife)
 
@@ -396,6 +482,7 @@ def build_feature_frame(games: pd.DataFrame, halflife: float = HALFLIFE,
     # maintaining a delete-list.
     blocks = [keep(roll).reset_index(drop=True),
               keep(sched).reset_index(drop=True),
+              keep(rel).reset_index(drop=True),
               keep(opp).reset_index(drop=True),
               keep(elo).reset_index(drop=True)]
     if include_ranks:
@@ -660,9 +747,15 @@ def main() -> int:
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(json.dumps({
         "generated_utc": pd.Timestamp.now("UTC").isoformat(),
+        # Run state, not module constants. This writer used to record SEED and
+        # N_SPLITS here, so every replication run - the runs whose entire point
+        # is a non-default --seed or --splits - was logged under the DEFAULT
+        # configuration, turning a replication into a second copy of the
+        # original on paper. `halflife` is the constant only because no flag can
+        # change it; if one appears, it must come from args too.
         "halflife": HALFLIFE,
-        "seed": SEED,
-        "n_splits": N_SPLITS,
+        "seed": args.seed,
+        "n_splits": args.splits,
         "n_games": int(len(games)),
         "n_out_of_fold": int(len(y_oof)),
         "n_features_full": int(frame.shape[1]),

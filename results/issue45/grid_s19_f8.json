@@ -1,0 +1,221 @@
+{
+  "generated_utc": "2026-10-23T08:08:27.639841+00:00",
+  "halflife": 10.0,
+  "seed": 42,
+  "n_splits": 5,
+  "n_games": 13199,
+  "n_out_of_fold": 6600,
+  "n_features_full": 67,
+  "sign_convention": "delta = loss(full) - loss(minus <block>); a POSITIVE delta means the ablated model is BETTER, so the block does not earn its place",
+  "registry": {
+    "rank": [
+      "home_rank_margin",
+      "away_rank_margin",
+      "home_rank_net_rating",
+      "away_rank_net_rating",
+      "home_rank_off_rating",
+      "away_rank_off_rating",
+      "home_rank_def_rating",
+      "away_rank_def_rating"
+    ],
+    "four_factors_rebound": [
+      "home_ewm_efg",
+      "away_ewm_efg",
+      "home_ewm_tov",
+      "away_ewm_tov",
+      "home_ewm_ftr",
+      "away_ewm_ftr",
+      "home_ewm_orb",
+      "away_ewm_orb",
+      "home_ewm_drb",
+      "away_ewm_drb"
+    ],
+    "schedule": [
+      "home_rest_days",
+      "away_rest_days",
+      "home_back_to_back",
+      "away_back_to_back",
+      "home_in_3_of_4",
+      "away_in_3_of_4",
+      "travel_miles"
+    ],
+    "experience": [
+      "home_games_played",
+      "away_games_played"
+    ],
+    "pace": [
+      "home_ewm_pace",
+      "away_ewm_pace"
+    ],
+    "opponent_adjusted": [
+      "home_ewm_adj_margin",
+      "away_ewm_adj_margin"
+    ],
+    "home_away_split": [
+      "home_ewm_margin_home",
+      "away_ewm_margin_home",
+      "home_ewm_margin_away",
+      "away_ewm_margin_away",
+      "home_home_edge",
+      "away_home_edge"
+    ],
+    "strength_of_schedule": [
+      "home_ewm_sos",
+      "away_ewm_sos"
+    ],
+    "opponent_characteristics": [
+      "home_ewm_opp_ftr",
+      "away_ewm_opp_ftr",
+      "home_ewm_opp_tov",
+      "away_ewm_opp_tov",
+      "home_ewm_opp_orb",
+      "away_ewm_opp_orb"
+    ],
+    "player_elo": [
+      "home_elo_available",
+      "away_elo_available",
+      "home_elo_mean",
+      "away_elo_mean",
+      "home_elo_top5",
+      "away_elo_top5"
+    ],
+    "net_rating": [
+      "home_ewm_net_rating",
+      "away_ewm_net_rating"
+    ]
+  },
+  "resolved_blocks": {
+    "schedule": [
+      "home_rest_days",
+      "away_rest_days",
+      "home_back_to_back",
+      "away_back_to_back",
+      "home_in_3_of_4",
+      "away_in_3_of_4",
+      "travel_miles"
+    ]
+  },
+  "reference_metrics": {
+    "n": 6600,
+    "log_loss": 0.6197966684436848,
+    "brier": 0.21529795237522228,
+    "accuracy": 0.6543939393939394,
+    "auc": 0.7070941162399562,
+    "calibration": [
+      {
+        "bin": 0,
+        "lo": 0.0,
+        "hi": 0.1,
+        "n": 10,
+        "mean_pred": 0.08883919073312063,
+        "actual": 0.1
+      },
+      {
+        "bin": 1,
+        "lo": 0.1,
+        "hi": 0.2,
+        "n": 172,
+        "mean_pred": 0.16506554244199254,
+        "actual": 0.1686046511627907
+      },
+      {
+        "bin": 2,
+        "lo": 0.2,
+        "hi": 0.30000000000000004,
+        "n": 525,
+        "mean_pred": 0.2526440957632736,
+        "actual": 0.26285714285714284
+      },
+      {
+        "bin": 3,
+        "lo": 0.30000000000000004,
+        "hi": 0.4,
+        "n": 738,
+        "mean_pred": 0.35257235871042386,
+        "actual": 0.3333333333333333
+      },
+      {
+        "bin": 4,
+        "lo": 0.4,
+        "hi": 0.5,
+        "n": 1016,
+        "mean_pred": 0.4498118194058247,
+        "actual": 0.4734251968503937
+      },
+      {
+        "bin": 5,
+        "lo": 0.5,
+        "hi": 0.6000000000000001,
+        "n": 1257,
+        "mean_pred": 0.5509788657135237,
+        "actual": 0.552903739061257
+      },
+      {
+        "bin": 6,
+        "lo": 0.6000000000000001,
+        "hi": 0.7000000000000001,
+        "n": 1270,
+        "mean_pred": 0.6476680481311564,
+        "actual": 0.6401574803149607
+      },
+      {
+        "bin": 7,
+        "lo": 0.7000000000000001,
+        "hi": 0.8,
+        "n": 1001,
+        "mean_pred": 0.7477997185272424,
+        "actual": 0.7322677322677322
+      },
+      {
+        "bin": 8,
+        "lo": 0.8,
+        "hi": 0.9,
+        "n": 558,
+        "mean_pred": 0.8421214346788705,
+        "actual": 0.8297491039426523
+      },
+      {
+        "bin": 9,
+        "lo": 0.9,
+        "hi": 1.0,
+        "n": 53,
+        "mean_pred": 0.916318901673714,
+        "actual": 0.9245283018867925
+      }
+    ]
+  },
+  "blocks": {
+    "schedule": {
+      "block": "schedule",
+      "n_columns": 7,
+      "columns": [
+        "home_rest_days",
+        "away_rest_days",
+        "home_back_to_back",
+        "away_back_to_back",
+        "home_in_3_of_4",
+        "away_in_3_of_4",
+        "travel_miles"
+      ],
+      "delta": -0.002042473332573125,
+      "ci_lo": -0.0035393014268511797,
+      "ci_hi": -0.00045510158335754084,
+      "p_positive": 0.005,
+      "n_boot": 2000,
+      "z": 2.59592400359423,
+      "verdict": "earns its place",
+      "log_loss_full": 0.6197966684436848,
+      "log_loss_minus": 0.6218391417762579,
+      "auc_full": 0.7070941162399562,
+      "auc_minus": 0.7039660332869776,
+      "n_scored": 6600
+    }
+  },
+  "summary": {
+    "earns_its_place": [
+      "schedule"
+    ],
+    "does_not_earn_its_place": [],
+    "null": []
+  }
+}
