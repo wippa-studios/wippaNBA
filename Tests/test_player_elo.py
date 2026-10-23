@@ -120,12 +120,28 @@ class TestScaleIsSane(unittest.TestCase):
         elo["exp_min"] = nd._ewm_by_player(elo, "MIN", 15.0)
         sub = elo.iloc[9000:].dropna(subset=["exp_min"])
         sub = sub[sub["exp_min"] > 0]
-        g = sub.groupby(["GAME_ID", "TEAM_ABBREVIATION"]).apply(
-            lambda d: pd.Series({
+
+        def _agg(d):
+            return pd.Series({
                 "avail": (d["elo"] * d["exp_min"]).sum(),
                 "minutes": d["exp_min"].sum(),
                 "mean": (d["elo"] * d["exp_min"]).sum() / d["exp_min"].sum(),
-            }), include_groups=False)
+            })
+
+        # `include_groups` exists only on pandas >= 2.2; the repo pins 2.1.1
+        # (requirements.txt), where the keyword is forwarded to the callable and
+        # raises TypeError. Two facts, both true, and together they are how the
+        # bug hid: this test SKIPS without downloaded data (setUpClass) and
+        # ERRORED with it, so a data-less suite was green while the code could
+        # not run at all on a full dataset. Same aggregation either way; the
+        # group keys are not read by _agg.
+        grouped = sub.groupby(["GAME_ID", "TEAM_ABBREVIATION"])
+        try:
+            g = grouped.apply(_agg, include_groups=False)
+        except TypeError as e:
+            if "include_groups" not in str(e):
+                raise
+            g = grouped.apply(_agg)
         implied = g["avail"] / g["minutes"].replace(0, np.nan)
         self.assertLess(
             float((implied - g["mean"]).abs().max()), 1e-6,

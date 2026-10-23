@@ -1051,10 +1051,25 @@ def run_walk_forward(method: str = "rapm", minutes_mode: str = "expected",
     if last_model is not None and last_rows is not None:
         r = last_rows.copy()
         r["rating"] = last_model.player_rating(r)
-        agg = (r.assign(w=r["MIN"] / 240.0).groupby("PLAYER_ID")
-               .apply(lambda d: float(np.average(d["rating"], weights=np.maximum(d["w"], 1e-6))),
-                      include_groups=False)
-               .sort_values(ascending=False))
+        grouped = r.assign(w=r["MIN"] / 240.0).groupby("PLAYER_ID")
+
+        def _wavg(d):
+            return float(np.average(d["rating"], weights=np.maximum(d["w"], 1e-6)))
+
+        # `include_groups` is a pandas >= 2.2 parameter. This repository pins
+        # pandas==2.1.1 (see requirements.txt), where the keyword is forwarded
+        # to the callable and raises TypeError -- so the fit report could not be
+        # built at all whenever the data was present, and the data-gated tests
+        # only hid that by skipping. Try the forward-compatible call first and
+        # fall back to the one the pinned pandas understands; the numbers are
+        # identical either way, since the group keys are not read by `_wavg`.
+        try:
+            agg = grouped.apply(_wavg, include_groups=False)
+        except TypeError as e:
+            if "include_groups" not in str(e):
+                raise
+            agg = grouped.apply(_wavg)
+        agg = agg.sort_values(ascending=False)
         res.fit_report = {
             "coef_": last_model.coef_.tolist(),
             "features": ["intercept"] + list(last_model.features),
