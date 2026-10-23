@@ -53,10 +53,10 @@ is tonight's squad. There is no `all_prior` roster here precisely because the
 question only makes sense against a bounded window; `player_elo_features` had to
 rebuild one and is still a documented membership risk.
 
-`scripts/round3_verify.py` proves it: P1_truncation rebuilds on a frame cut at
-2021-10-20 and requires bit-identical output including the NaN pattern, and
-P3_membership checks every expanded query row against the team's own previous
-game.
+`Tests/test_leakage_gate.py` proves it mechanically for this builder:
+truncation rebuilds on a truncated frame and requires the retained rows
+unchanged -- the NaN pattern included -- and membership checks every expanded
+query row against the team's own previous game.
 """
 from __future__ import annotations
 

@@ -29,7 +29,9 @@ notably player_elo at |z| 5.18. The rule here is absolute and mechanical:
 Every column is assembled by `pd.merge_asof(..., allow_exact_matches=False)` on
 the PLAYER_ID stream, so a game can never see its own value, and the roster is
 built by `shift(1)` over the team's own game sequence. `Tests/test_leakage_gate.py`
-plus `scripts/round3_verify.py` check both mechanically.
+checks both mechanically (membership, truncation, strictly-casual attach), and
+`scripts/round3_verify.py` re-runs the truncation and membership gates on the
+full frame.
 """
 from __future__ import annotations
 
