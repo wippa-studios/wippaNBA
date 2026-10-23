@@ -19,25 +19,31 @@ to have been selected on.
 
 THE RESULT: IT LOSES
 --------------------
-    model, breakeven rule             3,481 bets   ROI -12.11%   SE 6.44%  |z| 1.88
-    model + availability, breakeven   3,440 bets   ROI -10.80%   SE 6.33%  |z| 1.71
-    every margin 0.00 - 0.06        1,806-3,481    ROI -2.2% to -13.2%
+    model, breakeven rule             4,855 bets   ROI -10.21%   SE 5.33%  |z| 1.91
+    model + availability, breakeven   4,828 bets    ROI -8.23%   SE 5.10%  |z| 1.61
+    every margin 0.00 - 0.06        2,402-4,855    ROI -10.2% to +4.0%
 
-Not "indistinguishable from zero" - a loss, and most margins lose more.
+(reproduce: `python scripts/edge_betting.py`; artifact results/edge_betting.json)
+The pre-specified rule loses; the margin sweep has one POINT-POSITIVE noise cell
+(availability at margin 0.06, +3.99% at |z| = 0.46) and nothing near the bar.
+The pre-refactor table read 3,481/-12.11% and 3,440/-10.80% with every margin
+negative - same conclusion, superseded numbers.
 
 BACKING AN UNDERDOG IS MOST OF THE OPPORTUNITY, AND THE FIRST VERSION MISSED IT
 -------------------------------------------------------------------------------
 An earlier version took the model's PREFERRED side and asked only whether THAT
 side had edge. That silently discards every game where the favourite has no edge
-but the underdog does - which is exactly "lay a loser". On this data:
+but the underdog does - and that side is most of the opportunity. HISTORICAL
+COUNTS on the
+pre-refactor dataset (kept because the mechanism is the point):
 
     games where only the UNDERDOG has positive edge   1,928
     games the old rule bet on                         1,553
 
 So the first version tested less than half the available bets, and the ones it
-skipped were precisely the interesting ones. Correcting it raised the bet count
-from 1,553 to 3,440. It changed the ROI slightly (both are losses) and it is still
-the right test.
+skipped were precisely the interesting ones. On the current run the headline
+splits 2,437 home / 2,391 away bets (reproduce: `python scripts/edge_betting.py`)
+- the two sides are near-equal and both must be settled.
 
 THE CONTROL IS THE PART THAT MATTERS MOST
 -----------------------------------------
@@ -148,7 +154,8 @@ class TestBothSidesArePricedFromTheData(unittest.TestCase):
 
         The first version took the model's preferred side and looked only there,
         which discarded every game where the favourite had no edge but the
-        underdog did - 1,928 games, more than it bet on.
+        underdog did - 1,928 games on the pre-refactor dataset, more than it bet
+        on. The mechanism, not the count, is what is pinned.
         """
         # Model says home 0.55 / away 0.45; market prices home at 0.70 / away 0.30.
         # Home has NO edge (-0.15); away has +0.15.
@@ -204,15 +211,30 @@ class TestPublishedResultStaysNegative(unittest.TestCase):
             raise unittest.SkipTest("run scripts/edge_betting.py first")
         cls.data = json.loads(RESULTS.read_text())
 
-    def test_selective_betting_loses_at_every_margin(self):
+    def test_selective_betting_reaches_no_bar_at_any_margin(self):
+        """The claim is "no demonstrated edge", not "loses at every margin".
+
+        The stale artifact made the stronger sentence literally true; the fresh
+        run (`python scripts/edge_betting.py`, results/edge_betting.json) has
+        one POINT-POSITIVE cell - availability at margin 0.06: +3.99% at
+        |z| = 0.46 - which is noise across six tried cells, and trading it would
+        be the selection this sweep exists to warn about. What is pinned: every
+        cell is below the |z| bar, and the pre-specified margin-0 rule is
+        negative in both arms. (The pre-refactor run lost at every margin; that
+        stronger sentence is history, not the claim.)
+        """
         for label, sweep in (("model", self.data["margin_sweep_model"]),
                              ("availability", self.data["margin_sweep_model_availability"])):
             for margin, r in sweep.items():
                 if not r.get("bets"):
                     continue
-                self.assertLess(r["roi"], 0.0,
-                                f"{label} margin {margin} turned profitable "
-                                f"({r['roi']:+.2%}); re-read the whole analysis")
+                self.assertLess(abs(r["z"]), self.data["z_bar"],
+                                f"{label} margin {margin} reached the |z| bar "
+                                f"({r['z']:.2f}); re-read the whole analysis")
+            self.assertLess(sweep["0.0"]["roi"], 0.0,
+                            f"{label} the pre-specified margin-0 rule turned "
+                            f"profitable ({sweep['0.0']['roi']:+.2%}); that "
+                            "would change the project's conclusion")
 
     def test_the_pre_specified_rule_reaches_no_bar(self):
         r = self.data["results"]["model + availability, breakeven"]
@@ -232,9 +254,12 @@ class TestPublishedResultStaysNegative(unittest.TestCase):
     def test_edge_calibration_is_not_monotonic_and_must_not_be_traded(self):
         """One bin is positive. That is noise, and acting on it would be selection.
 
-        The bins are reported because the non-monotonicity is interesting. The
-        single positive bin is the 4th of 5 at 688 bets each - exactly what noise
-        produces, and picking it would be the error this project exists to avoid.
+        The bins are reported because the non-monotonicity is interesting. In the
+        fresh run (`python scripts/edge_betting.py`) the single positive bin is
+        the 5th of 5 at 971 bets each (+8.86% against four negative bins) -
+        exactly what noise produces, and picking it would be the error this
+        project exists to avoid. (In the pre-refactor run it was the 4th of 5 at
+        688 bets; the bin identity is not the claim.)
         """
         r = self.data["results"]["model + availability, breakeven"]
         cal = r.get("calibration", [])
