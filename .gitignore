@@ -83,6 +83,12 @@ db.sqlite3
 *.sqlite-shm
 *.db
 
+# Raw injury-report PDFs written by src/Process-Data/Get_Injury_Data.py: a
+# backfill writes thousands of them and they are regenerable evidence, not
+# source. The parsed view of them lives in Data/injury.sqlite (matched by the
+# *.sqlite rule above).
+Data/injury_raw/
+
 # Serialized models / fitted artifacts
 *.pkl
 *.pickle

@@ -57,3 +57,12 @@ tqdm==4.66.1
 flask==3.0.0
 scikit-learn==1.3.1
 toml==0.10.2
+# pdfplumber: the one PDF dependency. Chosen over pypdf because pypdf extracts
+# TEXT ONLY -- the injury report is a seven-column table whose cells wrap, and
+# without glyph geometry a cell cannot be assigned to a column at all. The
+# parser (src/Process-Data/Get_Injury_Data.py) places each character by its x
+# position, which needs pdfplumber's per-char boxes. Imported lazily so the
+# URL/time/store layers stay usable without it. Do NOT substitute
+# `nba-injury-report` (AGPL-3.0) or `nbainjuries`; the parser here is original
+# and this repository avoids license contamination.
+pdfplumber==0.11.10
