@@ -104,3 +104,18 @@ are worth separating because the second one is much easier to miss:
 The third case, and the most expensive, is a feature that is a function of the
 answer rather than a rearrangement of it — see
 [the player-Elo leak](player_elo_leak.md).
+
+## Settled results (labelled corrections, 2026-10-23)
+
+Two figures on this page were taken before the results they sit next to were
+re-measured. The reasoning stands; the numbers are labelled here:
+
+- **0.61956 → 0.61897 are pre-#36 frame measurements.** The canonical model's
+  post-#36 number is **0.6157** with the availability block in
+  ([the availability block](availability_block.md)); the split's own size,
+  −0.00089 nats, is unchanged and unchanged in kind.
+- **"About a thirtieth of what the closing market beats this model by"** was
+  taken against the pre-refactor 0.026-nat gap. Re-measured on the canonical
+  frame the gap is **0.02268** nats on 5,788 games — the split's 0.00089 is
+  about **25×** smaller, and the availability effect (+0.0039) about **6×**
+  smaller ([the market anchor](market_anchor.md)). Same shape, settled size.

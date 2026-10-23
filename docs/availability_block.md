@@ -1,0 +1,113 @@
+# The availability block: the one mechanism that survived
+
+The pre-game availability feature block, its full history, and the boundary
+the market-anchored measurement put on it. The README carries the headline
+([the one thing that is not a null](../README.md#the-one-thing-that-is-not-a-null));
+this page carries the mechanics, the falsification attempts, and the wiring.
+
+**Reproduce:**
+
+```bash
+python scripts/availability.py                       # the published instrument
+.venv/bin/python scripts/h11_absence_context.py      # the +0.00399 line (row 2): B1 vs pinned base sanity print, recorded in results/experiments.jsonl / results/h11_report.md
+python scripts/feature_block_ablation.py --seed 42 --splits 5   # the ablation-frame instrument; its own artifact does not carry the +0.00399
+python -m src.Models.logreg_rolling                  # the canonical-model instrument
+.venv/bin/python scripts/h1h2_market_anchor.py       # the boundary measurement (H2)
+```
+
+## The mechanism
+
+Sum each player's **expected minutes** over the squad that played the team's
+*previous* game. Everything in that sum is knowable before tip-off whatever
+happens tonight: the previous game's participants are a fact by game time, and
+expected minutes are trailing quantities. Team-level season averages cannot
+express it — a team is not one number.
+
+The membership convention — the *previous* game's squad, not tonight's — is the
+whole lesson of this repository in one line. See
+[the player-Elo block](../README.md#the-player-elo-block-a-strong-result-that-was-a-leak):
+its weights were honest (trailing EWMAs, strictly causal, verified by
+truncating the future) and it still measured |z| = 5.18 target leakage,
+because it summed over **the players who actually played**. Nobody knows
+before tip-off which ten men will be on the floor, so a feature that reads
+tonight's participants is a function of the answer. The prior-game-squad
+convention makes membership a pre-game quantity, and that is the difference
+between the two results.
+
+## Three instruments, one effect
+
+The same mechanism measured three ways, all agreeing:
+
+| instrument | frame | Δ log loss | notes |
+|---|---|---|---|
+| `scripts/availability.py` (published) | `results/availability.json` | **+0.00382** [+0.00230, +0.00547] | the table in the README |
+| feature-block ablation | pinned A1 base → + availability | **+0.00399** | reproduces the published +0.0038 on this frame (the H11 sanity line) |
+| canonical model (issue #36) | `load_design(with_availability=True)` | **+0.00390** [+0.00237, +0.00557] | **\|z\| = 4.78** (Δ reads off the two `logreg_rolling` outputs above; its CI is from the #36 verification record, prints-only) |
+
+Δ = loss(without) − loss(with), so positive means the block helped. |z| = 4.78
+is the only effect in this repository that clears the project's |z| > 3 bar
+honestly.
+
+## Falsification attempts that failed to falsify it
+
+From `results/availability.json` (same instrument, same rows):
+
+| arm | Δ | 95% CI | reading |
+|---|---|---|---|
+| expected minutes, prior-game squad | +0.00382 | [+0.00230, +0.00547] | the mechanism |
+| *actual minutes (a leak)* | *+0.01089* | *[+0.00746, +0.01432]* | *known only after the game* |
+| *roster size alone (leak control)* | *+0.00109* | *[−0.00073, +0.00299]* | *straddles zero* |
+
+The roster-size control exists to make the claim falsifiable: a column carrying
+no minutes information whatsoever does nothing, so the gain is not "how many
+people dressed". The actual-minutes arm sets the ceiling: the honest mechanism
+recovers roughly a third of what the leaked one measures, and the remaining
+two thirds is injury news, in-game injury and ejection — information that does
+not exist before the game and caps what any pre-game model here can achieve.
+(Substituting actual minutes is worth −0.00975 nats in the player-ratings
+module's convention, CI [−0.01349, −0.00590] — the largest magnitude measured
+anywhere in this project, and a leak.)
+
+## Issue #36: wiring it into the canonical model
+
+Issue #36 landed the block in the shared design matrix, and the wiring is
+designed so nothing measured before it moves:
+
+- `load_design(..., with_availability=True)` (the default since #36) appends
+  the block last, in the block's own order: **22 → 26 features**. The
+  canonical model is the row with it in
+  [the Pipeline A comparison](../README.md#pipeline-a-model-comparison) —
+  log loss **0.6157** (0.61566), against 0.6196 (0.61957) for the pre-#36
+  frame.
+- `with_availability=False` returns the pre-#36 frame **bit-for-bit**, which
+  is how every pre-#36 measurement stays reproducible — the E-runs, the
+  feature-search ablations, the boosting deltas of their time.
+- The market arms are bit-identical: the stacking measurement
+  ([the market anchor](market_anchor.md)) first reproduces
+  `results/closing_line.json` on the 5,788-row overlap (market 0.59766 /
+  model 0.62340 / model + availability 0.62034) before it computes anything.
+- The mechanism itself was simplified on the way in: `availability_features`
+  emits four columns and three of them are redundant (two are exactly `d` and
+  `−d`); the single contrast column does the whole job, measured at 44 columns
+  against the 43-column bar in
+  [the swarm section](../README.md#the-agent-swarm).
+
+## The honest boundary
+
+The block improves **forecasting**: +0.0039 nats at |z| = 4.78, three
+instruments agreeing. It is fully **priced** at the close: replacing `P+M` by
+`P+M+A` in the market-anchored stack changes log loss by −0.00004
+[−0.00027, +0.00019], a tight null whose CI upper bound is 10× below the
+0.002-nat minimum effect
+([H2](market_anchor.md#h2--availability-beyond-price-a-tight-null)). Both
+statements are results, and neither cancels the other: the availability block
+is a real improvement to a model that still loses to the market by 0.02268
+nats at |z| = 7.28.
+
+## Where the data comes from
+
+The block reads trailing player logs and the prior game's participants; the
+injury-designation side of "who is available" is a separate, newer system
+under active construction — [the injury pipeline](injury_pipeline.md) — and is
+not what this block measures. The block's signal is minutes **expectation**,
+not designation status.

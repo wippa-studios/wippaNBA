@@ -37,6 +37,12 @@ is the only variable:
 Δ = loss(logreg) − loss(model), so negative means the booster is worse. The two GBMs
 agree with each other to within 0.0004, so this is not an implementation artifact.
 
+*Labelled correction, 2026-10-23: the table above is paired against the pre-#36
+canonical. Re-run on the post-#36 frame (`python -m src.Models.gbm`, paired against
+the canonical's 0.61566) the same loss reads **−0.00785** [−0.01038, −0.00533] for
+XGBoost and **−0.00793** [−0.01046, −0.00536] for HistGradientBoosting. Same verdict,
+larger margin.*
+
 The project spec expected boosting to win by a small margin. It does not, and the
 interval is not straddling zero, so this is a loss and not a tie.
 
@@ -108,6 +114,13 @@ differences its features, and nothing measurable on the one that does not. Eithe
 the market is 0.026 nats ahead — roughly **7×** the availability effect, the best
 prediction improvement this project has found, and about **30×** the split's own.
 
+*Labelled correction, 2026-10-23: every gap figure in this section is the pre-refactor
+4,076-game reading. Re-measured on the canonical frame the market leads by **0.02268**
+nats at |z| = 7.28 on 5,788 games — about **6×** the availability effect and about
+**25×** the split's own — and the re-measured comparison calls
+`logreg_rolling.load_design` instead of building its own frame. The drift diagnosis
+above stands.*
+
 ## Why both sides are considered when betting
 
 A model does not have to be right every game to make money; it has to be right where
@@ -119,11 +132,18 @@ probability implied by the price actually posted; expected profit per unit is
 
 Restricting to the model's preferred side would silently skip every game where the
 favourite has no edge but the underdog does — 1,928 of them, more than half the bets
-placed. That is what "lay a loser" means in a two-way market, and excluding it is not
-a shortcut, it is skipping the question.
+placed. That is what backing the underdog side means in a two-way market, and
+excluding it is not a shortcut, it is skipping the question.
 
 The comparison is against the **raw** price, not the de-vigged one, because the
 **+3.98%** overround (p5–p95 2.96%–5.00%) is what a bettor actually pays.
+
+*Labelled correction, 2026-10-23: the counts and overround above are the pre-refactor
+reading. On the re-measured join the skipped games are **2,391 of 4,828** bets, and the
+overround is **+4.13%** mean (p5–p95 2.96–5.84% across the closing-line join —
++4.03% full-join mean per `closing_line.json` vs `edge_betting.py`'s scored-subset
++4.13%). The rule itself is
+unchanged.*
 
 ## The control, and what it caught
 
@@ -162,3 +182,8 @@ where the null of unprofitability survived across 628 implementations), and wher
 blocks are scored at once a Bonferroni threshold of 0.005 applies on top. Exactly
 one result in this repository clears the bar, and it was a leak. That is worth
 saying plainly rather than quietly rounding in our own favour.
+
+*Labelled correction, 2026-10-23: true when written. Since issue #36 a second result
+clears the bar honestly — the availability block at |z| = 4.78. The current statement
+is in [the one thing that is not a null](../README.md#the-one-thing-that-is-not-a-null):
+two results clear the bar, the larger (|z| = 5.18) was a leak, and the other is real.*
