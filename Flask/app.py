@@ -64,9 +64,9 @@ REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 MAIN_SCRIPT = os.path.join(REPO_ROOT, "main.py")
 
 # An expected value is Pwin * payout - (1 - Pwin) * 100, so it can never fall below
-# -100 nor rise above the payout its moneyline offers (at most 100 on a lay, and the
-# quoted odds on a long shot). Values outside that are a changed scale rather than a
-# changed number, and are logged instead of being shown as a green edge.
+# -100 nor rise above the payout its moneyline offers (at most 100 on a short-priced
+# side, and the quoted odds on a long shot). Values outside that are a changed scale
+# rather than a changed number, and are logged instead of being shown as a green edge.
 EV_FLOOR = -100.0
 EV_CEILING_WITHOUT_ODDS = 100.0
 EV_TOLERANCE = 0.01

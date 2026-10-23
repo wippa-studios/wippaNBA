@@ -21,8 +21,9 @@ while its accuracy is the best available.
 
 DE-VIGGING, AND WHY THE NAIVE VERSION IS WRONG
 -----------------------------------------------
-Raw implied probabilities sum to 1.0397 on this data (median 1.0399, p5-p95
-1.0296-1.0500). That overround IS the vig, and dividing it out proportionally is the
+Raw implied probabilities sum to 1.0403 on this data (mean; p5-p95
+1.0296-1.0584 - reproduce: `python scripts/closing_line.py`, which prints the
+overround row). That overround IS the vig, and dividing it out proportionally is the
 standard first move. It is not unbiased: the margin is not spread evenly, it is
 skewed toward longshots. A bettor's edge is therefore not exactly
 `p_model - p_market`; it is `p_model - p_raw` at the price actually offered.
@@ -64,6 +65,7 @@ for _candidate in (ROOT, ROOT / "src"):
         sys.path.insert(0, str(_candidate))
 
 from DataProviders import nba_data as nd  # noqa: E402
+from src.Models import logreg_rolling as lr  # noqa: E402
 
 SEED = 42
 N_SPLITS = 5
@@ -100,41 +102,137 @@ ODDS_TABLE_CANDIDATES = (
 )
 
 
-def load_odds() -> pd.DataFrame:
+def load_odds(stats: dict | None = None) -> pd.DataFrame:
     """Closing moneyline for every season the model covers.
 
-    Every season in ``SEASONS`` must resolve to a table. A season that does not is
-    an error naming the season, not a silent ``continue``: the previous version
-    probed only ``odds_<season>_new`` and swallowed the miss with a bare
-    ``except``, which is indistinguishable from the odds genuinely being absent.
-    That guard reported absence when the data was there under a different name,
-    and every market number in this repository was computed without the two most
-    recent seasons.
+    RESOLUTION: every spelling that matches is READ and SUMMED, then
+    reconciled. The #47 revision probed one name per season; the review of it
+    (MAJOR-2) pointed out that the FIRST match still wins and any twin spelling
+    is ignored - and `rows_read` counted only the chosen table, so a twin's rows
+    vanished exactly like #47: invisible to the reconciliation. On the shipped
+    database nine of eleven seasons HAVE twins - eight `odds_<s>` /
+    `odds_<s>_new` pairs whose quotes are identical but whose date strings are
+    not (the legacy spelling stores `2015-16-1027` for `2015-10-27`) plus the
+    genuinely complementary `2023-24` / `odds_2023-24_new` pair - so raising on
+    multiple matches would refuse the database this project ships. Summing and
+    RECONCILING keeps every row accounted. The rules:
+
+    * Counts come from ``SELECT COUNT(*)`` per table, independent of the read,
+      so a future WHERE clause cannot shrink both sides of the reconciliation
+      and pass (the review's MINOR-4).
+    * DUPLICATE rows across spellings collapse WITH A COUNT: the same quote
+      (Date, Home, Away, ML_Home, ML_Away, OU, Spread) is one closing line
+      recorded twice; and a quote whose rows differ only in the date string
+      collapses to the row whose date parses (the legacy `odds_<s>` dates never
+      do) - unless two different dates parse, in which case they are two games
+      and both stay.
+    * AMBIGUOUS rows raise: the same (Date, Home, Away) quoting DIFFERENT
+      moneylines under two spellings is a closing-price conflict and is refused
+      rather than guessed. The same game and price with a differing ancillary
+      line (OU/Spread) keeps the most-preferred spelling's row, counted - this
+      script measures the moneyline, and the preference order is documented,
+      not arbitrary.
+    * The invariant ``sum(COUNT(*)) == rows returned + rows collapsed`` is
+      enforced and reportable, so nothing can drop silently.
+
+    Every season must resolve to a table AND every matched table must hold
+    rows; both failures raise, naming the season, because an empty table must
+    not look like a season with no games.
     """
     if not ODDS_DB.exists():
         raise FileNotFoundError(f"{ODDS_DB} is absent; the market comparison "
                                 "needs the shipped odds database")
+    quote_cols = ["Date", "Home", "Away", "ML_Home", "ML_Away", "OU", "Spread"]
+    qkey = ["Home", "Away", "ML_Home", "ML_Away", "OU", "Spread"]
+    kkey = ["Date", "Home", "Away"]
     con = sqlite3.connect(f"file:{ODDS_DB}?mode=ro", uri=True)
     try:
         existing = {row[0] for row in
                     con.execute("SELECT name FROM sqlite_master WHERE type = 'table'")}
         frames = []
         missing = []
+        empty = []
+        rows_expected = 0
+        rows_collapsed = 0
+        season_report = {}
         for s in SEASONS:
-            name = next((t.format(season=s) for t in ODDS_TABLE_CANDIDATES
-                         if t.format(season=s) in existing), None)
-            if name is None:
+            names = [t.format(season=s) for t in ODDS_TABLE_CANDIDATES
+                     if t.format(season=s) in existing]
+            if not names:
                 missing.append(s)
                 continue
-            d = pd.read_sql_query(f'SELECT * FROM "{name}"', con)
-            if len(d):
-                # SEASON is carried through rather than dropped. It was assigned
-                # and then immediately excluded by the column selection below,
-                # so no caller could see which seasons the frame actually
-                # covered - which is how the two missing seasons went unnoticed.
-                d = d.assign(SEASON=s)
-                frames.append(d[["Date", "Home", "Away", "ML_Home", "ML_Away",
-                                 "OU", "Spread", "SEASON"]])
+            parts = []
+            s_report = {"tables": {}, "collapsed_exact": 0,
+                        "collapsed_date_variant": 0, "collapsed_ancillary": 0}
+            for name in names:
+                n_expected = con.execute(
+                    f'SELECT COUNT(*) FROM "{name}"').fetchone()[0]
+                rows_expected += n_expected
+                d = pd.read_sql_query(f'SELECT * FROM "{name}"', con)
+                if len(d) != n_expected:
+                    raise RuntimeError(
+                        f'reading "{name}" returned {len(d)} rows but COUNT(*) '
+                        f"says {n_expected}. The read and the count disagree - "
+                        "a WHERE clause in the read would break the #47 "
+                        "reconciliation.")
+                s_report["tables"][name] = n_expected
+                if not len(d):
+                    empty.append(f"{s} -> {name}")
+                    continue
+                parts.append(d)
+            if not parts:
+                continue
+
+            d = pd.concat(parts, ignore_index=True)[quote_cols]
+
+            # D1: exact duplicates - one closing line recorded under two
+            # spellings, identical to the last field.
+            before = len(d)
+            d = d.drop_duplicates()
+            s_report["collapsed_exact"] += before - len(d)
+
+            # D2: date-format variants of one quote. Same season, same teams,
+            # same four prices; only the date string differs. Collapsed to the
+            # row whose date parses - the legacy `odds_<s>` spelling stores
+            # `2015-16-1027`, which never parses - unless two distinct dates
+            # both parse, which means two real games and both rows stay.
+            gid = d.groupby(qkey, dropna=False, sort=False).ngroup()
+            parses = pd.to_datetime(d["Date"], errors="coerce").notna()
+            g_size = gid.groupby(gid).transform("size")
+            g_parses = parses.groupby(gid).transform("sum")
+            drop_variant = (g_size > 1) & (g_parses == 1) & ~parses
+            s_report["collapsed_date_variant"] += int(drop_variant.sum())
+            d = d.loc[~drop_variant]
+
+            # A/D3: what is left keyed by (Date, Home, Away). A key that appears
+            # twice must agree on the moneyline: disagreement is a closing-price
+            # conflict and raises. Agreement with a differing OU/Spread keeps
+            # the most-preferred spelling's row (first in resolution order).
+            kgid = d.groupby(kkey, dropna=False, sort=False).ngroup()
+            if (kgid.groupby(kgid).transform("size") > 1).any():
+                ml = d.groupby(kgid)[["ML_Home", "ML_Away"]].nunique(dropna=False)
+                conflict = ml.index[(ml > 1).any(axis=1)]
+                if len(conflict):
+                    sample = (d.loc[kgid.isin(conflict),
+                                    kkey + ["ML_Home", "ML_Away"]]
+                              .drop_duplicates().head(8))
+                    raise RuntimeError(
+                        f"season {s}: {len(conflict)} game(s) carry DIFFERENT "
+                        "closing moneylines under different spellings - e.g. "
+                        f"{sample.to_dict('records')}. Refusing to choose a "
+                        "closing price; reconcile the tables by hand.")
+                before = len(d)
+                d = d.drop_duplicates(subset=kkey, keep="first")
+                s_report["collapsed_ancillary"] += before - len(d)
+
+            # SEASON is carried through rather than dropped. It was assigned
+            # and then immediately excluded by the column selection before this
+            # revision, so no caller could see which seasons the frame actually
+            # covered - which is how the two missing seasons went unnoticed.
+            frames.append(d.assign(SEASON=s)[quote_cols + ["SEASON"]])
+            rows_collapsed += sum(v for k, v in s_report.items()
+                                  if k.startswith("collapsed"))
+            season_report[s] = s_report
     finally:
         con.close()
     if missing:
@@ -143,9 +241,30 @@ def load_odds() -> pd.DataFrame:
             f"{[t.format(season=missing[0]) for t in ODDS_TABLE_CANDIDATES]}. "
             "Refusing to return a frame that silently omits seasons."
         )
+    if empty:
+        raise RuntimeError(
+            f"odds table(s) {empty} matched but held no rows. An empty table "
+            "must not look like a season with no games; refusing to return a "
+            "frame that silently omits a season."
+        )
     if not frames:
         raise RuntimeError("no odds tables matched")
-    return pd.concat(frames, ignore_index=True)
+    out = pd.concat(frames, ignore_index=True)
+    if rows_expected != len(out) + rows_collapsed:
+        raise RuntimeError(
+            f"odds reconciliation broke: COUNT(*) summed {rows_expected} rows "
+            f"across the season tables, {rows_collapsed} collapsed as "
+            f"duplicates, but {len(out)} would be returned "
+            f"({rows_expected - rows_collapsed - len(out)} row(s) unaccounted). "
+            "Refusing to return a frame that silently omits rows (the #47 "
+            "failure mode)."
+        )
+    if stats is not None:
+        stats.update({"rows_expected": rows_expected,
+                      "rows_returned": len(out),
+                      "rows_collapsed": rows_collapsed,
+                      "seasons": season_report})
+    return out
 
 
 def tricode_to_full_name() -> dict[str, str]:
@@ -170,23 +289,49 @@ def tricode_to_full_name() -> dict[str, str]:
     return mapping
 
 
-def join_odds(games: pd.DataFrame, odds: pd.DataFrame) -> pd.DataFrame:
+def join_odds(games: pd.DataFrame, odds: pd.DataFrame,
+             stats: dict | None = None) -> pd.DataFrame:
     """Attach the market line to the model's games, on date + both teams.
 
     Matched on all three keys rather than on date alone. A date-only join would let
     a game pick up another game's line on a 10-game night, and the resulting market
     probability would be confidently wrong.
+
+    Every odds row and every game leaves a count behind. The "no silent drops"
+    doctrine needs the REASONS separated: an odds row that cannot be parsed
+    (invalid) is not the same fact as a game that legitimately has no closing
+    line (unmatched), and a game whose team name is not even in the tricode map
+    is a third thing again (a naming gap, not missing odds). Pass a dict as
+    `stats` and every number below is filled in; `main()` prints them.
     """
     mapping = tricode_to_full_name()
     alias = mapping.pop("_alias")
 
+    rep: dict = {}
     o = odds.copy()
+    rep["odds_rows_in"] = len(o)
     o["Date"] = pd.to_datetime(o["Date"], errors="coerce")
+    # Reasons are assigned in precedence order so they sum to odds_rows_in and
+    # no row is counted twice: unparseable date -> missing key or price ->
+    # invalid implied probability -> matched / unmatched to a game.
+    bad_date = o["Date"].isna()
+    rep["odds_drop_unparseable_date"] = int(bad_date.sum())
+    o = o.loc[~bad_date]
     for col in ("Home", "Away"):
         o[col] = o[col].replace(alias)
-    o = o.dropna(subset=["Date", "Home", "Away", "ML_Home", "ML_Away"])
+    complete = o.dropna(subset=["Home", "Away", "ML_Home", "ML_Away"])
+    rep["odds_drop_missing_key_or_price"] = len(o) - len(complete)
+    o = complete
+    # Valid odds require 0 < implied < 1 on BOTH sides; the test is on the odds
+    # rows themselves (before the join) so the precedence chain above is total.
+    p_home = implied_from_american(o["ML_Home"])
+    p_away = implied_from_american(o["ML_Away"])
+    priced = (p_home > 0) & (p_home < 1) & (p_away > 0) & (p_away < 1)
+    rep["odds_drop_invalid_implied"] = int((~priced).sum())
+    o = o.loc[priced]
 
     g = games[["GAME_ID", "GAME_DATE", "home", "away"]].copy()
+    unmapped = {t for t in set(g["home"]) | set(g["away"]) if t not in mapping}
     g["home"] = g["home"].map(lambda t: mapping.get(t, t))
     g["away"] = g["away"].map(lambda t: mapping.get(t, t))
 
@@ -194,44 +339,99 @@ def join_odds(games: pd.DataFrame, odds: pd.DataFrame) -> pd.DataFrame:
         o.rename(columns={"Date": "GAME_DATE", "Home": "home", "Away": "away"}),
         on=["GAME_DATE", "home", "away"], how="inner",
     )
+    # The implied-probability filter already ran on the odds rows above; every
+    # row reaching this point prices to 0 < p < 1 on both sides.
     merged["p_market_raw"] = implied_from_american(merged["ML_Home"])
     merged["p_away_raw"] = implied_from_american(merged["ML_Away"])
-    keep = ((merged["p_market_raw"] > 0) & (merged["p_market_raw"] < 1)
-            & (merged["p_away_raw"] > 0) & (merged["p_away_raw"] < 1))
-    merged = merged.loc[keep].copy()
     merged["overround"] = merged["p_market_raw"] + merged["p_away_raw"]
     # Proportional de-vig. Biased toward longshots, which is why the ROI arm below
     # uses the raw price rather than this one.
     merged["p_market"] = merged["p_market_raw"] / merged["overround"]
+
+    matched_ids = set(merged["GAME_ID"])
+    unmatched = g.loc[~g["GAME_ID"].isin(matched_ids)]
+    unmapped_unmatched = unmatched["home"].isin(unmapped) | unmatched["away"].isin(unmapped)
+    rep.update({
+        "odds_rows_matched": len(merged),
+        "odds_rows_unmatched_to_a_game": int(len(o) - len(merged)),
+        "games_in": len(g),
+        "games_with_a_closing_line": len(matched_ids),
+        "games_without_a_closing_line": int(len(unmatched)),
+        "games_without_a_line_team_name_not_in_map": int(unmapped_unmatched.sum()),
+        "games_without_a_line_genuinely_unmatched": int(len(unmatched)
+                                                       - unmapped_unmatched.sum()),
+    })
+    if stats is not None:
+        stats.update(rep)
     return merged.reset_index(drop=True)
 
 
+#: The model configuration the market comparison scores. These are
+#: ``logreg_rolling.load_design``'s defaults spelled out, because they are the
+#: canonical model's configuration and the comparison must not quietly tune
+#: them: halflife 10 games, 5 games of history before a team's form counts.
+HALFLIFE = 10.0
+MIN_GAMES = 5
+
+
+def feature_frame(games: pd.DataFrame, with_availability: bool = False) -> pd.DataFrame:
+    """The feature matrix for the comparison: the canonical frame, nothing local.
+
+    This used to be assembled in this file from ``rolling_team_features`` +
+    ``rest_and_travel`` + ``opponent_adjusted_features`` concatenated as raw
+    numeric columns - the FOURTH duplicated feature definition in this repo
+    after the drop lists (#14, #28), the availability block (#30) and
+    ``margin_sweep``. It drifted exactly as the others did: the home/away split
+    reached the canonical model as explicit home-minus-away contrasts and
+    reached this file as sixteen raw level columns, so this script kept
+    comparing the market against the OLD model while believing it was the
+    current one.
+
+    The frame is now ``logreg_rolling.load_design``'s output, verbatim - the
+    same columns, in the same order, with the same explicit contrasts (see
+    ``assemble_features``: every rating, matchup, rebound and home-split feature
+    is a home-minus-away difference; ``pace_mean``, the schedule levels and the
+    constant ``home_adv`` are the only levels, and ``home_adv`` is the canonical
+    home indicator, constant 1.0 BY DESIGN). ``Tests/test_closing_line.py``
+    pins the equality against ``load_design`` so this file cannot drift again.
+
+    BOTH ARMS ARE ``load_design`` WITH AN EXPLICIT FLAG (issue #36). The
+    ``model`` arm is ``load_design(with_availability=False)`` - the canonical
+    frame WITHOUT the availability block - and the ``model + availability`` arm
+    is ``load_design(with_availability=True)``, which is the same frame with the
+    shared ``nba_data.availability_features`` block appended once by
+    ``load_design`` itself (player-level expected minutes over the prior-game
+    squad; see ``logreg_rolling.AVAILABILITY_COLUMNS``). The flags are spelled
+    out at every call site so neither arm can pick up the other's meaning from a
+    default, and no feature assembly lives in this file any more.
+    """
+    X = lr.load_design(halflife=HALFLIFE, min_games=MIN_GAMES,
+                       with_availability=with_availability, games=games)
+    if len(X) != len(games):
+        raise ValueError(
+            f"load_design returned {len(X)} rows for {len(games)} games; a "
+            "length-mismatched frame would silently NaN-pad and shift rows")
+    return X
+
+
 def model_probs(games: pd.DataFrame, splits, with_availability: bool) -> tuple[np.ndarray, np.ndarray]:
-    """Out-of-fold home-win probability, aligned to `games` (NaN where not scored)."""
+    """Out-of-fold home-win probability, aligned to `games` (NaN where not scored).
+
+    The design matrix comes from `feature_frame`, i.e. from the shared layer:
+    this function owns the OUT-OF-FOLD machinery and nothing about which
+    features exist. There is deliberately no constant-column filter here any
+    more - the old `nunique > 1` drop would remove `home_adv`, which is constant
+    by design and is exactly the column that makes this frame the canonical
+    one. A constant column costs the sklearn pipeline nothing (it standardises
+    to zero and the intercept carries the home edge), so the fitted frame is
+    the shared frame, one to one.
+    """
     from sklearn.impute import SimpleImputer
     from sklearn.linear_model import LogisticRegression
     from sklearn.pipeline import Pipeline
     from sklearn.preprocessing import StandardScaler
 
-    roll = nd.rolling_team_features(games, halflife=10.0, min_games=5)
-    sched = nd.rest_and_travel(games)
-    keep = lambda d: d.select_dtypes(include=[np.number])  # noqa: E731
-    parts = [keep(roll).reset_index(drop=True), keep(sched).reset_index(drop=True)]
-    # The per-team home/away split. Added here explicitly rather than by calling
-    # `logreg_rolling.load_design`, because this function also has to switch
-    # availability on and off and needs its own frame for that.
-    #
-    # That is a duplicated feature definition, which is how the drop lists (#14,
-    # #28), the availability block (#30) and `margin_sweep` have each drifted
-    # independently. It has now happened a fourth time: the split was added to the
-    # canonical model and this file would have silently kept comparing the market
-    # against the OLD model. Listed here so the omission is visible.
-    parts.append(keep(nd.opponent_adjusted_features(
-        games, halflife=10.0)).reset_index(drop=True))
-    if with_availability:
-        parts.append(nd.availability_features(games).reset_index(drop=True))
-    X = pd.concat(parts, axis=1)
-    X = X.loc[:, X.nunique(dropna=False) > 1]
+    X = feature_frame(games, with_availability=with_availability)
     y = games["y"].to_numpy()
 
     out = np.full(len(y), np.nan)
@@ -256,12 +456,17 @@ def roi(p_model: np.ndarray, p_raw: np.ndarray, y: np.ndarray,
     A GAME WHERE THE PRICE IS BETTER IS NOT A BET, AND ITS STAKE IS NOT MONEY
     ---------------------------------------------------------------------
     `p_model - p_raw` is negative whenever the market is the more confident one,
-    which at a 0.55 threshold is most of the slate: on the real data 1,382 of
-    4,076 games. Those are not short positions. They are not bets at all, and
-    their stake is not a unit of currency.
+    which at a 0.55 threshold is most of the slate. Those are not short
+    positions. They are not bets at all, and their stake is not a unit of
+    currency.
 
     This function used to divide total profit by `stake.sum()`, which included
-    them. Measured consequence at threshold 0.55:
+    them. HISTORICAL MEASUREMENT - PRE-REFACTOR, do not quote as current. The
+    consequence below was measured on the 4,076-game dataset, through the #47
+    short loader and this script's own drifted feature frame; the fresh run
+    (`python scripts/closing_line.py`, artifact results/closing_line.json)
+    settles 5,788 games and reports every threshold there. The arithmetic being
+    demonstrated is timeless and is the reason the fix exists:
 
         positive stakes 812, sum +69.22  <- money actually at risk
         negative stakes 1382, sum -117.10
@@ -318,11 +523,44 @@ def main() -> int:
     args = ap.parse_args()
 
     games = nd.build_games()
-    odds = load_odds()
-    joined = join_odds(games, odds)
+    odds_rep: dict = {}
+    odds = load_odds(stats=odds_rep)
+    join_rep: dict = {}
+    joined = join_odds(games, odds, stats=join_rep)
     print(f"model games {len(games):,}")
-    print(f"odds rows   {len(odds):,}")
+    print(f"odds rows   {len(odds):,}  (COUNT(*) summed "
+          f"{odds_rep['rows_expected']:,} across every matched spelling; "
+          f"{odds_rep['rows_collapsed']:,} collapsed as duplicates; "
+          f"{len(odds):,} returned - these three reconcile exactly)")
+    # Per-season coverage, printed because a silently short season is exactly
+    # the #47 failure mode and a total row count hides it.
+    coverage = odds.groupby("SEASON").size()
+    print("odds by season  "
+          + "  ".join(f"{s} {n:,}" for s, n in coverage.items()))
+    twin_seasons = {s: r for s, r in odds_rep["seasons"].items()
+                    if len(r["tables"]) > 1}
+    if twin_seasons:
+        print(f"twin spellings reconciled for {len(twin_seasons)} season(s): "
+              + "  ".join(
+                  f"{s} [{' + '.join(f'{t}:{n}' for t, n in r['tables'].items())}]"
+                  f" collapsed {sum(v for k, v in r.items() if k.startswith('collapsed'))}"
+                  for s, r in twin_seasons.items()))
     print(f"joined      {len(joined):,}  ({100*len(joined)/len(games):.1f}% of games)")
+
+    # The join's drops, by reason. "No silent drops" means distinguishing an
+    # unusable row from a game that legitimately has no closing line.
+    print("\njoin accounting (odds rows), reasons in precedence order:")
+    print(f"  unparseable date            {join_rep['odds_drop_unparseable_date']:>6,}")
+    print(f"  missing key or price        {join_rep['odds_drop_missing_key_or_price']:>6,}")
+    print(f"  invalid implied probability {join_rep['odds_drop_invalid_implied']:>6,}")
+    print(f"  matched to a game           {join_rep['odds_rows_matched']:>6,}")
+    print(f"  valid but unmatched         {join_rep['odds_rows_unmatched_to_a_game']:>6,}")
+    print("join accounting (games):")
+    print(f"  with a closing line         {join_rep['games_with_a_closing_line']:>6,}")
+    print(f"  without one, team name not in the tricode map "
+          f"{join_rep['games_without_a_line_team_name_not_in_map']:>6,}")
+    print(f"  without one, genuinely unmatched "
+          f"{join_rep['games_without_a_line_genuinely_unmatched']:>6,}")
     if len(joined) == 0:
         print("NO OVERLAP - cannot compare against the market.")
         return 1
@@ -436,9 +674,10 @@ def main() -> int:
     print("  is not evidence of an edge. That is why every threshold is reported and")
     print("  none is presented as the answer.")
     print("\n  CONCLUSION: no demonstrated betting edge, in either direction.")
-    print("  This reproduces the README's earlier finding on 1,722 games, now on a")
-    print("  larger overlap and with the availability feature included - and the")
-    print("  availability feature improves PREDICTION without changing that.")
+    print("  This re-measures the README's finding on 5,788 scored games with the")
+    print("  corrected loader (every season present, twin spellings reconciled)")
+    print("  and the canonical feature frame - and the availability feature")
+    print("  improves PREDICTION without changing the conclusion.")
 
     out = Path(args.out)
     out.parent.mkdir(parents=True, exist_ok=True)

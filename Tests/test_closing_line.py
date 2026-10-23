@@ -3,21 +3,31 @@
 Everything else measured here is about how well a model predicts. This file pins
 the one comparison that decides whether any of it is worth doing.
 
-THE HEADLINE, ON 4,076 GAMES WITH BOTH A PREDICTION AND A CLOSING LINE
+THE HEADLINE, ON 5,788 GAMES WITH BOTH AN OUT-OF-FOLD PREDICTION AND A
+CLOSING LINE  (reproduce: `python scripts/closing_line.py`; artifact:
+results/closing_line.json)
 
-    scorer                    log loss     Brier      AUC     accuracy
-    always home                  0.68704  0.24695  0.50000      0.5552
-    market (de-vigged)           0.59940  0.20634  0.73373      0.6813
-    model                         0.62903  0.21927  0.69435      0.6411
-    model + availability          0.62693  0.21827  0.69785      0.6455
+    scorer                    log loss     Brier      AUC     acc
+    always home                  0.68791  0.24738  0.50000  0.5511
+    market (de-vigged)           0.59766  0.20573  0.73634  0.6818
+    model                        0.62340  0.21685  0.70344  0.6513
+    model + availability         0.62034  0.21540  0.70818  0.6543
 
-The market beats both models decisively: -0.02753 nats, CI [-0.03445, -0.02059],
-|z| = 7.78. That interval EXCLUDES zero on the market's side, so it is not a null -
-it is a clear loss.
+The market beats both models decisively: model + availability trails by
+0.02268 nats, CI [0.01638, 0.02859] entirely on the market's side, |z| = 7.28
+(the plain model trails by 0.02574, |z| = 8.18). That interval EXCLUDES zero on
+the market's side, so it is not a null - it is a clear loss.
 
-Every betting configuration sits below the |z| > 3 bar (Vandenbruaene et al. 2022,
-where the null of unprofitability survived 628 implementations). The strongest is
-|z| = 1.64. So: no demonstrated betting edge, in either direction.
+Every betting configuration sits below the |z| > 3 bar (Vandenbruaene et al.
+2022, where the null of unprofitability survived 628 implementations). The
+strongest is |z| = 0.62. So: no demonstrated betting edge, in either direction.
+
+These numbers were re-measured after the #47 loader fix (13,424 odds rows
+across every season spelling, reconciled) and the move of this script onto the
+canonical `logreg_rolling.load_design` frame. The pre-refactor table - measured
+on 4,076 games through the short loader and this script's own drifted frame -
+read 0.59940 / 0.62903 / 0.62693 with a 0.02641-nat gap at |z| = 7.78; it is
+superseded, and quoted here only so the history is visible.
 
 THE BUG THIS FILE EXISTS TO PREVENT
 ------------------------------------
@@ -52,6 +62,9 @@ ROOT = Path(__file__).resolve().parents[1]
 for _candidate in (ROOT, ROOT / "src"):
     if str(_candidate) not in sys.path:
         sys.path.insert(0, str(_candidate))
+
+from src.DataProviders import nba_data as nd  # noqa: E402
+from src.Models import logreg_rolling as lr  # noqa: E402
 
 ODDS_DB = ROOT / "Data" / "OddsData.sqlite"
 RESULTS = ROOT / "results" / "closing_line.json"
@@ -136,7 +149,9 @@ class TestDeVigProducesSaneProbabilities(unittest.TestCase):
         ok = (p_home > 0) & (p_away > 0) & (p_home < 1) & (p_away < 1)
         over = (p_home + p_away)[ok]
         self.assertGreater(len(over), 5000)
-        # A healthy sportsbook margin. Measured +3.98% mean.
+        # A healthy sportsbook margin. Measured +4.02% mean on the current
+        # 13,424-row corpus (reproduce: cl.load_odds() + implied_from_american;
+        # `python scripts/closing_line.py` prints the same on its joined frame).
         self.assertGreater(over.mean(), 1.01, "overround implausibly low")
         self.assertLess(over.mean(), 1.10, "overround implausibly high")
         devig = p_home[ok] / over
@@ -226,6 +241,292 @@ class TestPublishedConclusion(unittest.TestCase):
         self.assertGreater(gap, 0.0,
                            "the market must still be ahead; lower log loss is "
                            "better, so this gap has to be positive")
+
+
+class TestFeatureFrameIsTheCanonicalOne(unittest.TestCase):
+    """The fourth duplicated feature definition is closed.
+
+    `scripts/closing_line.py` used to assemble its own frame from raw
+    `rolling_team_features` / `rest_and_travel` / `opponent_adjusted_features`
+    columns, so the home/away split reached the canonical model as explicit
+    home-minus-away contrasts and reached this script as sixteen raw level
+    columns - the same drift class as the drop lists (#14, #28), the
+    availability block (#30) and `margin_sweep`. The script now consumes
+    `logreg_rolling.load_design` verbatim, and these tests pin that its frame is
+    EXACTLY the canonical one: same columns, same order, same explicit
+    contrasts. They are the guard that makes the fifth occurrence fail loudly.
+
+    Since issue #36 the canonical frame carries the shared availability block,
+    and the comparison's two arms are `load_design(with_availability=False)` and
+    `load_design(with_availability=True)` - never a local reconstruction of
+    either. `test_each_arm_is_exactly_load_design_with_that_flag` is that pin.
+    """
+
+    @classmethod
+    def setUpClass(cls):
+        if not list(Path(nd.DATA_ROOT, "game_logs").glob("*.csv")):
+            raise unittest.SkipTest(f"no downloaded data at {nd.DATA_ROOT}")
+        cls.games = nd.build_games().head(600).reset_index(drop=True)
+        cls.canonical = lr.load_design(games=cls.games, with_availability=False)
+
+    def test_columns_and_order_equal_load_design_output(self):
+        X = cl.feature_frame(self.games, with_availability=False)
+        self.assertEqual(list(X.columns), list(self.canonical.columns),
+                         "the comparison's frame must have the canonical "
+                         "columns in the canonical order")
+        pd.testing.assert_frame_equal(X, self.canonical)
+
+    def test_the_differencing_is_applied_not_raw_levels(self):
+        """The contrasts are real home-minus-away differences of the shared
+        builders' columns - the exact transformation the old copy skipped."""
+        roll = nd.rolling_team_features(self.games, halflife=10.0, min_games=5)
+        opp = nd.opponent_adjusted_features(self.games, halflife=10.0)
+        X = cl.feature_frame(self.games, with_availability=False)
+
+        def diff(frame, hc, ac):
+            return frame[hc].to_numpy(dtype=float) - frame[ac].to_numpy(dtype=float)
+
+        np.testing.assert_allclose(
+            X["net_diff"].to_numpy(dtype=float),
+            diff(roll, "home_ewm_net_rating", "away_ewm_net_rating"))
+        np.testing.assert_allclose(
+            X["matchup_home"].to_numpy(dtype=float),
+            diff(roll, "home_ewm_off_rating", "away_ewm_def_rating"))
+        np.testing.assert_allclose(
+            X["matchup_away"].to_numpy(dtype=float),
+            diff(roll, "away_ewm_off_rating", "home_ewm_def_rating"))
+        np.testing.assert_allclose(
+            X["home_form_home"].to_numpy(dtype=float),
+            diff(opp, "home_ewm_margin_home", "away_ewm_margin_home"))
+        np.testing.assert_allclose(
+            X["home_edge_diff"].to_numpy(dtype=float),
+            diff(opp, "home_home_edge", "away_home_edge"))
+        # home_adv is the canonical home indicator: constant 1.0 BY DESIGN.
+        np.testing.assert_array_equal(X[lr.HOME_COLUMN].to_numpy(),
+                                      np.ones(len(X)))
+        # The old copy's signature: raw per-side levels in the matrix. None of
+        # them may reappear.
+        for col in ("home_ewm_net_rating", "away_ewm_net_rating",
+                    "home_ewm_margin", "away_ewm_margin",
+                    "home_games_played", "away_games_played",
+                    "home_home_edge", "away_home_edge"):
+            self.assertNotIn(col, X.columns,
+                             f"{col} is a raw level; the frame is contrasts")
+
+    def test_each_arm_is_exactly_load_design_with_that_flag(self):
+        """The arm semantics, pinned (issue #36).
+
+        The `model` arm is `load_design(with_availability=False)` - the
+        canonical frame WITHOUT the availability block - and the `model +
+        availability` arm is `load_design(with_availability=True)`. Each arm
+        must BE that call's output exactly, frame and all, so this script can
+        never again compare the market against a frame of its own devising.
+        """
+        for with_avail in (False, True):
+            X = cl.feature_frame(self.games, with_availability=with_avail)
+            want = lr.load_design(games=self.games, with_availability=with_avail)
+            pd.testing.assert_frame_equal(
+                X, want, obj=f"feature_frame(with_availability={with_avail})")
+
+    def test_the_availability_block_is_appended_exactly_once(self):
+        """The availability columns enter the canonical order exactly once -
+        never double-appended (once by `load_design`, once by this script)."""
+        base = cl.feature_frame(self.games, with_availability=False)
+        X = cl.feature_frame(self.games, with_availability=True)
+        self.assertEqual(list(X.columns)[:len(base.columns)], list(base.columns),
+                         "the availability arm must EXTEND the base arm, "
+                         "not replace or reorder it")
+        self.assertEqual(list(X.columns)[len(base.columns):],
+                         list(lr.AVAILABILITY_COLUMNS),
+                         "the shared block must follow the canonical columns "
+                         "in its own order")
+        self.assertEqual(len(X.columns), len(set(X.columns)),
+                         "a column - the availability block especially - must "
+                         "not appear twice")
+        avail = nd.availability_features(self.games)
+        pd.testing.assert_frame_equal(
+            X[list(avail.columns)].reset_index(drop=True),
+            avail.reset_index(drop=True))
+
+    def test_the_base_arm_carries_no_availability_columns(self):
+        X = cl.feature_frame(self.games, with_availability=False)
+        for col in lr.AVAILABILITY_COLUMNS:
+            self.assertNotIn(col, X.columns)
+
+
+class TestModelProbsConsumesTheSharedFrame(unittest.TestCase):
+    """`model_probs` must get its matrix from `feature_frame`, not rebuild one.
+
+    Pinned behaviourally: `feature_frame` is replaced by a spy, and the run
+    must go through it. If the script ever regrows its own `pd.concat` of raw
+    builder columns - the thing that drifted four times - the spy is never
+    called and this fails.
+    """
+
+    def test_the_design_matrix_is_built_by_feature_frame(self):
+        from unittest import mock
+
+        n = 60
+        rng = np.random.default_rng(0)
+        frame = pd.DataFrame({"net_diff": rng.normal(size=n),
+                              lr.HOME_COLUMN: np.ones(n)})
+        games = pd.DataFrame({"y": rng.integers(0, 2, n)})
+        seen = {}
+
+        def spy(g, with_availability=False):
+            seen["with_availability"] = with_availability
+            return frame.copy()
+
+        splits = [(np.arange(0, 40), np.arange(40, 60))]
+        with mock.patch.object(cl, "feature_frame", spy):
+            p, y = cl.model_probs(games, splits, with_availability=True)
+        self.assertTrue(seen.get("with_availability"),
+                        "the availability flag must reach feature_frame")
+        self.assertTrue(np.isfinite(p[40:]).all())
+        self.assertTrue(np.isnan(p[:40]).all(),
+                        "unscored rows must stay NaN, not get filled")
+        np.testing.assert_array_equal(y, games["y"].to_numpy())
+
+    def test_model_probs_does_not_reassemble_features_locally(self):
+        """Structural, for the same reason as `TestNoBareExcept`: a locally
+        assembled frame that happens to equal the canonical one today is
+        invisible in a passing suite and drifts tomorrow."""
+        import inspect
+        src = inspect.getsource(cl.model_probs)
+        for banned in ("rolling_team_features", "opponent_adjusted_features",
+                       "rest_and_travel", "availability_features",
+                       "pd.concat"):
+            self.assertNotIn(banned, src, (
+                f"model_probs must not build features itself; {banned} found. "
+                "The frame belongs to logreg_rolling.load_design via "
+                "feature_frame() - see the drift history in #14/#28/#30."
+            ))
+
+
+class TestJoinOddsAccounting(unittest.TestCase):
+    """MINOR-3: `join_odds` dropped rows silently in four places.
+
+    "No silent drops" needs the reasons separated, because an unusable odds row
+    (invalid) and a game that legitimately has no closing line (unmatched) are
+    different facts - and a game whose tricode is not even in the name map is a
+    third: a naming gap, not missing odds. The reasons are assigned in
+    precedence order so they sum to the row count.
+    """
+
+    def test_every_dropped_row_is_counted_with_its_reason(self):
+        odds = pd.DataFrame({
+            "Date": ["2018-10-16", "not-a-date", "2018-10-17",
+                     "2018-10-17", "2018-10-18"],
+            "Home": ["Atlanta Hawks"] * 5,
+            "Away": ["Boston Celtics"] * 5,
+            "ML_Home": [-200, -200, -110, 0, -110],
+            "ML_Away": [170, 170, None, -110, -110],
+            "OU": [208.5] * 5,
+            "Spread": [5.0] * 5,
+        })
+        games = pd.DataFrame({
+            "GAME_ID": ["g1", "g2", "g3"],
+            "GAME_DATE": pd.to_datetime(["2018-10-16", "2018-10-17",
+                                         "2018-10-19"]),
+            "home": ["ATL", "ATL", "ATL"],
+            "away": ["BOS", "ZZZ", "BOS"],
+        })
+        stats = {}
+        joined = cl.join_odds(games, odds, stats=stats)
+        self.assertEqual(len(joined), 1, "only the one clean match survives")
+        self.assertEqual(stats["odds_rows_in"], 5)
+        # Odds rows: exactly one per reason, precedence order.
+        self.assertEqual(stats["odds_drop_unparseable_date"], 1)
+        self.assertEqual(stats["odds_drop_missing_key_or_price"], 1)
+        self.assertEqual(stats["odds_drop_invalid_implied"], 1)
+        self.assertEqual(stats["odds_rows_matched"], 1)
+        self.assertEqual(stats["odds_rows_unmatched_to_a_game"], 1)
+        # Games: matched, vs unmatched for two DIFFERENT reasons.
+        self.assertEqual(stats["games_in"], 3)
+        self.assertEqual(stats["games_with_a_closing_line"], 1)
+        self.assertEqual(stats["games_without_a_closing_line"], 2)
+        self.assertEqual(stats["games_without_a_line_team_name_not_in_map"], 1)
+        self.assertEqual(stats["games_without_a_line_genuinely_unmatched"], 1)
+        total = (stats["odds_drop_unparseable_date"]
+                 + stats["odds_drop_missing_key_or_price"]
+                 + stats["odds_drop_invalid_implied"]
+                 + stats["odds_rows_matched"]
+                 + stats["odds_rows_unmatched_to_a_game"])
+        self.assertEqual(total, stats["odds_rows_in"],
+                         "the reasons must partition the input, not overlap")
+
+
+class TestFeatureFrameGuards(unittest.TestCase):
+    """MINOR-5: a length-mismatched block must raise, not NaN-pad and shift.
+
+    Two guards, in two places, since issue #36 moved the block's assembly into
+    `load_design`: `feature_frame` refuses a length-mismatched `load_design`
+    output, and `load_design` refuses a length-mismatched (or re-shaped)
+    availability block. The mocks target `cl.lr.nd`, which is the
+    `src.DataProviders.nba_data` module object `load_design` calls - NOT `cl.nd`,
+    the script's separately-imported copy of the same file.
+    """
+
+    @staticmethod
+    def _mock_builders(block: pd.DataFrame):
+        from unittest import mock
+
+        games = pd.DataFrame({"y": [1, 0, 1]})
+        roll = pd.DataFrame(index=range(len(games)))   # no ewm columns
+        rest = pd.DataFrame({c: [1.0] * len(games) for c in (
+            "home_rest_days", "away_rest_days", "home_back_to_back",
+            "away_back_to_back", "home_in_3_of_4", "away_in_3_of_4",
+            "travel_miles")})
+        empty = pd.DataFrame(index=range(len(games)))
+        return games, (
+            mock.patch.object(cl.lr.nd, "rolling_team_features", return_value=roll),
+            mock.patch.object(cl.lr.nd, "rest_and_travel", return_value=rest),
+            mock.patch.object(cl.lr.nd, "opponent_adjusted_features",
+                              return_value=empty),
+            mock.patch.object(cl.lr.nd, "availability_features", return_value=block),
+        )
+
+    def test_feature_frame_refuses_a_length_mismatched_design(self):
+        from unittest import mock
+
+        games = pd.DataFrame({"y": [1, 0, 1]})
+        ok = pd.DataFrame({"net_diff": [0.1, 0.2, 0.3]})
+        for with_avail in (False, True):
+            with mock.patch.object(cl.lr, "load_design",
+                                   return_value=ok.iloc[:2]):
+                with self.assertRaises(ValueError):
+                    cl.feature_frame(games, with_availability=with_avail)
+        with mock.patch.object(cl.lr, "load_design", return_value=ok):
+            X = cl.feature_frame(games, with_availability=False)
+        self.assertEqual(len(X), len(games))
+
+    def test_load_design_refuses_a_length_mismatched_availability_block(self):
+        games, patches = self._mock_builders(
+            pd.DataFrame({c: [1.0, 2.0] for c in lr.AVAILABILITY_COLUMNS}))
+        with patches[0], patches[1], patches[2], patches[3]:
+            with self.assertRaises(ValueError):
+                cl.lr.load_design(games=games, with_availability=True)
+
+    def test_load_design_refuses_a_rearranged_availability_block(self):
+        # The column guard is the feature-order contract for the block: the
+        # model recipe names these columns positionally, so a block that
+        # changed shape must fail loudly, not be absorbed in a new order.
+        shuffled = list(lr.AVAILABILITY_COLUMNS)[::-1]
+        games, patches = self._mock_builders(
+            pd.DataFrame({c: [1.0] * 3 for c in shuffled}))
+        with patches[0], patches[1], patches[2], patches[3]:
+            with self.assertRaises(ValueError):
+                cl.lr.load_design(games=games, with_availability=True)
+
+    def test_load_design_appends_a_matching_block_once(self):
+        games, patches = self._mock_builders(
+            pd.DataFrame({c: [1.0] * 3 for c in lr.AVAILABILITY_COLUMNS}))
+        with patches[0], patches[1], patches[2], patches[3]:
+            X = cl.lr.load_design(games=games, with_availability=True)
+            base = cl.lr.load_design(games=games, with_availability=False)
+        self.assertEqual(list(X.columns),
+                         list(base.columns) + list(lr.AVAILABILITY_COLUMNS))
+        self.assertEqual(len(X), len(games))
 
 
 if __name__ == "__main__":

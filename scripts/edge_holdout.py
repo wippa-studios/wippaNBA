@@ -1,9 +1,12 @@
-"""Is the +13.54% ROI a real edge, or a threshold picked by looking at the data?
+"""Is a positive ROI cell a real edge, or a threshold picked by looking at the data?
 
 WHY THIS SCRIPT EXISTS
 ----------------------
-`scripts/closing_line.py` prints a threshold sweep in which two cells look like an
-edge:
+The sweep below is a HISTORICAL MEASUREMENT - PRE-REFACTOR (4,076 scored games
+through the short #47 loader and `closing_line`'s own drifted frame) and part of
+it is the ROI-denominator BUG documented in docs/measurement_bugs.md. It is kept
+because it is what this script was written to interrogate; do not quote it as
+current:
 
     threshold 0.55   model +11.76% |z| 2.22   model + availability +13.54% |z| 2.54
     threshold 0.60   model  +6.19% |z| 1.02   model + availability  +3.52% |z| 0.59
@@ -12,8 +15,14 @@ edge:
 Reporting the best of those as a result would be exactly the error this project
 exists to avoid. Both sit below the |z| > 3 bar adopted from Vandenbruaene et al.
 (2022, J Sports Econ 23(7)), whose null of unprofitability survived 628
-implementations. And `scripts/edge_betting.py` measures a PARAMETER-FREE rule and
-returns -10.80% over MORE bets. One of those numbers is selection.
+implementations.
+
+On the CURRENT data (reproduce: `python scripts/closing_line.py`, artifact
+results/closing_line.json; 5,788 scored games) the sweep has no positive cell
+left to explain - the strongest is +0.15% at |z| = 0.03 - and
+`scripts/edge_betting.py` measures a PARAMETER-FREE rule at -8.23% over MORE
+bets (4,828). This script runs the same selection test on the current numbers
+below, because "was it selection?" is the question either way.
 
 THE TEST
 --------
@@ -41,10 +50,11 @@ This replicates `closing_line.roi()` exactly, including its two properties that
 are easy to miss and both matter:
 
   * It bets the HOME SIDE ONLY. `scripts/edge_betting.py` backs whichever side
-    has the edge and returns -10.80%. A home-only rule is a materially different
+    has the edge and returns -8.23% (current run; reproduce with
+    `python scripts/edge_betting.py`). A home-only rule is a materially different
     bet, and its number is not comparable with that one's.
   * `stake = p_model - p_raw` can be NEGATIVE, and negative stakes are dropped
-    rather than laid. So the effective rule is "bet home wherever the model is at
+    rather than bet on the opposite side. So the effective rule is "bet home wherever the model is at
     least `threshold` AND beats the posted price", staked in proportion to the
     edge.
 

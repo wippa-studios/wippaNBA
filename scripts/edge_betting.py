@@ -24,9 +24,10 @@ free parameters.
 
 `p_raw` is the RAW implied probability including vig, not the de-vigged one.
 De-vigging first would hand the model a fairer-looking price than the one actually
-posted, and the vig is exactly what a bettor pays. The overround here is +3.98%, so
-the bar is roughly four points above the market's own estimate -- the model has to
-be wrong by more than the book to be worth backing.
+posted, and the vig is exactly what a bettor pays. The overround here is +4.13%
+(mean overround this run prints; reproduce: `python scripts/edge_betting.py`),
+so the bar is roughly four points above the market's own estimate -- the model has
+to be wrong by more than the book to be worth backing.
 
 WHAT WOULD AND WOULD NOT SHOW UP HERE
 --------------------------------------
@@ -34,8 +35,9 @@ WHAT WOULD AND WOULD NOT SHOW UP HERE
 * If the model merely reproduced the market, this finds nothing, correctly: every
   bet would sit right at breakeven and the average would be the vig, negative.
 * If the model is worse than the market, this should LOSE. That is the control. A
-  strategy that profits here while the model trails the market by |z|=7.78 would be
-  evidence of a bug, not of an edge.
+  strategy that profits here while the model trails the market at |z| = 7.28
+  (model + availability) / 8.18 (model) - reproduce: `python scripts/closing_line.py`
+  - would be evidence of a bug, not of an edge.
 
 Run:  python scripts/edge_betting.py
 """
@@ -82,9 +84,13 @@ def settle(p_model: np.ndarray, p_raw_home: np.ndarray, p_raw_away: np.ndarray,
 
     An earlier version took the model's PREFERRED side and then asked whether that
     side had edge. That silently discards every game where the favourite has no
-    edge but the underdog does -- which is precisely "lay a loser", backing a team
-    the market has underrated. On this data that is **1,928 games**, more than the
-    1,553 the old rule bet on. It was not a detail; it was most of the opportunity.
+    edge but the underdog does -- which is precisely backing a team
+    the market has underrated. HISTORICAL MEASUREMENT (pre-refactor dataset): on
+    the data this was written against that was **1,928 games**, more than the
+    1,553 the old rule bet on - it was not a detail, it was most of the
+    opportunity. On the current run the split is 2,437 home vs 2,391 away bets
+    (reproduce: `python scripts/edge_betting.py`); either way, both sides must be
+    considered.
 
     At most one side can have positive edge in a game, because the two raw prices
     sum to the overround (~1.0404) rather than to 1, so the edges cannot both

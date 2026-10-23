@@ -12,7 +12,10 @@ is the more confident one, which at a 0.55 threshold is most of the slate. Those
 games are NOT bets - the rule skips them - but they were counted into the
 denominator anyway.
 
-On the real data at threshold 0.55:
+On the real data at threshold 0.55 (HISTORICAL MEASUREMENT - PRE-REFACTOR,
+4,076-game dataset through the short loader; kept because this is the bug's own
+evidence and post-mortem, not a current number - for current figures reproduce
+with `python scripts/closing_line.py`):
 
     positive stakes 812, sum +69.22   <- money actually at risk
     negative stakes 1382, sum -117.10 <- not bets at all
