@@ -8,7 +8,7 @@
 [![Python](https://img.shields.io/badge/python-3.10%20%7C%203.11-3776AB.svg)](https://github.com/wippa-studios/Legit-NBA-Predictions/actions/workflows/ci.yml)
 [![Data](https://img.shields.io/badge/data-nba_api-13%2C199%20games-informational.svg)](https://github.com/swar/nba_api)
 [![Fork of kyleskom/NBA-Machine-Learning-Sports-Betting](https://img.shields.io/badge/fork%20of-kyleskom%2FNBA--Machine--Learning--Sports--Betting-blueviolet.svg)](https://github.com/kyleskom/NBA-Machine-Learning-Sports-Betting)
-[![No betting edge claimed](https://img.shields.io/badge/prediction%20quality%20only%20%E2%80%94%20no%20betting%20edge%20claimed-lightgrey.svg)](docs/results_pipeline_b.md#pipeline-b-the-model-against-the-market)
+[![No betting edge claimed](https://img.shields.io/badge/prediction%20quality%20only%20%E2%80%94%20no%20betting%20edge%20claimed-lightgrey.svg)](results_pipeline_b.md#pipeline-b-the-model-against-the-market)
 
 [Key findings](#key-findings) ·
 [Quick start](#quick-start) ·
@@ -65,7 +65,7 @@ python -m src.Models.logreg_rolling          # the canonical model
 python scripts/closing_line.py               # does it beat the closing line?
 ```
 
-> ⚠️ The model files committed in `Models/` predate every fix in this fork. **Retrain before using anything**, see [Models, features and retraining](docs/models_and_training.md).
+> ⚠️ The model files committed in `Models/` predate every fix in this fork. **Retrain before using anything**, see [Models, features and retraining](models_and_training.md).
 
 ---
 
@@ -117,7 +117,7 @@ All models scored on the same 6,600 walk-forward test rows across five splits. L
 | logistic regression, availability off (pre-#36) | 0.6196 | 0.2151 | 0.7085 | 0.6564 |
 | **logistic regression (canonical, 26 features)** | **0.6157** | **0.2133** | **0.7141** | **0.6573** |
 
-Boosting loses significantly to the canonical model (XGBoost Δ −0.00785, CI [−0.01038, −0.00533]). Player ratings, rank columns, recency weighting and the rebound block are all nulls. [Full comparison and experiment log →](docs/results_pipeline_a.md)
+Boosting loses significantly to the canonical model (XGBoost Δ −0.00785, CI [−0.01038, −0.00533]). Player ratings, rank columns, recency weighting and the rebound block are all nulls. [Full comparison and experiment log →](results_pipeline_a.md)
 
 ### Model against the market (Pipeline B)
 
@@ -128,7 +128,7 @@ Boosting loses significantly to the canonical model (XGBoost Δ −0.00785, CI [
 | model | 0.62340 | 0.21685 | 0.7034 | 0.6513 |
 | model + availability | 0.62034 | 0.21540 | 0.7082 | 0.6543 |
 
-Model + availability trails the market by **0.02268** nats, CI [0.01638, 0.02859]. That gap is roughly 6× the best prediction improvement found here. Betting wherever the model beats the posted price returns **−8.23%** over 4,828 bets, and a threshold chosen on ten seasons and scored on the eleventh pools to **−2.53%**. [Market analysis, betting rules and a measurement-bug post-mortem →](docs/results_pipeline_b.md)
+Model + availability trails the market by **0.02268** nats, CI [0.01638, 0.02859]. That gap is roughly 6× the best prediction improvement found here. Betting wherever the model beats the posted price returns **−8.23%** over 4,828 bets, and a threshold chosen on ten seasons and scored on the eleventh pools to **−2.53%**. [Market analysis, betting rules and a measurement-bug post-mortem →](results_pipeline_b.md)
 
 ### What survived measurement, and what did not
 
@@ -143,7 +143,7 @@ Model + availability trails the market by **0.02268** nats, CI [0.01638, 0.02859
 | nine further candidate blocks (travel, volatility, momentum, shot mix, era, …) | best +0.00026 | 1.19 | all null |
 | isotonic / Platt recalibration | −0.0129 | 4.56 | significantly *harmful* |
 
-Sign convention differs by row; the full tables, intervals and the reasoning behind each are in [the one thing that is not a null](docs/results_pipeline_a.md#the-one-thing-that-is-not-a-null), [the feature search](docs/results_pipeline_a.md#the-feature-search-four-candidates-pre-registered) and [the player-Elo leak](docs/player_elo_leak.md).
+Sign convention differs by row; the full tables, intervals and the reasoning behind each are in [the one thing that is not a null](results_pipeline_a.md#the-one-thing-that-is-not-a-null), [the feature search](results_pipeline_a.md#the-feature-search-four-candidates-pre-registered) and [the player-Elo leak](player_elo_leak.md).
 
 ---
 
@@ -168,7 +168,7 @@ The leak was not uniform. Older seasons were scraped before tip-off and are genu
 | 2025 | 96.1% | 45.6% |
 | 2026 | **100.0%** | 38.5% |
 
-Leakage was worth roughly **+2.8 points of accuracy and +6 points of phantom ROI**. [All six defects, with evidence →](docs/audit_and_fixes.md#what-the-audit-found)
+Leakage was worth roughly **+2.8 points of accuracy and +6 points of phantom ROI**. [All six defects, with evidence →](audit_and_fixes.md#what-the-audit-found)
 
 ### What this fork changes
 
@@ -177,7 +177,7 @@ Leakage was worth roughly **+2.8 points of accuracy and +6 points of phantom ROI
 - **Security.** API key read from `RAPIDAPI_KEY` and endpoints fail closed; debug mode removed; every network call has a timeout.
 - **Engineering.** CI on Python 3.10–3.11, `pyproject.toml`, declared dependencies, six near-identical trainers collapsed into shared modules (2,255 → 1,551 lines, byte-identical output).
 
-[Full list, plus the evaluation tooling added →](docs/audit_and_fixes.md#what-this-fork-changes)
+[Full list, plus the evaluation tooling added →](audit_and_fixes.md#what-this-fork-changes)
 
 ---
 
@@ -202,11 +202,11 @@ Leakage was worth roughly **+2.8 points of accuracy and +6 points of phantom ROI
 ├── Data/injury.sqlite         # append-only injury-report snapshots
 ├── results/                   # experiments.jsonl and per-experiment artifacts
 ├── Tests/                     # 40 test files
-├── docs/                      # deep dives, see Documentation below
+├── *.md                       # deep-dive docs, see Documentation below
 └── ROADMAP.md
 ```
 
-**Contributing?** Start with [Models, features and retraining](docs/models_and_training.md). It covers the six model modules (12 approaches, 18 configurations), the one shared `load_design` feature builder, and the feature-order contract between trainers and runners.
+**Contributing?** Start with [Models, features and retraining](models_and_training.md). It covers the six model modules (12 approaches, 18 configurations), the one shared `load_design` feature builder, and the feature-order contract between trainers and runners.
 
 ---
 
@@ -257,7 +257,7 @@ cd Flask && flask run
 
 Never run `flask --debug run` on a reachable host: debug mode serves application source, including credentials.
 
-[Full usage, including the `/games` route and directory-name caveats →](docs/usage.md)
+[Full usage, including the `/games` route and directory-name caveats →](usage.md)
 
 ---
 
@@ -268,7 +268,7 @@ python scripts/evaluate.py     # reproduces every number; refuses to report accu
 pytest Tests/                  # or: python -m unittest discover -s Tests -t .
 ```
 
-**1,287 passing + 104 subtests, 0 failing** across 40 files. Most tests need no network, TensorFlow or XGBoost; model suites **skip** rather than fail when `data/nba` is absent, so a fresh clone still gets a meaningful signal. CI runs on Python 3.10 and 3.11, plus a matrix job covering both sides of the scikit-learn 1.7 `multi_class` removal. Every guard was added because something was measured to be wrong. [Details →](docs/reproducing.md)
+**1,287 passing + 104 subtests, 0 failing** across 40 files. Most tests need no network, TensorFlow or XGBoost; model suites **skip** rather than fail when `data/nba` is absent, so a fresh clone still gets a meaningful signal. CI runs on Python 3.10 and 3.11, plus a matrix job covering both sides of the scikit-learn 1.7 `multi_class` removal. Every guard was added because something was measured to be wrong. [Details →](reproducing.md)
 
 ---
 
@@ -294,7 +294,7 @@ pytest Tests/                  # or: python -m unittest discover -s Tests -t .
    accuracy is.** The market has both the best accuracy (0.6818) *and* the best log
    loss (0.59766); a model could beat it on one and still lose money on the other.
    This project's accuracy (0.6573) sits mid-pack among published NBA models
-   (~0.615–0.69, `docs/repo_survey.md`), so being ordinary at 0.657 is the field's
+   (~0.615–0.69, `repo_survey.md`), so being ordinary at 0.657 is the field's
    normal — and **no** published figure in that survey accounts for the vig, which
    this one measures directly at +4.13% (`python scripts/edge_betting.py`). Those
    accuracy numbers cannot be read as returns.
@@ -308,7 +308,7 @@ pytest Tests/                  # or: python -m unittest discover -s Tests -t .
    are** now scored against one full frame, and the largest of them reaches |z| = 2.59,
    still short of the bar. The one effect that clears it is the availability block now
    in the canonical model (Δ +0.00390, |z| = 4.78 —
-   [the one thing that is not a null](docs/results_pipeline_a.md#the-one-thing-that-is-not-a-null)); everything
+   [the one thing that is not a null](results_pipeline_a.md#the-one-thing-that-is-not-a-null)); everything
    else measured here is short of the bar or a leak.
 
 ### About the code and models
@@ -341,31 +341,31 @@ pytest Tests/                  # or: python -m unittest discover -s Tests -t .
 
 | doc | what it covers |
 |---|---|
-| [The audit and the fixes](docs/audit_and_fixes.md) | The original project, the six defects, everything this fork changed, and the tooling added |
-| [Models, features and retraining](docs/models_and_training.md) | Model modules, `load_design`, retraining commands, the feature-order contract |
-| [Results: Pipeline A](docs/results_pipeline_a.md) | Model comparison, the 17-run experiment log, the experiment ledger, feature blocks |
-| [Results: Pipeline B](docs/results_pipeline_b.md) | Closing-line comparison, betting rules, rotations data, survey of other repos |
-| [Usage](docs/usage.md) | Full commands for both pipelines and the Flask `/games` route |
-| [Verifying and testing](docs/reproducing.md) | Reproducing every number, the experiment-log CLI, the test suite |
-| [The agent swarm](docs/agent_swarm.md) | How the measurement work was done, and what it got wrong |
+| [The audit and the fixes](audit_and_fixes.md) | The original project, the six defects, everything this fork changed, and the tooling added |
+| [Models, features and retraining](models_and_training.md) | Model modules, `load_design`, retraining commands, the feature-order contract |
+| [Results: Pipeline A](results_pipeline_a.md) | Model comparison, the 17-run experiment log, the experiment ledger, feature blocks |
+| [Results: Pipeline B](results_pipeline_b.md) | Closing-line comparison, betting rules, rotations data, survey of other repos |
+| [Usage](usage.md) | Full commands for both pipelines and the Flask `/games` route |
+| [Verifying and testing](reproducing.md) | Reproducing every number, the experiment-log CLI, the test suite |
+| [The agent swarm](agent_swarm.md) | How the measurement work was done, and what it got wrong |
 
 **Research notes**
 
 | doc | what it covers |
 |---|---|
-| [The market anchor](docs/market_anchor.md) | Why odds are legitimate as an input only here; the close absorbs everything the model knows |
-| [The availability block](docs/availability_block.md) | The one mechanism that survived: expected minutes over the prior game's squad |
-| [The injury-report pipeline](docs/injury_pipeline.md) | Point-in-time availability as append-only evidence |
-| [The October 2026 experiment campaign](docs/experiment_log_2026-10.md) | Every experiment from declared rationale to verdict, plus errata |
-| [The player-Elo leak](docs/player_elo_leak.md) | A \|z\| = 5.18 result that was target leakage |
-| [Two measurement bugs](docs/measurement_bugs.md) | The ROI denominator and the data guard |
-| [The feature search](docs/feature_search.md) | Four pre-registered candidates and the fold-count artifact |
-| [Modelling exploration](docs/modeling_exploration.md) | Nine further candidate blocks, all scored, all null |
-| [Survey of ~45 public NBA repos](docs/repo_survey.md) | The field's accuracy ceiling and how honestly it is reported |
-| [The test suite](docs/test_suite.md) | What each test file protects |
-| [The feature-order contract](docs/feature_order_contract.md) | How training and inference agree on column order |
-| [`/games` Flask route](docs/flask_games_route.md) | The three upstream traps it absorbs |
-| [Reading the results](docs/reading_the_results.md) | Why the ordering below the top row of each table is the wrong thing to read |
+| [The market anchor](market_anchor.md) | Why odds are legitimate as an input only here; the close absorbs everything the model knows |
+| [The availability block](availability_block.md) | The one mechanism that survived: expected minutes over the prior game's squad |
+| [The injury-report pipeline](injury_pipeline.md) | Point-in-time availability as append-only evidence |
+| [The October 2026 experiment campaign](experiment_log_2026-10.md) | Every experiment from declared rationale to verdict, plus errata |
+| [The player-Elo leak](player_elo_leak.md) | A \|z\| = 5.18 result that was target leakage |
+| [Two measurement bugs](measurement_bugs.md) | The ROI denominator and the data guard |
+| [The feature search](feature_search.md) | Four pre-registered candidates and the fold-count artifact |
+| [Modelling exploration](modeling_exploration.md) | Nine further candidate blocks, all scored, all null |
+| [Survey of ~45 public NBA repos](repo_survey.md) | The field's accuracy ceiling and how honestly it is reported |
+| [The test suite](test_suite.md) | What each test file protects |
+| [The feature-order contract](feature_order_contract.md) | How training and inference agree on column order |
+| [`/games` Flask route](flask_games_route.md) | The three upstream traps it absorbs |
+| [Reading the results](reading_the_results.md) | Why the ordering below the top row of each table is the wrong thing to read |
 | [ROADMAP.md](ROADMAP.md) | The levels between this pipeline and a real forecasting engine |
 | `scripts/README.md` | What the evaluation harness measures and how it degrades |
 
