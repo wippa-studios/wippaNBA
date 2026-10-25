@@ -28,8 +28,10 @@ WHAT THIS IS NOT
 ----------------
 **This is not true RAPM.** Regular Adjusted Plus-Minus needs stint-level
 on-court/off-court splits (``data/nba/rotations/`` GameRotation). That directory
-is empty for this dataset -- the downloader in this run does not request it --
-so no stint data exists. What is fitted instead is documented in
+now holds 53,912 stint rows across eleven seasons, but they cover only 836 of
+the 13,199 games (6.3%), so there is not enough stint data for a stable RAPM
+fit; the original download failure is issue #23 and the remaining backfill is
+issue #34. What is fitted instead is documented in
 :class:`PlusMinusRatings`: a plus-minus rating built from
 ``LeagueDashPlayerGameLog`` PLUS_MINUS, which is a genuine *on-court* team
 plus-minus (it varies within a team-game, verified) but is not stint-resolved
@@ -704,8 +706,9 @@ class PlusMinusRatings(_TeamRatingBase):
 
     The classic RAPM regression puts one coefficient per (player, stint) and
     needs ``GameRotation`` to build the design matrix. ``data/nba/rotations/``
-    is empty in this dataset, so there are no stints. What this fits instead is
-    the closest thing the available tables support::
+    now has 53,912 stint rows, but only for 836 of 13,199 games (6.3%), so the
+    coverage is still far short of a stable fit (issues #23 and #34). What this
+    fits instead is the closest thing the available tables support::
 
         net_per_100[t] = sum_i  (E[MIN_i]/240) * (a + b * pm48_i + gamma' x_i)
 
