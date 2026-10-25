@@ -114,9 +114,18 @@ the established effect cannot resolve a smaller one. With an SE of 0.0040, the
 `|z| > 3` bar needs ~6,000 scored games.
 
 Scored on the full 6,600-row sample against the availability-only frame, the
-adjustment is **+0.000818 [+0.000222, +0.001422], |z| 2.67, better in 5 of 5
-folds** — the closest this has come to a signal, and still below the bar. That
-is a reason to extend the backfill, not to promote the column.
+adjustment was **+0.000818 [+0.000222, +0.001422], |z| 2.67, better in 5 of 5
+folds** on the then-two-season store — the closest this had come to a signal,
+still below the bar, and the reason to extend the backfill. The backfill is now
+complete (every game date from January 2020 through the end of 2025-26), and
+the identical arm on the completed store reads **+0.002632
+[+0.001471, +0.003779], |z| 4.47, better in 5 of 5 folds** with coverage at
+7,206/13,199 games (54.6%) and 73.6% of scored rows carrying a changed weight.
+That **clears the |z| > 3 bar on the criterion measurement** — reported as a
+signal, still not a promotion: the pre-registered season protocol (the only
+promotion path) remains null, so the canonical model is unchanged and the
+injury multiplier stays a switchable, un-promoted extension. Full numbers in
+[the injury pipeline](injury_pipeline.md#what-it-measured-37-season-protocol-null-criterion-signal).
 
 So the block keeps its measured claim and gains a **switchable** extension that
 is not promoted: the canonical model remains the 26-column frame described

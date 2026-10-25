@@ -32,17 +32,25 @@ URL constructor speaks all three, selected by the report date:
 | era | dates | cadence | label | example |
 |---|---|---|---|---|
 | 1 | Dec 2018 – 2020-21 | 2–3 snapshots/day | hour only | `Injury-Report_2019-01-15_05PM.pdf` |
-| 2 | 2021-22 – 2024-25 | hourly | hour only | `Injury-Report_2023-02-14_12AM.pdf` |
-| 3 | 2025-26 – now | every 15 minutes | hour + minute | `Injury-Report_2026-10-23_12_00AM.pdf` |
+| 2 | 2021-22 – 2025-12-21 | hourly | hour only | `Injury-Report_2023-02-14_12AM.pdf` |
+| 3 | 2025-12-22 – now | every 15 minutes | hour + minute | `Injury-Report_2026-10-23_12_00AM.pdf` |
 
 Eras 1 and 2 share a format and differ only in cadence, so the format boundary
-that matters to the URL is **2025-10-21** (2025-26 opening night); the
-**2021-10-19** boundary only changes slot density. Both are constants in the
-module; every consumer reads them from there, and a recovered PDF that proves a
-boundary wrong changes the constant once. Era 1 published only 2–3 snapshots a
-day and which slots those were is not documented, so that era probes the full
-24-hour grid and **records the absences**: an absent slot is a measurement
-("no report was published at this hour"), not a gap in the download.
+that matters to the URL is **2025-12-22**, **not** 2025-26 opening night: the
+league switched to minute-bearing filenames *mid-season*.  The 2025-12-22
+reading is empirical — during the 2025-26 backfill, every minute-era URL before
+that date (e.g. `Injury-Report_2025-12-21_05_00PM.pdf`) returned the CDN's
+403, while the matching hour-only URL returned 200 and minute-era URLs are 200
+from 2025-12-22 on.  A report before the boundary constructed with the old
+constant was therefore a 403 that burned the day's tiny request budget and was
+**silently dropped** (see [the boundary incident](#the-2025-26-boundary-incident));
+the constant was corrected and the gap re-captured.  The **2021-10-19**
+boundary only changes slot density.  Both are constants in the module; every
+consumer reads them from there, and a recovered PDF that proves a boundary
+wrong changes the constant once.  Era 1 published only 2–3 snapshots a day and
+which slots those were is not documented, so that era probes the full 24-hour
+grid and **records the absences**: an absent slot is a measurement ("no report
+was published at this hour"), not a gap in the download.
 
 Filename labels are **Eastern wall-clock**. Both the label
 (`snapshot_ts_et`) and the instant it denotes (`snapshot_ts_utc`) are stored,
@@ -154,32 +162,51 @@ smoke test cannot become a bulk download by forgetting a flag — the historical
 backfill passes `--max-requests` explicitly. Future slots are never probed (no
 PDF yet, and recording it as absent would poison resumability).
 
-Current state (2026-10-25): the store holds **503 snapshots across 306 report
-dates**, 54,400 status events and 9,142 non-row lines (titles, footers and
-anything that did not parse as a row — kept, never dropped), with ~19 MB of raw
-PDFs under `Data/injury_raw/`. The **live capture loop is running** (3-hourly
-slots) and the **historical backfill is in flight** (2021-10-19 → 2025-10-20,
-era-aware slots, budget-capped and resumable). Historical recovery beyond the
-live page goes through the Wayback CDX API (PDFs back to Dec 2018) — a single
-public service, not a CDN: use CDX only for gap discovery, politely, and
-enumerate slots deterministically via this module's own URLs. Nothing in the
-module calls CDX today.
+Current state (2026-10-26): the store holds **2,046 snapshots across 1,037
+report dates**, 237,436 status events and 40,103 non-row lines (titles, footers
+and anything that did not parse as a row — kept, never dropped), with ~32 MB of
+raw PDFs under `Data/injury_raw/`. The **live capture loop is running**
+(3-hourly slots) and the **historical backfill is complete**: every game date
+from 2020-01-01 through the end of 2025-26 has stored coverage (see the table
+below; 2019-20's October–December dates are out of scope because that layout
+does not parse). Historical recovery beyond the live page goes through the
+Wayback CDX API (PDFs back to Dec 2018) — a single public service, not a CDN:
+use CDX only for gap discovery, politely, and enumerate slots deterministically
+via this module's own URLs. Nothing in the module calls CDX today.
 
-Two seasons were backfilled completely with
-`scripts/backfill_injury_reports.py`, which walks **game dates** rather than
-calendar days (a season has ~150 game dates and ~215 calendar days, so a range
-capture spends a third of its budget recording 404s on days when no report can
-exist):
+The backfill now covers every game date from January 2020 onward.  From
+`2020-01-01` (the earliest parseable report) through the end of 2025-26, every
+season in `build_games()` has a stored snapshot for every game date — 901 of
+the 941 game dates across 2019-20 → 2025-26, with 2019-20's January-onward
+portion and its bubble covered and its October–December dates out of scope
+(the layout does not parse; see below).  The capture walks **game dates**
+rather than calendar days (a season has ~150 game dates and ~215 calendar days,
+so a range capture spends a third of its budget recording 404s on days when no
+report can exist):
 
 | season | game dates | snapshots | requests | 404s | parse failures | status events |
 |---|---|---|---|---|---|---|
-| 2021-22 | 165 | 330 | 206 | 0 | 0 | 39,524 |
+| 2019-20 (Jan–Mar + bubble) | 81 | 240 | 240 | 0 | 0 | 22,007 |
 | 2020-21 | 140 | 140 | 140 | 0 | 0 | 12,071 |
+| 2021-22 | 165 | 330 | 206 | 0 | 0 | 39,524 |
+| 2022-23 | 164 | 328 | 328 | 0 | 0 | 36,523 |
+| 2023-24 | 160 | 320 | 320 | 0 | 0 | 40,306 |
+| 2024-25 | 162 | 324 | 324 | 0 | 0 | 44,080 |
+| 2025-26 | 163 | 326 | 446† | 0 | 0 | 42,695 |
 
-The CDN serves both seasons directly — no Wayback round-trip was needed for
-either. The 2021-22 era published a 17:00 and a 20:00 report each game day;
-2020-21 published only the 17:00 slot (12:00 returns 403 for that era, so
-afternoon games are uncovered there by construction).
+† 2025-26 needed a second pass: the first leg hit the (then-wrong) minute-era
+boundary and mounted 326 requests to record 207 snapshots with the rest of the
+season silently aborted; the corrected re-run (see
+[the boundary incident](#the-2025-26-boundary-incident)) added the gap with a
+further 120 requests.  0 absences and 0 errors across every leg, and every
+aborted slot was either stored or flagged.
+
+The CDN serves all seasons directly — no Wayback round-trip was needed.  Slot
+density differs by era: 2021-22 onward published a 17:00 and a 20:00 report
+each game day; 2020-21 published only the 17:00 slot (12:00 returns 403 for
+that era, so afternoon games are uncovered there by construction); 2019-20
+regular-season dates used 13:00/17:00/20:00 and the bubble used 11:00/14:00/
+17:00, matching each era's published cadence.
 
 **A limitation, recorded rather than papered over:** the 2018-19 layout does
 not parse under the current cell grammar. A 2019-01-15 report yields 0 rows and
@@ -191,7 +218,53 @@ window begins in **January 2020**, mid-way through the 2019-20 season, and the
 parser refuses loudly before that. Extending it to the earlier layout is a
 parser job, not a capture job.
 
-## What it measured (#37): below the bar
+## The 2025-26 boundary incident
+
+The 2025-26 backfill leg finished with `0 absences, 0 errors` and a full
+TOTAL line — and yet the season had **no evidence at all for 2025-10-21 →
+2025-12-21** (56 game dates, the first nine weeks). What happened is the kind
+of genuinely silent drop this page exists to stop, so it is recorded in full.
+
+**The cause.** The minute-era filename constant was 2025-10-21 (assumed
+"2025-26 opening night").  Before the true switch the league used minute-era
+filenames only from **2025-12-22**; for earlier dates those URLs return the
+CDN's 403.  A 403 is classified as retryable, and the backfill gave each date a
+request budget of exactly its slot count.  So on every early-season date, the
+17:00 minute-era URL 403'd, the retry spent the date's second budget unit, a
+third attempt could not be funded, and `capture_days` broke with
+`budget_exhausted` — **before storing anything**: no fetch, no absence.  The
+wrapper (at the time) printed neither `budget_exhausted` nor the skipped slots,
+so the date read as a clean no-op.  56 dates × that pattern = "0 absences, 0
+errors, everything fetched".  The same mechanism quietly cost the second slot
+on 2022-12-18, 2024-02-10, 2025-03-30 and 2026-03-21: those `08PM` reports
+exist (probing them returns 200) but were never stored.
+
+**The evidence for the true boundary.** Probing the CDN directly:
+`Injury-Report_2025-11-01_05_00PM.pdf`, `2025-12-15`, `2025-12-20` and
+`2025-12-21` all return 403 while the matching hour-only `05PM` filenames
+return 200; `2025-12-22_05_00PM.pdf` (the first stored minute-era row) and
+every later date return 200.  So the league's filename format changed
+**mid-season on 2025-12-22**, not at opening night.
+
+**The fixes.**
+- `MINUTE_ERA_START` corrected to 2025-12-22; the era test now pins the two
+  dates either side of the true boundary.
+- The backfill wrapper now flags `budget_exhausted` per date, counts it in the
+  TOTAL line, and returns a nonzero exit code when any date aborted, so a
+  mid-date budget abort can never pass as a clean no-op again.  It also grants
+  each date `slots × MAX_ATTEMPTS` of headroom (still inside the run-wide
+  `--max-requests` cap) so one retry can no longer starve the rest of a date.
+- The 2025-26 gap (2025-10-21 → 2025-12-21) was re-captured as hour-only, and
+  the four lost `08PM` slots were re-captured individually.
+
+After the re-capture, 2025-26 is the one season in the store whose snapshots
+carry **two label families** (hour-only `05PM`/`08PM` before 2025-12-22,
+minute `05_00PM`/`08_00PM` after).  Both denote the same 17:00/20:00 clock
+slots and convert to UTC identically for the point-in-time gate; only the
+filename style differs.  The era-1 caveat applies equally here: an absent or
+403-dropped slot on an old date is now recorded or flagged, never silent.
+
+## What it measured (#37): season protocol null, criterion signal
 
 `scripts/issue37_injury_reports.py` turns the stored designations into a
 same-game discount on each player's expected minutes — the
@@ -238,9 +311,15 @@ The 2020-21 replication (`I37-prereg-injury-replication`, 964/1,080 covered,
 540 scored) is also null and weaker: `canonical_replace` +0.000760 (|z| 0.24),
 `e14_plus_injury` −0.000459, `canonical_plus` −0.001736, and its positive
 control is −0.001195 (|z| 0.22). A season where the known effect is invisible
-cannot contradict or confirm a smaller one; the honest reading is that both
-seasons are too small, and that the question needs the full 2019-20 → 2024-25
-span that the pipeline is still backfilling.
+cannot contradict or confirm a smaller one.  That is the honest reading of the
+**season protocol**, and it is unchanged.
+
+The full 2019-20 → 2025-26 span the two seasons were too small to answer is now
+backfilled and scored in the criterion measurement below: on the completed
+store the same injury multiplier reads **+0.002632 nats, |z| 4.47** against the
+availability block — a criterion-level signal (see next section).  The season
+protocol remains the promotion path and stays null, so the feature is not
+promoted.
 
 ### The recorded 43-column bar (criterion 4)
 
@@ -250,29 +329,53 @@ criterion asks for the literal one: the **43-column E14 frame against the
 recipe on the full 13,199-game population and reproduces the bar to
 **0.618307859** (recorded 0.618307119; drift +7.4e-07). Because E14 contains no
 availability columns, the honest reference is E14 **plus the unadjusted
-availability block**, not E14 itself:
+availability block**, not E14 itself.
+
+The measurement was run **twice**: first on the two-season store (2026-10-25,
+as recorded in `results/issue37_injury_full_frame.json`), then — pre-registered
+in `results/experiments.jsonl` as `I37-prereg-injury-full-frame-refresh`,
+written before it ran — on the completed store after the 2019-20 → 2025-26
+backfill.  Both runs share the identical frame, folds, bootstrap and seed; only
+the covered sample changed, exactly as the refresh declaration required.  The
+original result is kept and reported alongside the refresh, never replaced:
 
 | frame | log loss | delta vs E14 | 95% CI | \|z\| |
 |---|---|---|---|---|
 | E14 (43) | 0.618308 | — | — | — |
 | E14 + availability (47) | 0.614508 | +0.003799 | [+0.002296, +0.005486] | 4.67 |
-| E14 + injury (47) | 0.613690 | +0.004618 | [+0.002925, +0.006433] | 5.16 |
-| **injury vs availability** | — | **+0.000818** | **[+0.000222, +0.001422]** | **2.67** |
+| E14 + injury (47) — two-season store | 0.613690 | +0.004618 | [+0.002925, +0.006433] | 5.16 |
+| E14 + injury (47) — completed store | 0.611876 | +0.006432 | [+0.004433, +0.008541] | 6.14 |
+| injury vs availability — two-season store | — | +0.000818 | [+0.000222, +0.001422] | 2.67 |
+| **injury vs availability — completed store** | — | **+0.002632** | **[+0.001471, +0.003779]** | **4.47** |
 
-The availability control reproduces the known +0.0038 at |z| 4.67, so the frame
-and the estimator are on their recorded footing. The injury adjustment adds
-+0.0008 nats on top of it, with a CI that excludes zero and **5 of 5 folds
-better** — and |z| 2.67, below the pre-registered `|z| > 3` bar. That is the
-closest this data has come to a signal, and it is still not a promotion. Two
-caveats keep it honest: coverage is 2,108/13,199 games (16.0%), and 84% of rows
-are byte-identical between the two 47-column frames, so the measured delta is a
-diluted full-population average and the 16% of games with a report carry all of
-the difference. This arm was declared after the season result was known, in
-order to answer the criterion; it is descriptive and cannot promote.
+The availability control reproduces the known +0.0038 at |z| 4.67 on **both**
+stores, and the E14 reproduction is identical in both runs — the frame and the
+estimator are on their recorded footing throughout.  The injury adjustment over
+the availability-only frame reads:
 
-Nothing was promoted, so the canonical model is unchanged: the
-`availability_weights=` parameter exists, its default is bit-identical to the
-pre-#37 block (pinned by a test), and no experiment record claims otherwise.
+- **Two-season store:** +0.000818, CI entirely above zero, 5 of 5 folds, |z|
+  2.67 — below the `|z| > 3` bar.  Coverage was 2,108/13,199 games (16.0%) and
+  84% of scored rows were byte-identical between the arms.
+- **Completed store:** +0.002632, CI [+0.001471, +0.003779] (p_positive 1.0),
+  5 of 5 folds, **|z| 4.47 — clears the `|z| > 3` bar**.  Coverage is
+  7,206/13,199 games (54.6%) and 73.6% of scored rows now carry a changed
+  weight, so the dilution that bounded the two-season reading is largely gone.
+
+The refresh declaration's hypothesis was that the two-season reading was a real
+per-game effect: if so, the identical arm on the larger sample should keep the
+same sign.  It did — the point estimate grew 3.2× and its interval stayed clear
+of zero.  Two honest caveats on the literal prediction: the standard error
+*grew* (0.00031 → 0.00059) rather than shrinking, because the effect itself
+grew faster than its noise — the |z| climb to 4.47 is the effect outrunning
+its error, not an SE fall.  And this is the **criterion** reading: the arm was
+declared after the season protocol and can only answer criterion 4.  Per the
+refresh declaration, a `|z| > 3` criterion result is reported as a signal but
+**cannot promote** — promotion requires the pre-registered season protocol's
+rule, which remains a null (2021-22 canonical_replace +0.003868 |z| 0.96;
+2020-21 +0.000760 |z| 0.24).  No feature is promoted and the canonical model is
+unchanged.  The `availability_weights=` parameter exists, its default is
+bit-identical to the pre-#37 block (pinned by a test), and no experiment record
+claims otherwise.
 
 ## What this is for
 

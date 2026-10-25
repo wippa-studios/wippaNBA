@@ -150,12 +150,17 @@ probably a longer `--sleep`.
 
 The injury-report side of pre-game availability is being banked alongside it:
 `Data/injury.sqlite` holds the league's official designations as append-only
-evidence — **503 snapshots across 306 report dates / 54,400 status events** as of
-2026-10-25, with the live capture loop running and the historical backfill in
-flight. Two seasons (2020-21, 2021-22) are backfilled and parsed with zero
-absences and zero parse failures; the first measured use of them (issue #37) is a
-null with an uninformative interval, documented rather than promoted. Three-era
-URL handling, point-in-time semantics, the two bugs caught before damage and the
+evidence — **2,046 snapshots across 1,037 report dates / 237,436 status events**
+as of 2026-10-26, with the live capture loop running and the historical backfill
+complete: every game date from January 2020 through the end of 2025-26 is
+covered, with zero absences and zero parse failures across every leg (the
+2025-26 boundary incident is documented in the injury pipeline, as is the fix
+that surfaced its silent drops). The first measured use (issue #37) started as a
+null with an uninformative interval; with the completed store the criterion-4
+measurement now reads **+0.002632 nats, |z| 4.47** against the availability
+block — a |z| > 3 signal reported as non-promoting, because the pre-registered
+season protocol (the promotion path) stays null. Three-era URL handling,
+point-in-time semantics, the two bugs caught before damage and the
 security audit are in [docs/injury_pipeline.md](injury_pipeline.md).
 
 ## Against other repos

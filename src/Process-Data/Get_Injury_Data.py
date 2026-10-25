@@ -43,17 +43,21 @@ The URL constructor handles all three, selected by the report date:
 
   1. Dec 2018 - 2020-21   2-3 snapshots/day, hour-only label
                           e.g. Injury-Report_2019-01-15_05PM.pdf
-  2. 2021-22 - 2024-25    hourly, still hour-only
+  2. 2021-22 - 2025-12-21    hourly, still hour-only
                           e.g. Injury-Report_2023-02-14_12AM.pdf
-  3. 2025-26 - now        every 15 minutes, minute in the label
+  3. 2025-12-22 - now     every 15 minutes, minute in the label
                           e.g. Injury-Report_2026-10-23_12_00AM.pdf
 
 Era 1 and era 2 share a filename format and differ only in cadence, so the
-format boundary that matters to the URL is 2025-10-21 (2025-26 opening night);
-the 2021-10-19 boundary only affects `slots_for_date` density. The exact
-boundary dates are the two constants below. They are the best available
-approximation of when the league switched; if a recovered PDF proves a boundary
-wrong, change the constant -- every consumer reads it from there.
+format boundary that matters to the URL is 2025-12-22 (mid-way through the
+2025-26 season, not opening night); the 2021-10-19 boundary only affects
+`slots_for_date` density. The exact boundary dates are the two constants
+below. They are the best available approximation of when the league switched;
+the 2025-12-22 reading is empirical -- the CDN 403s every minute-era URL (e.g.
+``Injury-Report_2025-12-21_05_00PM.pdf``) before that date while the matching
+hour-only URL returns 200, and minute-era URLs are 200 from 2025-12-22 on. If
+a recovered PDF proves a boundary wrong, change the constant -- every consumer
+reads it from there.
 
 Era 1 published only 2-3 snapshots per day and which slots those were is not
 documented, so slot enumeration for that era deliberately probes the full
@@ -216,9 +220,11 @@ EARLIEST_REPORT_DATE = date_cls(2018, 12, 1)
 # filename format, so this boundary only affects slot enumeration density.
 HOURLY_ERA_START = date_cls(2021, 10, 19)
 
-# 2025-26 opening night: filenames start carrying MINUTES ("12_00AM"). This is
-# the filename-format boundary; below it the label is hour-only ("12AM").
-MINUTE_ERA_START = date_cls(2025, 10, 21)
+# 2025-12-22: filenames start carrying MINUTES ("12_00AM"). This is the
+# filename-format boundary; below it the label is hour-only ("12AM"). The
+# league switched MID-season, not at opening night: the first minute-era
+# report recovered is 2025-12-22 (2025-12-21 and earlier are hour-only).
+MINUTE_ERA_START = date_cls(2025, 12, 22)
 
 MINUTE_ERA = "minute"       # HH_MM + AM/PM, 15-minute cadence
 HOUR_ERA = "hour"           # HH + AM/PM, hourly or sparser
