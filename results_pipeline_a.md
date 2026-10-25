@@ -14,6 +14,7 @@ AUC is better.
 python -m src.Models.baselines        # Elo, SRS, Bradley-Terry, base rate
 python -m src.Models.logreg_rolling    # the canonical model
 python -m src.Models.gbm               # boosting, paired against the above
+python -m src.Models.nn_rolling        # feed-forward MLP, pre-registered M01
 python -m src.Models.margin_total      # margin and total, then Φ(m̂/σ)
 python -m src.Models.player_ratings    # player-level ratings
 ```
@@ -33,6 +34,7 @@ python -m src.Models.player_ratings    # player-level ratings
 | XGBoost | 0.6233 | 0.2167 | 0.7030 | 0.6562 |
 | HistGradientBoosting | 0.6236 | 0.2169 | 0.7026 | 0.6526 |
 | **logistic regression (canonical, + availability, 26 feats)** | **0.6157** | **0.2133** | **0.7141** | **0.6573** |
+| neural network (MLP, five-seed average, 26 feats) | 0.6167 | 0.2138 | 0.7122 | 0.6617 |
 | logistic regression (availability block off — the pre-#36 canonical) | 0.6196 | 0.2151 | 0.7085 | 0.6564 |
 
 **The canonical row is post-#36** (`python -m src.Models.logreg_rolling`, 6,600
@@ -62,6 +64,29 @@ figures are kept as the measurements they were: against the **pre-#36** canonica
 the same comparison read **−0.00394** [−0.00557, −0.00229] and **−0.00431**
 [−0.00601, −0.00255], and the boosters' own pooled values re-measure at 0.6235 /
 0.6236 (the XGBoost row in the table above is the earlier 0.6233 reading).
+
+**A neural network does not clear the bar either.** `python -m src.Models.nn_rolling`
+is the pre-registered **M01** arm: a feed-forward MLP (64, 32) on the **same 26
+columns**, the same five walk-forward folds and the same train-only
+`FeaturePipeline`, with the mean prediction of seeds 42–46 as the arm. The
+canonical reference reproduces at **0.615663649** (recorded 0.615663649, drift
++3.4e-10), so the comparison is on its recorded footing. The MLP reaches
+**0.6167** (Brier 0.2138, AUC 0.7122, accuracy 0.6617): accuracy is the one
+metric that ticks up, and accuracy is not the judge. Δ = **−0.00099** nats,
+CI [−0.00295, +0.00084], **|z| 1.03**, better in 2/5 folds. The interval includes
+zero, so this is not evidence of a difference in either direction — and it is
+certainly not an improvement.
+
+The per-seed rows are the informative part: every individual seed is **worse**
+than the canonical model (−0.00499 to −0.00903, |z| 3.02–5.05), and the five-seed
+average is better than any of them (seed delta sd 0.00154). Seed averaging is
+cancelling variance, not creating signal; the pre-registered arm is the average,
+so the average is the decision. The descriptive sensitivity grid agrees: one
+hidden layer of 32 (−0.00507), 128/64 (−0.00521) and stronger L2 (−0.00674) all
+lose, and dropping early stopping diverges (log loss 1.18). Those configurations
+cannot promote. This arm tests one MLP, not every neural architecture; the legacy
+Keras trainers were never wired to this frame. Full output:
+[`results/nn_rolling.md`](results/nn_rolling.md).
 
 **Margin and total do not pay either.** Φ(m̂/σ) reaches 0.6204, indistinguishable
 from fitting the label directly (Δ +0.0006, CI [−0.0026, +0.0038]); its value is the
