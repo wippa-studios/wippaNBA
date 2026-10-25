@@ -44,7 +44,7 @@ A fork of [kyleskom/NBA-Machine-Learning-Sports-Betting](https://github.com/kyle
 | **The biggest-looking win was a leak** | A per-player Elo block measured \|z\| = 5.18 and was leaking the real lineup. On a pre-game roster it is +0.00065 and does not earn its place. |
 | **The simplest sensible model wins** | Logistic regression (log loss **0.6157**) still leads XGBoost, HistGradientBoosting, random forest, Gaussian NB, a five-seed neural network and margin/total models. Every run is logged in `results/experiments.jsonl`. |
 | **The close absorbs everything our model knows** | Price + model loses to price alone by 0.00177 nats (\|z\| 3.15). Availability beyond price + model is a tight null. |
-| **The null is the field's finding too** | Of ~45 public NBA repos surveyed, accuracy tops out at 65–69%, and only two say plainly that they lose to the market. |
+| **The null is the field's finding too** | Of ~45 public NBA repos surveyed, accuracy tops out at 65–69%, and only two say plainly that they lose to the market. The external literature agrees: an independent leak-aware pipeline lands at log loss ~0.597 (≈ this project's market number) and loses −7.0% betting; a 9,093-game study found the bookmaker's implied accuracy (69%) beats its best model (67%). Quotes and links in [the research-notes page](docs/research_links.md). |
 | **Do not use the committed model files** | They were trained on the leaked dataset and must be retrained. |
 
 ---
@@ -401,6 +401,7 @@ pytest Tests/                  # or: python -m unittest discover -s Tests -t .
 | [The feature search](feature_search.md) | Four pre-registered candidates and the fold-count artifact |
 | [Modelling exploration](modeling_exploration.md) | Nine further candidate blocks, all scored, all null |
 | [Survey of ~45 public NBA repos](repo_survey.md) | The field's accuracy ceiling and how honestly it is reported |
+| [The research links, assessed](research_links.md) | 38 external papers/posts triaged against the measured results: independent corroboration, three cheaply testable ideas, and the leak classes that repeat in print |
 | [The test suite](test_suite.md) | What each test file protects |
 | [The feature-order contract](feature_order_contract.md) | How training and inference agree on column order |
 | [`/games` Flask route](flask_games_route.md) | The three upstream traps it absorbs |
