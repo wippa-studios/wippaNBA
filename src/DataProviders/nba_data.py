@@ -528,7 +528,8 @@ def _ewm_by_player(df: pd.DataFrame, value: str, halflife: float) -> pd.Series:
     return out.reindex(s.index)
 
 
-def availability_features(games: pd.DataFrame, halflife: float = 15.0) -> pd.DataFrame:
+def availability_features(games: pd.DataFrame, halflife: float = 15.0,
+                          weights: pd.DataFrame | None = None) -> pd.DataFrame:
     """Player-level EXPECTED minutes, summed over a roster known before tip-off.
 
     WHY THIS EXISTS
@@ -564,6 +565,15 @@ def availability_features(games: pd.DataFrame, halflife: float = 15.0) -> pd.Dat
 
     Verified causal: truncating 9,199 future games changes every column here by
     0.000e+00, NaN pattern included.
+
+    ``weights`` (optional) is a ``(GAME_ID, PLAYER_ID, weight)`` frame whose
+    multiplier discounts a squad member's expected minutes for the game being
+    predicted. It exists so an official pre-tip designation (issue #37) can
+    replace the prior-game minutes of a player who is ruled out *tonight*
+    without duplicating this causal construction. Players absent from the frame
+    default to 1.0. The default ``None`` is the exact pre-#37 block, and a test
+    asserts that. A weight is a same-game fact known before tip, like a rest
+    day: it never reads who actually played.
     """
     pm = player_minutes(games)
     pm["expected_min"] = _ewm_by_player(pm, "MIN", halflife)
@@ -610,6 +620,22 @@ def availability_features(games: pd.DataFrame, halflife: float = 15.0) -> pd.Dat
         left_on="GAME_DATE", right_on="GAME_DATE", by="PLAYER_ID",
         direction="backward", allow_exact_matches=False,
     )
+    asof = asof.dropna(subset=["expected_min"]).copy()
+    if weights is not None:
+        # Same-game discount, joined by (GAME_ID, PLAYER_ID) so it applies only
+        # to the squad that was expected to play. `validate="many_to_one"` is
+        # the contract: one weight per player per game, or the totals would
+        # silently double-count. An uncovered game has no row and keeps 1.0.
+        w = weights[["GAME_ID", "PLAYER_ID", "weight"]].copy()
+        if w.duplicated(["GAME_ID", "PLAYER_ID"]).any():
+            raise ValueError("weights has more than one row per (GAME_ID, PLAYER_ID)")
+        w["PLAYER_ID"] = w["PLAYER_ID"].astype("int64")
+        asof = asof.merge(w, on=["GAME_ID", "PLAYER_ID"], how="left",
+                          validate="many_to_one")
+        if not asof["weight"].dropna().between(0.0, 1.0).all():
+            raise ValueError("weights must lie in [0, 1]")
+        asof["weight"] = asof["weight"].fillna(1.0)
+        asof["expected_min"] = asof["expected_min"] * asof["weight"]
     totals = (asof.dropna(subset=["expected_min"])
               .groupby(["GAME_ID", "TEAM_ABBREVIATION"], as_index=False)["expected_min"]
               .sum())
@@ -1102,6 +1128,18 @@ def _asof_roster(team_games: pd.DataFrame, appearances: pd.DataFrame,
                        f"all_prior, prev_game, top_minutes, confirmed")
     if roster == "all_prior":
         return r
+
+    if roster == "confirmed":
+        # There is no timestamped pre-tip lineup archive in this project, and
+        # silently substituting the top-minutes proxy would publish a
+        # "confirmed lineup" number that is not one. Issue #38 owns the capture
+        # and the separate prediction point; until that exists, this is a hard
+        # error rather than a fallback.
+        raise NotImplementedError(
+            "roster='confirmed' needs a timestamped pre-tip starting-lineup "
+            "archive; none is checked in or downloadable historically. "
+            "Capturing one forward is issue #38 - do not substitute "
+            "roster='top_minutes' and call it confirmed.")
 
     r = r.sort_values(["team", "GAME_DATE", "GAME_ID"])
     if roster == "prev_game":

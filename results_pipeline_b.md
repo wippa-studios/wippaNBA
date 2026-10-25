@@ -150,10 +150,13 @@ probably a longer `--sleep`.
 
 The injury-report side of pre-game availability is being banked alongside it:
 `Data/injury.sqlite` holds the league's official designations as append-only
-evidence — **119 snapshots / 7,996 status events** as of 2026-10-23, with the live
-capture loop running and the historical backfill in flight. Three-era URL handling,
-point-in-time semantics, the two bugs caught before damage and the security audit are
-in [docs/injury_pipeline.md](injury_pipeline.md).
+evidence — **503 snapshots across 306 report dates / 54,400 status events** as of
+2026-10-25, with the live capture loop running and the historical backfill in
+flight. Two seasons (2020-21, 2021-22) are backfilled and parsed with zero
+absences and zero parse failures; the first measured use of them (issue #37) is a
+null with an uninformative interval, documented rather than promoted. Three-era
+URL handling, point-in-time semantics, the two bugs caught before damage and the
+security audit are in [docs/injury_pipeline.md](injury_pipeline.md).
 
 ## Against other repos
 

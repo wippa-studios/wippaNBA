@@ -92,6 +92,39 @@ designed so nothing measured before it moves:
   against the 43-column bar in
   [the swarm section](../README.md#the-agent-swarm).
 
+## Issue #37: the measured injury extension
+
+The block predicts availability from trailing minutes, and knows nothing about
+tonight's designations. Issue #37 wired the official pre-tip injury report into
+it as a **same-game multiplier** — `availability_features(..., weights=w)` with
+one `(GAME_ID, PLAYER_ID, weight)` row per designated player, `Out` = 0,
+`Doubtful` = 0.25, `Questionable` = 0.5, `Probable` = 0.75, `Available` = 1.
+The squad, the 15-game player halflife and the causality are the block's own;
+only the multiplier is new, and `weights=None` is bit-identical to the pre-#37
+block (pinned by a test). The measurement protocol and the coverage numbers are
+in [the injury pipeline](injury_pipeline.md#what-it-measured-37-below-the-bar).
+
+The result is a **null with a wide interval**, not a refutation. On the 2021-22
+season (615 scored games) the replacement arm is +0.003868
+[−0.004013, +0.011707], |z| 0.96; on 2020-21 it is +0.000760, |z| 0.24. The
+reason to read neither as evidence against the mechanism is the positive
+control: the known +0.0038 availability effect itself measures +0.0048 at
+|z| 0.92 on the 2021-22 subset and −0.0012 on 2020-21. A subset that cannot see
+the established effect cannot resolve a smaller one. With an SE of 0.0040, the
+`|z| > 3` bar needs ~6,000 scored games.
+
+Scored on the full 6,600-row sample against the availability-only frame, the
+adjustment is **+0.000818 [+0.000222, +0.001422], |z| 2.67, better in 5 of 5
+folds** — the closest this has come to a signal, and still below the bar. That
+is a reason to extend the backfill, not to promote the column.
+
+So the block keeps its measured claim and gains a **switchable** extension that
+is not promoted: the canonical model remains the 26-column frame described
+above. The useful transferable finding is the identity-resolution and
+point-in-time machinery — 98.9% of 39,524 designations resolve to a player from
+the report's own team cell, and a 15-minute pre-tip gate leaves 93% of games
+covered — which is what a larger sample would be scored on.
+
 ## The honest boundary
 
 The block improves **forecasting**: +0.0039 nats at |z| = 4.78, three
@@ -107,7 +140,7 @@ nats at |z| = 7.28.
 ## Where the data comes from
 
 The block reads trailing player logs and the prior game's participants; the
-injury-designation side of "who is available" is a separate, newer system
-under active construction — [the injury pipeline](injury_pipeline.md) — and is
-not what this block measures. The block's signal is minutes **expectation**,
-not designation status.
+injury-designation side of "who is available" is implemented as an optional
+same-game multiplier on top of it ([the injury pipeline](injury_pipeline.md))
+but is **not** part of the canonical block's measured claim. The block's signal
+is minutes **expectation**, not designation status.

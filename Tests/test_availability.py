@@ -194,5 +194,19 @@ class TestSignConvention(unittest.TestCase):
         self.assertGreater(d["delta"], 0.0)
 
 
+class TestConfirmedRosterIsNotProxied(unittest.TestCase):
+    """Issue #38: 'confirmed' means a filed lineup, not the best five guess.
+
+    The branch used to fall through to the top-minutes proxy. That would have
+    printed a "confirmed lineup" number that no one filed, at a prediction
+    point the model was not evaluated at. A missing archive must fail loudly.
+    """
+
+    def test_confirmed_roster_raises(self):
+        games = nd.build_games().head(200)
+        with self.assertRaises(NotImplementedError):
+            nd.player_elo_features(games, roster_mode="confirmed")
+
+
 if __name__ == "__main__":
     unittest.main()

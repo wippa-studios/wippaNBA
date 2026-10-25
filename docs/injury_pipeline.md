@@ -154,21 +154,131 @@ smoke test cannot become a bulk download by forgetting a flag — the historical
 backfill passes `--max-requests` explicitly. Future slots are never probed (no
 PDF yet, and recording it as absent would poison resumability).
 
-Current state (2026-10-23): the store holds **119 snapshots / 7,996 status
-events**, with 1,677 non-row lines recorded (titles, footers and anything that
-did not parse as a row — kept, never dropped) and raw PDFs under
-`Data/injury_raw/` across 44 date directories — and growing. The **live capture
-loop is running** (3-hourly slots) and the **historical backfill is launched** and in
-flight (2021-10-19 → 2025-10-20, era-aware slots, budget-capped and resumable).
-Historical recovery beyond the live page goes through the Wayback
-CDX API (PDFs back to Dec 2018) — a single public service, not a CDN: use CDX
-only for gap discovery, politely, and enumerate slots deterministically via
-this module's own URLs. Nothing in the module calls CDX today.
+Current state (2026-10-25): the store holds **503 snapshots across 306 report
+dates**, 54,400 status events and 9,142 non-row lines (titles, footers and
+anything that did not parse as a row — kept, never dropped), with ~19 MB of raw
+PDFs under `Data/injury_raw/`. The **live capture loop is running** (3-hourly
+slots) and the **historical backfill is in flight** (2021-10-19 → 2025-10-20,
+era-aware slots, budget-capped and resumable). Historical recovery beyond the
+live page goes through the Wayback CDX API (PDFs back to Dec 2018) — a single
+public service, not a CDN: use CDX only for gap discovery, politely, and
+enumerate slots deterministically via this module's own URLs. Nothing in the
+module calls CDX today.
+
+Two seasons were backfilled completely with
+`scripts/backfill_injury_reports.py`, which walks **game dates** rather than
+calendar days (a season has ~150 game dates and ~215 calendar days, so a range
+capture spends a third of its budget recording 404s on days when no report can
+exist):
+
+| season | game dates | snapshots | requests | 404s | parse failures | status events |
+|---|---|---|---|---|---|---|
+| 2021-22 | 165 | 330 | 206 | 0 | 0 | 39,524 |
+| 2020-21 | 140 | 140 | 140 | 0 | 0 | 12,071 |
+
+The CDN serves both seasons directly — no Wayback round-trip was needed for
+either. The 2021-22 era published a 17:00 and a 20:00 report each game day;
+2020-21 published only the 17:00 slot (12:00 returns 403 for that era, so
+afternoon games are uncovered there by construction).
+
+**A limitation, recorded rather than papered over:** the 2018-19 layout does
+not parse under the current cell grammar. A 2019-01-15 report yields 0 rows and
+94 line-shaped rejections, all `missing required cell(s): Current Status` — the
+era printed a different column set, and the header guard reports it instead of
+mis-attributing statuses. The layout changed for the better somewhere between
+2019-12-15 (still 0 rows) and 2020-01-05 (117 rows, 0 unparsed), so the usable
+window begins in **January 2020**, mid-way through the 2019-20 season, and the
+parser refuses loudly before that. Extending it to the earlier layout is a
+parser job, not a capture job.
+
+## What it measured (#37): below the bar
+
+`scripts/issue37_injury_reports.py` turns the stored designations into a
+same-game discount on each player's expected minutes — the
+`(GAME_ID, PLAYER_ID, weight)` multiplier that `availability_features` accepts
+— and scores three pre-registered arms (`results/experiments.jsonl`:
+`I37-prereg-injury`). It is **not** a re-implementation of the availability
+block: the squad, the halflife and the causality stay the block's own, and only
+the multiplier changes.
+
+Design: 2021-22, within-season 5-fold walk-forward, the latest report labelled
+at least 15 minutes before that game's tip, positive delta =
+`loss(reference) − loss(candidate)`, promotion at `|z| > 3` over three arms.
+Coverage is reported before any score: **1,144 of 1,230 games (93.0%)** have a
+usable pre-tip snapshot, 98.9% of the 39,524 events resolve to a player, and
+2,097 of the 11,327 designations land on a player who was on that team's
+prior-game squad (the only ones that can move the feature).
+
+| arm | delta | 95% CI | z | covered-only delta |
+|---|---|---|---|---|
+| `e14_plus_injury` | +0.004619 | [−0.008980, +0.018293] | 0.66 | +0.002302 |
+| `canonical_replace` | +0.003868 | [−0.004013, +0.011707] | 0.96 | +0.004068 |
+| `canonical_plus` | +0.001235 | [−0.008067, +0.010219] | 0.26 | +0.001033 |
+| positive control (availability block) | +0.004801 | [−0.005338, +0.015063] | 0.92 | — |
+
+**Verdict for the season protocol: null, not promoted.** But the reason is
+power, not evidence against the feature, and the positive control is what
+proves it: the *known* +0.0038
+availability effect measures +0.0048 at |z| 0.92 on this same 615-row subset.
+The delta's standard error is 0.0040, so detecting a 0.004-nat effect at |z| > 3
+would need roughly 6,000 scored games — the availability effect itself only
+reached |z| 4.78 on the full 13,199-game frame. A 615-row season subset cannot
+answer this question at this bar by construction.
+
+The within-game placebo makes the same point from the other side: shuffling
+which designated player receives which weight yields a delta distribution with
+mean +0.004379 and sd 0.001313, and the true assignment (+0.003868) beats only
+**65% of the 20 shuffles**. Merely making the column vary within a game buys as
+much as knowing *which* player is designated, which is what an underpowered
+column looks like. The 30-minute buffer changes nothing (1,144 covered, same
+delta): in that era the only usable slots are 17:00 and 20:00, and the games
+that lose the 17:00 report at a 30-minute buffer had already lost it at 15.
+
+The 2020-21 replication (`I37-prereg-injury-replication`, 964/1,080 covered,
+540 scored) is also null and weaker: `canonical_replace` +0.000760 (|z| 0.24),
+`e14_plus_injury` −0.000459, `canonical_plus` −0.001736, and its positive
+control is −0.001195 (|z| 0.22). A season where the known effect is invisible
+cannot contradict or confirm a smaller one; the honest reading is that both
+seasons are too small, and that the question needs the full 2019-20 → 2024-25
+span that the pipeline is still backfilling.
+
+### The recorded 43-column bar (criterion 4)
+
+The season protocol answers a better-powered question, but the issue's fourth
+criterion asks for the literal one: the **43-column E14 frame against the
+0.61831 baseline**. `scripts/issue37_full_frame.py` runs exactly the recorded
+recipe on the full 13,199-game population and reproduces the bar to
+**0.618307859** (recorded 0.618307119; drift +7.4e-07). Because E14 contains no
+availability columns, the honest reference is E14 **plus the unadjusted
+availability block**, not E14 itself:
+
+| frame | log loss | delta vs E14 | 95% CI | \|z\| |
+|---|---|---|---|---|
+| E14 (43) | 0.618308 | — | — | — |
+| E14 + availability (47) | 0.614508 | +0.003799 | [+0.002296, +0.005486] | 4.67 |
+| E14 + injury (47) | 0.613690 | +0.004618 | [+0.002925, +0.006433] | 5.16 |
+| **injury vs availability** | — | **+0.000818** | **[+0.000222, +0.001422]** | **2.67** |
+
+The availability control reproduces the known +0.0038 at |z| 4.67, so the frame
+and the estimator are on their recorded footing. The injury adjustment adds
++0.0008 nats on top of it, with a CI that excludes zero and **5 of 5 folds
+better** — and |z| 2.67, below the pre-registered `|z| > 3` bar. That is the
+closest this data has come to a signal, and it is still not a promotion. Two
+caveats keep it honest: coverage is 2,108/13,199 games (16.0%), and 84% of rows
+are byte-identical between the two 47-column frames, so the measured delta is a
+diluted full-population average and the 16% of games with a report carry all of
+the difference. This arm was declared after the season result was known, in
+order to answer the criterion; it is descriptive and cannot promote.
+
+Nothing was promoted, so the canonical model is unchanged: the
+`availability_weights=` parameter exists, its default is bit-identical to the
+pre-#37 block (pinned by a test), and no experiment record claims otherwise.
 
 ## What this is for
 
-Point-in-time designations are the input a future availability feature would
-read (see [the availability block](availability_block.md) for what is measured
-today and where its boundary is). This pipeline banks the evidence now,
-append-only, so that the question can be asked later against data that did not
-exist when the question was first asked.
+Point-in-time designations are the input the availability feature reads (see
+[the availability block](availability_block.md) for what is measured today and
+where its boundary is). The first use is measured above and comes back null
+with an uninformative-interval caveat; the pipeline keeps banking evidence
+append-only, so the question can be asked again on a sample that can actually
+answer it.
