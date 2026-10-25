@@ -1265,6 +1265,71 @@ def rest_and_travel(games: pd.DataFrame) -> pd.DataFrame:
     return out
 
 
+def streak_features(games: pd.DataFrame) -> pd.DataFrame:
+    """Entering win/loss streaks from past results (issue #60).
+
+    For each team and game, the streak ENTERING that game -- how many of the
+    team's games STRICTLY BEFORE it, counting back in chronological order, were
+    wins (and, separately, losses).  A first appearance or a **SEASON change**
+    resets the counter to 0: the off-season is not momentum, exactly as it is
+    not travel.  The streak for game t uses only that team's games with earlier
+    dates, so it is known before tip-off and is truncation-invariant.
+
+    Returns four integer columns aligned row-for-row with ``games``:
+    ``home_streak_enter`` / ``away_streak_enter`` (win streaks) and
+    ``home_loss_streak_enter`` / ``away_loss_streak_enter`` (loss streaks).
+    The momentum brackets of issue #60 (>=2/3/4/6 indicators) are derived from
+    these in ``logreg_rolling.momentum_brackets``.
+    """
+    g = games.reset_index(drop=True)
+    g["gid"] = range(len(g))
+    long = pd.concat([
+        g[["GAME_ID", "GAME_DATE", "SEASON", "gid", "home", "away",
+           "home_pts", "away_pts"]].assign(team=lambda d: d["home"]),
+        g[["GAME_ID", "GAME_DATE", "SEASON", "gid", "home", "away",
+           "home_pts", "away_pts"]].assign(team=lambda d: d["away"]),
+    ], ignore_index=True)
+    long["won"] = ((long["team"] == long["home"])
+                   & (long["home_pts"] > long["away_pts"])) | (
+        (long["team"] != long["home"])
+        & (long["away_pts"] > long["home_pts"]))
+    long = long.sort_values(["team", "GAME_DATE"])
+
+    win_enter: dict[int, int] = {}
+    loss_enter: dict[int, int] = {}
+    for _team, grp in long.groupby("team", sort=False):
+        w = 0
+        l = 0
+        prev_season = None
+        for i in grp.index:
+            if grp.loc[i, "SEASON"] != prev_season:
+                w = 0
+                l = 0
+            prev_season = grp.loc[i, "SEASON"]
+            win_enter[i] = w
+            loss_enter[i] = l
+            if bool(grp.loc[i, "won"]):
+                w += 1
+                l = 0
+            else:
+                l += 1
+                w = 0
+
+    # Map by LABEL, not position: `long` was sorted in place, so a positional
+    # assignment would leak one team's streaks onto another's rows.
+    long["win_enter"] = long.index.map(win_enter)
+    long["loss_enter"] = long.index.map(loss_enter)
+    h = long[long["team"] == long["home"]].set_index("gid")
+    a = long[long["team"] != long["home"]].set_index("gid")
+
+    out = pd.DataFrame(index=g.index)
+    out["home_streak_enter"] = h["win_enter"].reindex(g.index).astype(float)
+    out["away_streak_enter"] = a["win_enter"].reindex(g.index).astype(float)
+    out["home_loss_streak_enter"] = h["loss_enter"].reindex(g.index).astype(float)
+    out["away_loss_streak_enter"] = a["loss_enter"].reindex(g.index).astype(float)
+    return out
+
+
 # --------------------------------------------------------------------------- #
 # Validation + evaluation
 # --------------------------------------------------------------------------- #
