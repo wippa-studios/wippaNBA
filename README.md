@@ -119,6 +119,8 @@ All models scored on the same 6,600 walk-forward test rows across five splits. L
 
 Boosting loses significantly to the canonical model (XGBoost Δ −0.00785, CI [−0.01038, −0.00533]). Player ratings, rank columns, recency weighting and the rebound block are all nulls. [Full comparison and experiment log →](results_pipeline_a.md)
 
+The older player-ratings null was measured on a **proxy**, not on RAPM: no stint design existed when it was written. True RAPM has since been fitted on the 2020-21 rotation file — 728 downloaded games, 724 usable after the five-players-per-side and `PT_DIFF` checks, 46,108 stint rows — and scored walk-forward on 362 test games. It reaches 0.6594 log loss, against 0.6682 for the same-season 43-column frame (Δ +0.0088, 95% CI [−0.0264, +0.0470], |z| 0.47) and 0.6516 for the same-season canonical model (Δ −0.0078, CI [−0.0364, +0.0204], |z| 0.54). That is still a null/inconclusive result, but it is now a null for RAPM on one season rather than a null for a proxy. The full backfill (#34) remains open.
+
 ### Model against the market (Pipeline B)
 
 | scorer | log loss ↓ | Brier ↓ | AUC ↑ | accuracy |

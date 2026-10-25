@@ -609,12 +609,15 @@ and honest uncertainty, not closing the gap.
   lists, and play-by-play are absent, so any idea depending on them is untested and untestable
   from here. A referee effect is the classic small-but-real NBA signal and it is the most
   notable missing table.
-- **Rotation-level stints.** `rotations/` has 2015-16 only, 1,652 rows, because the endpoint
-  failed after 25 consecutive errors. True RAPM needs per-stint on/off splits and **has never
-  been run on this data** — `src/Models/player_ratings.py` is explicit that its plus-minus
-  model "needs `GameRotation` to build the design matrix" and is "not true RAPM". The RAPM
-  null in the README is a null for a *proxy*, not for RAPM. Re-running the rotations stage
-  would be the single largest change to what is knowable here.
+- **Rotation-level stints.** The backfill is still incomplete: `rotations/` holds 2020-21
+  (728 downloaded games, 46,330 stint rows, 724 usable) plus 26 stalled 2015-16 games, against
+  1,080 games in the 2020-21 schedule. True RAPM **has now been run** on the usable 2020-21
+  games (`scripts/issue39_rapm.py`, `src/Models/rapm.py`), walk-forward over 362 test games.
+  It is a null/inconclusive result at this sample size: 0.6594 log loss vs 0.6682 for the
+  same-season 43-column frame (|z| 0.47) and 0.6516 for the same-season canonical model
+  (|z| 0.54). That replaces the old "null for a proxy" statement with a measured RAPM null on
+  one season; completing the backfill (#34) is still the largest change to what is knowable
+  from player-level data here.
 - **`winprob/`** — empty, same endpoint failure.
 - **Confirmed starting lineups.** `player_elo_features` names `roster="confirmed"` as a mode
   and then documents that it is not computable from this dataset. Whether a lineup-confirmed

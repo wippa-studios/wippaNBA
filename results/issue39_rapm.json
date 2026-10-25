@@ -1,0 +1,598 @@
+{
+  "alpha_grid": [
+    30.0,
+    100.0,
+    300.0,
+    1000.0,
+    3000.0,
+    10000.0,
+    30000.0,
+    100000.0,
+    300000.0,
+    1000000.0
+  ],
+  "delta_vs_canonical": {
+    "abs_z": 0.53659435696805,
+    "bootstrap_seed": 42,
+    "ci_hi": 0.02041561376499449,
+    "ci_lo": -0.036365076133916985,
+    "delta_candidate_minus_reference": -0.007772642197639512,
+    "n_boot": 2000,
+    "p_positive": 0.3045,
+    "se": 0.014485135925688297,
+    "z": -0.53659435696805
+  },
+  "delta_vs_e14": {
+    "abs_z": 0.4693861518769017,
+    "bootstrap_seed": 42,
+    "ci_hi": 0.04698720502520218,
+    "ci_lo": -0.026418897042187316,
+    "delta_candidate_minus_reference": 0.008789908328340479,
+    "n_boot": 2000,
+    "p_positive": 0.6685,
+    "se": 0.018726390399872013,
+    "z": 0.4693861518769017
+  },
+  "descriptive_full_season_fit": {
+    "alpha": 100000.0,
+    "bottom_10": [
+      {
+        "name": "Danuel House Jr.",
+        "player_id": 1627863,
+        "rapm_per_48": -8.847183358528778
+      },
+      {
+        "name": "Kyle Lowry",
+        "player_id": 200768,
+        "rapm_per_48": -7.55606993084906
+      },
+      {
+        "name": "Tyrese Maxey",
+        "player_id": 1630178,
+        "rapm_per_48": -7.12249847732964
+      },
+      {
+        "name": "Glenn Robinson III",
+        "player_id": 203922,
+        "rapm_per_48": -6.434574230581979
+      },
+      {
+        "name": "Trey Lyles",
+        "player_id": 1626168,
+        "rapm_per_48": -5.685633703100019
+      },
+      {
+        "name": "Justin Patton",
+        "player_id": 1628383,
+        "rapm_per_48": -5.639095732798921
+      },
+      {
+        "name": "Killian Hayes",
+        "player_id": 1630165,
+        "rapm_per_48": -5.225730348026199
+      },
+      {
+        "name": "Darius Bazley",
+        "player_id": 1629647,
+        "rapm_per_48": -5.076810918200347
+      },
+      {
+        "name": "KZ Okpala",
+        "player_id": 1629644,
+        "rapm_per_48": -4.7629821329495625
+      },
+      {
+        "name": "Isaac Okoro",
+        "player_id": 1630171,
+        "rapm_per_48": -4.694402213568666
+      }
+    ],
+    "home_points_per_48": 1.564378046779688,
+    "note": "descriptive only; the scored numbers use walk-forward fits and never these coefficients",
+    "theta_sd": 2.3832330625746874,
+    "top_10": [
+      {
+        "name": "Bruce Brown",
+        "player_id": 1628971,
+        "rapm_per_48": 6.655247930416179
+      },
+      {
+        "name": "Paul George",
+        "player_id": 202331,
+        "rapm_per_48": 6.450533076138446
+      },
+      {
+        "name": "Aaron Holiday",
+        "player_id": 1628988,
+        "rapm_per_48": 6.386183155678055
+      },
+      {
+        "name": "Christian Wood",
+        "player_id": 1626174,
+        "rapm_per_48": 6.28204240825696
+      },
+      {
+        "name": "Draymond Green",
+        "player_id": 203110,
+        "rapm_per_48": 5.979941154224401
+      },
+      {
+        "name": "Nicolo Melli",
+        "player_id": 1629740,
+        "rapm_per_48": 5.639378526264434
+      },
+      {
+        "name": "Garrett Temple",
+        "player_id": 202066,
+        "rapm_per_48": 5.512769724108167
+      },
+      {
+        "name": "Ben Simmons",
+        "player_id": 1627732,
+        "rapm_per_48": 5.24003501540673
+      },
+      {
+        "name": "DeAndre' Bembry",
+        "player_id": 1627761,
+        "rapm_per_48": 5.030534947118092
+      },
+      {
+        "name": "Clint Capela",
+        "player_id": 203991,
+        "rapm_per_48": 5.0106855743952545
+      }
+    ]
+  },
+  "design": {
+    "empty_game_examples": [
+      "0022000511",
+      "0022000521",
+      "0022000526",
+      "0022000611",
+      "0022000612"
+    ],
+    "games_in_frame": 1080,
+    "games_skipped_empty": 352,
+    "games_skipped_partial": 4,
+    "games_used": 724,
+    "intervals": 21492,
+    "partial_game_examples": [
+      "0022000447",
+      "0022000451",
+      "0022000586",
+      "0022000637"
+    ],
+    "players": 521,
+    "stint_rows_used": 46108
+  },
+  "generated_utc": "2026-10-25T09:29:43.295156+00:00",
+  "issue": 39,
+  "metrics": {
+    "canonical_same_season": {
+      "accuracy": 0.6187845303867403,
+      "auc": 0.6541666666666667,
+      "brier": 0.23016056804644253,
+      "log_loss": 0.6516088001434651,
+      "n": 362
+    },
+    "e14_same_season": {
+      "accuracy": 0.6187845303867403,
+      "auc": 0.6499691358024693,
+      "brier": 0.23523806086471152,
+      "log_loss": 0.6681713506694451,
+      "n": 362
+    },
+    "rapm": {
+      "accuracy": 0.5994475138121547,
+      "auc": 0.6443518518518518,
+      "brier": 0.23331340627724123,
+      "log_loss": 0.6593814423411046,
+      "n": 362
+    }
+  },
+  "n_scored": 362,
+  "per_fold_vs_canonical": {
+    "fold_0": {
+      "delta": -0.045760256368211905,
+      "n": 72
+    },
+    "fold_1": {
+      "delta": -0.036938073207306354,
+      "n": 72
+    },
+    "fold_2": {
+      "delta": 0.014298033709397528,
+      "n": 73
+    },
+    "fold_3": {
+      "delta": -0.012038294237481373,
+      "n": 72
+    },
+    "fold_4": {
+      "delta": 0.04059704079732129,
+      "n": 73
+    },
+    "fold_delta_sd": 0.035841409439817146,
+    "n_folds": 5,
+    "n_folds_candidate_better": 2,
+    "pooled_mean": -0.007968309861256162
+  },
+  "per_fold_vs_e14": {
+    "fold_0": {
+      "delta": -0.009472049115432424,
+      "n": 72
+    },
+    "fold_1": {
+      "delta": -0.016567819277858664,
+      "n": 72
+    },
+    "fold_2": {
+      "delta": 0.03339229487380202,
+      "n": 73
+    },
+    "fold_3": {
+      "delta": -1.65937824611051e-05,
+      "n": 72
+    },
+    "fold_4": {
+      "delta": 0.035895541996244784,
+      "n": 73
+    },
+    "fold_delta_sd": 0.024464042828066992,
+    "n_folds": 5,
+    "n_folds_candidate_better": 2,
+    "pooled_mean": 0.008646274938858922
+  },
+  "protocol_ref": "I39-prereg-true-rapm",
+  "runtime_seconds": 96.4,
+  "selected_alphas": [
+    100000.0,
+    100000.0,
+    300000.0,
+    100000.0,
+    100000.0
+  ],
+  "split_table": [
+    {
+      "alpha_grid": [
+        {
+          "alpha": 30.0,
+          "inner_log_loss": 0.7100264846362865,
+          "n_inner_validation": 73
+        },
+        {
+          "alpha": 100.0,
+          "inner_log_loss": 0.7045818716396638,
+          "n_inner_validation": 73
+        },
+        {
+          "alpha": 300.0,
+          "inner_log_loss": 0.700808086120852,
+          "n_inner_validation": 73
+        },
+        {
+          "alpha": 1000.0,
+          "inner_log_loss": 0.6970617504551685,
+          "n_inner_validation": 73
+        },
+        {
+          "alpha": 3000.0,
+          "inner_log_loss": 0.6938681800046115,
+          "n_inner_validation": 73
+        },
+        {
+          "alpha": 10000.0,
+          "inner_log_loss": 0.6914742745368406,
+          "n_inner_validation": 73
+        },
+        {
+          "alpha": 30000.0,
+          "inner_log_loss": 0.6903380009511899,
+          "n_inner_validation": 73
+        },
+        {
+          "alpha": 100000.0,
+          "inner_log_loss": 0.6896729831338557,
+          "n_inner_validation": 73
+        },
+        {
+          "alpha": 300000.0,
+          "inner_log_loss": 0.6901057263779979,
+          "n_inner_validation": 73
+        },
+        {
+          "alpha": 1000000.0,
+          "inner_log_loss": 0.6917323135996738,
+          "n_inner_validation": 73
+        }
+      ],
+      "calibration_a": 0.32955101212984345,
+      "calibration_b": -0.6351616212337411,
+      "home_points_per_48": 1.5238046850157698,
+      "inner_log_loss": 0.6896729831338557,
+      "n_players": 521,
+      "n_stints_train": 23392,
+      "n_test": 72,
+      "n_train": 362,
+      "selected_alpha": 100000.0,
+      "split": 1,
+      "test_log_loss": 0.6913060006023853,
+      "theta_max": 6.513406676967994,
+      "theta_min": -6.419613349942226,
+      "theta_sd": 1.8896095392312804
+    },
+    {
+      "alpha_grid": [
+        {
+          "alpha": 30.0,
+          "inner_log_loss": 0.6895490142664084,
+          "n_inner_validation": 87
+        },
+        {
+          "alpha": 100.0,
+          "inner_log_loss": 0.6873153864232073,
+          "n_inner_validation": 87
+        },
+        {
+          "alpha": 300.0,
+          "inner_log_loss": 0.6857005478698086,
+          "n_inner_validation": 87
+        },
+        {
+          "alpha": 1000.0,
+          "inner_log_loss": 0.6836266257345472,
+          "n_inner_validation": 87
+        },
+        {
+          "alpha": 3000.0,
+          "inner_log_loss": 0.6809243258518796,
+          "n_inner_validation": 87
+        },
+        {
+          "alpha": 10000.0,
+          "inner_log_loss": 0.6773584710332885,
+          "n_inner_validation": 87
+        },
+        {
+          "alpha": 30000.0,
+          "inner_log_loss": 0.6744443304514245,
+          "n_inner_validation": 87
+        },
+        {
+          "alpha": 100000.0,
+          "inner_log_loss": 0.6727473871917925,
+          "n_inner_validation": 87
+        },
+        {
+          "alpha": 300000.0,
+          "inner_log_loss": 0.6732949533490407,
+          "n_inner_validation": 87
+        },
+        {
+          "alpha": 1000000.0,
+          "inner_log_loss": 0.6763831757950313,
+          "n_inner_validation": 87
+        }
+      ],
+      "calibration_a": 0.42552660738338693,
+      "calibration_b": -0.24693654001653637,
+      "home_points_per_48": 1.5296816286993324,
+      "inner_log_loss": 0.6727473871917925,
+      "n_players": 521,
+      "n_stints_train": 27929,
+      "n_test": 72,
+      "n_train": 434,
+      "selected_alpha": 100000.0,
+      "split": 2,
+      "test_log_loss": 0.6808258430450963,
+      "theta_max": 6.0513394524413755,
+      "theta_min": -7.248615244023899,
+      "theta_sd": 2.0040718612715978
+    },
+    {
+      "alpha_grid": [
+        {
+          "alpha": 30.0,
+          "inner_log_loss": 0.6891433108349081,
+          "n_inner_validation": 102
+        },
+        {
+          "alpha": 100.0,
+          "inner_log_loss": 0.6895621435478936,
+          "n_inner_validation": 102
+        },
+        {
+          "alpha": 300.0,
+          "inner_log_loss": 0.6896918665541228,
+          "n_inner_validation": 102
+        },
+        {
+          "alpha": 1000.0,
+          "inner_log_loss": 0.6892751849981955,
+          "n_inner_validation": 102
+        },
+        {
+          "alpha": 3000.0,
+          "inner_log_loss": 0.6878976782812036,
+          "n_inner_validation": 102
+        },
+        {
+          "alpha": 10000.0,
+          "inner_log_loss": 0.6857055949550305,
+          "n_inner_validation": 102
+        },
+        {
+          "alpha": 30000.0,
+          "inner_log_loss": 0.683721496178728,
+          "n_inner_validation": 102
+        },
+        {
+          "alpha": 100000.0,
+          "inner_log_loss": 0.681959047886914,
+          "n_inner_validation": 102
+        },
+        {
+          "alpha": 300000.0,
+          "inner_log_loss": 0.6815236235381296,
+          "n_inner_validation": 102
+        },
+        {
+          "alpha": 1000000.0,
+          "inner_log_loss": 0.6826517159905143,
+          "n_inner_validation": 102
+        }
+      ],
+      "calibration_a": 0.3435006188334756,
+      "calibration_b": -0.2536639599098756,
+      "home_points_per_48": 1.5748360340849539,
+      "inner_log_loss": 0.6815236235381296,
+      "n_players": 521,
+      "n_stints_train": 32488,
+      "n_test": 73,
+      "n_train": 506,
+      "selected_alpha": 300000.0,
+      "split": 3,
+      "test_log_loss": 0.6416997876407815,
+      "theta_max": 3.679111737338095,
+      "theta_min": -4.205416265422792,
+      "theta_sd": 1.0476340250422238
+    },
+    {
+      "alpha_grid": [
+        {
+          "alpha": 30.0,
+          "inner_log_loss": 0.6817039328471044,
+          "n_inner_validation": 116
+        },
+        {
+          "alpha": 100.0,
+          "inner_log_loss": 0.6818941085621336,
+          "n_inner_validation": 116
+        },
+        {
+          "alpha": 300.0,
+          "inner_log_loss": 0.6824934138899432,
+          "n_inner_validation": 116
+        },
+        {
+          "alpha": 1000.0,
+          "inner_log_loss": 0.6828730936749889,
+          "n_inner_validation": 116
+        },
+        {
+          "alpha": 3000.0,
+          "inner_log_loss": 0.681869413945594,
+          "n_inner_validation": 116
+        },
+        {
+          "alpha": 10000.0,
+          "inner_log_loss": 0.679834141791144,
+          "n_inner_validation": 116
+        },
+        {
+          "alpha": 30000.0,
+          "inner_log_loss": 0.6787055560635182,
+          "n_inner_validation": 116
+        },
+        {
+          "alpha": 100000.0,
+          "inner_log_loss": 0.6783583819697414,
+          "n_inner_validation": 116
+        },
+        {
+          "alpha": 300000.0,
+          "inner_log_loss": 0.6789899305683936,
+          "n_inner_validation": 116
+        },
+        {
+          "alpha": 1000000.0,
+          "inner_log_loss": 0.6814001286216871,
+          "n_inner_validation": 116
+        }
+      ],
+      "calibration_a": 0.4734691531993645,
+      "calibration_b": -0.2644969555850423,
+      "home_points_per_48": 1.707443651075998,
+      "inner_log_loss": 0.6783583819697414,
+      "n_players": 521,
+      "n_stints_train": 37004,
+      "n_test": 72,
+      "n_train": 579,
+      "selected_alpha": 100000.0,
+      "split": 4,
+      "test_log_loss": 0.6652956713277085,
+      "theta_max": 7.300226353999129,
+      "theta_min": -9.442447574562141,
+      "theta_sd": 2.216143781546813
+    },
+    {
+      "alpha_grid": [
+        {
+          "alpha": 30.0,
+          "inner_log_loss": 0.6906869053710493,
+          "n_inner_validation": 131
+        },
+        {
+          "alpha": 100.0,
+          "inner_log_loss": 0.6893059184241085,
+          "n_inner_validation": 131
+        },
+        {
+          "alpha": 300.0,
+          "inner_log_loss": 0.6879582732726671,
+          "n_inner_validation": 131
+        },
+        {
+          "alpha": 1000.0,
+          "inner_log_loss": 0.6862245838269019,
+          "n_inner_validation": 131
+        },
+        {
+          "alpha": 3000.0,
+          "inner_log_loss": 0.6835698337963443,
+          "n_inner_validation": 131
+        },
+        {
+          "alpha": 10000.0,
+          "inner_log_loss": 0.6795827886032014,
+          "n_inner_validation": 131
+        },
+        {
+          "alpha": 30000.0,
+          "inner_log_loss": 0.6769108635974569,
+          "n_inner_validation": 131
+        },
+        {
+          "alpha": 100000.0,
+          "inner_log_loss": 0.6763330093648288,
+          "n_inner_validation": 131
+        },
+        {
+          "alpha": 300000.0,
+          "inner_log_loss": 0.6776273553032508,
+          "n_inner_validation": 131
+        },
+        {
+          "alpha": 1000000.0,
+          "inner_log_loss": 0.6811434373613175,
+          "n_inner_validation": 131
+        }
+      ],
+      "calibration_a": 0.8314317249713139,
+      "calibration_b": -1.1295922591857168,
+      "home_points_per_48": 1.4804747748461418,
+      "inner_log_loss": 0.6763330093648288,
+      "n_players": 521,
+      "n_stints_train": 41511,
+      "n_test": 73,
+      "n_train": 651,
+      "selected_alpha": 100000.0,
+      "split": 5,
+      "test_log_loss": 0.6185920075546456,
+      "theta_max": 6.867520131115607,
+      "theta_min": -9.43582492736368,
+      "theta_sd": 2.2285202432452147
+    }
+  ],
+  "verdict": "NULL / INCONCLUSIVE: true RAPM does not beat the same-season canonical model at |z| > 3, and its interval spans zero against the same-season E14 frame."
+}
