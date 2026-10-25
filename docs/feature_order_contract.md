@@ -19,6 +19,15 @@ definition of it is kept in one place.
 errors="ignore")`: absent entries are ignored, and every surviving column keeps its
 position in the dataset. The dataset order is the contract.
 
+The four lists in `src/Utils/features.py` (`ML_DROP_COLUMNS`,
+`UO_LABEL_DROP_COLUMNS`, and the two `NN_*` names) are **computed from
+`drop_columns_for` at import**, not transcribed. `scripts/evaluate.py` derives its
+list the same way. The NN moneyline list used to order `OU` before `OU-Cover`;
+dropping is membership-based, so the surviving order was identical either way, and
+`Tests/test_drop_columns.py` now pins that invariance instead of asserting it in a
+comment. It also fails if any module under `src/` or `scripts/` re-declares a
+`*DROP_COLUMNS` list literal.
+
 `validate_feature_frame()` reports missing and extra columns first, because those
 are the common cause. When the two sets agree but the order does not, it reports a
 **MISORDERING** — the failure that would otherwise pass silently and predict wrong.

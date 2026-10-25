@@ -30,12 +30,15 @@ DEFAULT_DATASET, STABLE_SORT_KIND, DEFAULT_TRIALS, DEFAULT_FOLD_ROWS and the
 split/selection helpers are the same story at every other level: each was defined
 in two to eight places, and the copies had drifted or were individually wrong.
 
-`format_param` rounds and dot-escapes a hyperparameter value for the model
-filename. The XGBoost and NN trainers use it; the logistic regression trainers
-never name a saved model, so they do not.
+`write_run_manifest` is where a trainer's winning configuration goes. Model
+filenames carry only the kind and held-out accuracy; the manifest next to the
+artifact carries the full search result, and it is gitignored. Publishing the
+recipe in a filename would publish a real edge automatically if one were ever
+found (#18).
 """
 
 import contextlib
+import json
 import sqlite3
 import sys
 from pathlib import Path
@@ -125,11 +128,19 @@ DEFAULT_TRIALS = 15
 
 # The two prediction targets and how many classes each one carries. The
 # moneyline is home/away, a binary label; the totals label is under/over/push,
-# three classes.
+# three classes. Push is kept as its own class on purpose: it is a void bet, not
+# a side, and the decision layer must not fold it into over. The reasoning, the
+# measured class counts and the one measurement that would reopen the choice are
+# in docs/totals_target.md.
 MONEYLINE_TARGET = "Home-Team-Win"
 TOTALS_TARGET = "OU-Cover"
 MONEYLINE_NUM_CLASSES = 2
 TOTALS_NUM_CLASSES = 3
+
+# The totals head's class index -> what the runners may call it. Class 2 is a
+# push, a void bet, and deliberately has no side. Both runners share this tuple
+# so neither can reintroduce the old "not under, therefore over" mapping.
+OU_PICK_LABELS = ("UNDER", "OVER", "PUSH")
 
 # The closing total. It is known before tip-off, so it is a legitimate feature
 # for the totals trainers and never wanted by the moneyline trainers.
@@ -484,6 +495,41 @@ def report_search_selection_risk(n_configs_tried, metric_name, n_test_rows, stan
     )
 
 
-def format_param(value, precision=3):
-    formatted = f"{value:.{precision}f}" if isinstance(value, float) else str(value)
-    return formatted.replace(".", "p")
+def xgboost_model_filename(kind, accuracy):
+    """``XGBoost_64.0%_ML.json`` -- target and held-out accuracy, nothing else.
+
+    Every tuned value used to be appended here. The runner discovers models by
+    globbing the kind and parsing the accuracy, so both stay in the name; the
+    configuration moves to the manifest.
+    """
+    if kind not in ("ML", "UO"):
+        raise ValueError(f"kind must be 'ML' or 'UO', got {kind!r}.")
+    return f"XGBoost_{accuracy * 100:.1f}%_{kind}.json"
+
+
+def neural_model_filename(kind, accuracy):
+    """``Trained-Model-ML-64.6.keras`` -- target and held-out accuracy only."""
+    if kind not in ("ML", "OU"):
+        raise ValueError(f"kind must be 'ML' or 'OU', got {kind!r}.")
+    return f"Trained-Model-{kind}-{accuracy * 100:.1f}.keras"
+
+
+def write_run_manifest(model_path, payload):
+    """Write ``payload`` beside ``model_path`` and return the manifest path.
+
+    The suffix is fixed so a caller cannot invent a second convention: an
+    artifact named ``XGBoost_64.0%_ML.json`` gets
+    ``XGBoost_64.0%_ML_manifest.json``. The file holds the winning
+    configuration, the selection evidence and the dataset identity -- everything
+    that used to be encoded in the filename.
+
+    It is intentionally gitignored. Model artifacts may be published because
+    they give predictions, not method; a manifest gives the method. See
+    CONTRIBUTING.md and issue #18.
+    """
+    model_path = Path(model_path)
+    manifest_path = model_path.with_name(f"{model_path.stem}_manifest.json")
+    manifest_path.write_text(
+        json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+    )
+    return manifest_path

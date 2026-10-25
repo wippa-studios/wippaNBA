@@ -97,6 +97,12 @@ Data/injury_raw/
 *.h5
 Models/XGBoost_Models/*.json
 
+# A run manifest holds the winning hyperparameter configuration. It is written
+# next to the artifact for local reproducibility and must never be committed
+# (#18): the artifact gives predictions, the manifest gives the recipe.
+# Data/manifest.json is a different file and does not match this pattern.
+*_manifest.json
+
 # Coverage output (htmlcov/, .coverage, coverage.xml are already ignored by the
 # stock block above -- repeated here only to keep this section self-contained)
 coverage.xml

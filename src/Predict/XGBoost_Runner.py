@@ -35,6 +35,7 @@ if str(TRAIN_MODELS_DIR) not in sys.path:
     sys.path.insert(0, str(TRAIN_MODELS_DIR))
 try:
     from training_common import DEFAULT_DATASET as DATASET_TABLE
+    from training_common import OU_PICK_LABELS
 except ImportError as _exc:  # pragma: no cover - only in a broken checkout
     # Deliberately NOT a second literal. A fallback name is a name that can drift
     # from the trainers' one, which is the whole defect being fixed here.
@@ -62,7 +63,7 @@ ACCURACY_PATTERN = re.compile(r"XGBoost_(\d+(?:\.\d+)?)%_")
 # Keys per game:
 #   home_team, away_team            team names as the pipeline received them
 #   home_confidence, away_confidence  win probability per team, percent 0-100
-#   ou_pick                          "OVER" or "UNDER"
+#   ou_pick                          "OVER", "UNDER", or "PUSH" (a void total)
 #   ou_value, ou_confidence         the totals line and the model's edge on it
 #   home_team_ev, away_team_ev       expected value per team, percent points
 #   home_team_odds, away_team_odds   American odds as ints, null when missing
@@ -270,8 +271,13 @@ def _format_game_line(home_team, away_team, winner_is_home, winner_confidence, u
     loser_team = away_team if winner_is_home else home_team
     winner_color = Fore.GREEN if winner_is_home else Fore.RED
     loser_color = Fore.RED if winner_is_home else Fore.GREEN
-    ou_label = "UNDER" if under_over == 0 else "OVER"
-    ou_color = Fore.MAGENTA if under_over == 0 else Fore.BLUE
+    # The totals head has three classes. Class 2 is a push: the total landed
+    # exactly on the line, so the bet is void. It is never a side. Mapping it to
+    # OVER -- which the runner used to do by treating "not UNDER" as OVER --
+    # both invents a bet and reports the push probability as that bet's edge.
+    # See docs/totals_target.md.
+    ou_label = OU_PICK_LABELS[under_over]
+    ou_color = (Fore.MAGENTA, Fore.BLUE, Fore.YELLOW)[under_over]
     return (
         f"{winner_color}{winner_team}{Style.RESET_ALL}"
         f"{Fore.CYAN} ({winner_confidence}%)"
@@ -409,7 +415,7 @@ def xgb_runner(data, todays_games_uo, frame_ml, games, home_team_odds, away_team
                     "away_team": away_team,
                     "home_confidence": round(ml_predictions_array[idx][1] * 100, 1),
                     "away_confidence": round(ml_predictions_array[idx][0] * 100, 1),
-                    "ou_pick": "UNDER" if under_over == 0 else "OVER",
+                    "ou_pick": OU_PICK_LABELS[under_over],
                     "ou_value": todays_games_uo[idx],
                     "ou_confidence": ou_confidence,
                 }

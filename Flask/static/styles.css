@@ -451,6 +451,12 @@ h3 {
     color: #b9d6ff;
 }
 
+.ou-chip.push {
+    background: rgba(148, 163, 184, 0.15);
+    border-color: rgba(148, 163, 184, 0.35);
+    color: #cbd5e1;
+}
+
 .ou-chip.under {
     background: rgba(242, 201, 76, 0.15);
     border-color: rgba(242, 201, 76, 0.35);

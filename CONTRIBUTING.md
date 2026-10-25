@@ -24,17 +24,25 @@ If a model configuration ever produces a ROI whose confidence interval excludes
 zero, **do not commit it** — not as a file, not in a filename, not as a ledger
 line, not in an issue or a pull request.
 
-This is not hypothetical caution. The repository already publishes search
-outcomes in filenames:
+This is not hypothetical caution. Model filenames used to carry the entire
+search result:
 
 ```
-Models/XGBoost_Models/XGBoost_68.9%_ML_md3_eta0p077_sub0p741_col0p891_cbl0p874_...json
-                   ^d3  ^eta      ^sub        ^col        ^cbl
+Models/XGBoost_Models/XGBoost_68.9%_ML_md3_eta0p077_sub0p741_col0p891_...json
+                   ^d3  ^eta      ^sub        ^col
 ```
 
-Those particular values were found on the *leaky* dataset, so they encode no
-edge. But they establish the convention, and the convention would publish a
-real one automatically. This is tracked as issue #18.
+Those particular values were found on the *leaky* dataset, so they encoded no
+edge. But they established the convention, and the convention would have
+published a real one automatically.
+
+**Filenames now carry only the model kind and the held-out accuracy**
+(`XGBoost_64.0%_ML.json`, `Trained-Model-ML-64.6.keras`). The winning
+configuration, the selection evidence and the dataset identity go into
+`<model stem>_manifest.json` next to the artifact. Manifests are gitignored:
+they are written for local reproducibility and **must not be committed**. If you
+train a configuration that shows an edge, keep the manifest local, exactly like
+`.env` and `local_settings.py`.
 
 What is safe to publish:
 

@@ -3,7 +3,6 @@ import json
 
 import joblib
 import numpy as np
-import xgboost as xgb
 from sklearn.metrics import accuracy_score, log_loss, roc_auc_score
 
 import os
@@ -23,6 +22,7 @@ import training_common
 
 from boosting_training import (
     BoosterWrapper,
+    predict_probabilities,
     prepare_data,
     sample_params,
     split_train_es_calib,
@@ -38,9 +38,10 @@ from training_common import (
     MONEYLINE_TARGET,
     calibration_choices,
     drop_columns_for,
-    format_param,
     load_dataset,
     report_search_selection_risk,
+    write_run_manifest,
+    xgboost_model_filename,
 )
 from training_reporting import (
     MIN_CALIBRATION_ROWS,
@@ -232,7 +233,7 @@ def main():
     calibration_method = resolve_calibration_method(
         args.calibration, len(X_calib), allow_isotonic=args.allow_isotonic
     )
-    raw_probabilities = best_model.predict(xgb.DMatrix(X_test))
+    raw_probabilities = predict_probabilities(best_model, X_test, NUM_CLASSES)
     calibrator = None
     if calibration_method == "none":
         probabilities = raw_probabilities
@@ -282,28 +283,37 @@ def main():
     )
 
     params = best["params"]
-    model_name = (
-        f"XGBoost_{accuracy * 100:.1f}%_ML"
-        f"_md{params['max_depth']}"
-        f"_eta{format_param(params['eta'])}"
-        f"_sub{format_param(params['subsample'])}"
-        f"_col{format_param(params['colsample_bytree'])}"
-        f"_cbl{format_param(params['colsample_bylevel'])}"
-        f"_cbn{format_param(params['colsample_bynode'])}"
-        f"_mcw{params['min_child_weight']}"
-        f"_g{format_param(params['gamma'])}"
-        # max_delta_step is 0 unless --class-weights is on, so this is usually
-        # _mds0. Kept in the name anyway: it IS the fitted value, and the runner
-        # globs on the ML/UO infix rather than on this field.
-        f"_mds{params['max_delta_step']}"
-        f"_mb{params['max_bin']}"
-        f"_l{format_param(params['lambda'])}"
-        f"_a{format_param(params['alpha'])}"
-        f"_nb{best['num_boost_round']}.json"
-    )
+    # The filename carries the target and the held-out accuracy, nothing else.
+    # The winning configuration goes into the manifest below, which is
+    # gitignored: a filename is published by default, a manifest is not. The
+    # runner globs on the ML/UO infix here, so this remains discoverable.
+    model_name = xgboost_model_filename("ML", accuracy)
     model_path = MODEL_DIR / model_name
     best_model.save_model(str(model_path))
     print(f"Saved model: {model_path}")
+
+    manifest_path = write_run_manifest(model_path, {
+        "schema": 1,
+        "artifact": model_path.name,
+        "kind": "moneyline",
+        "target": TARGET_COLUMN,
+        "objective": params["objective"],
+        "eval_metric": params["eval_metric"],
+        "accuracy": float(accuracy),
+        "test_log_loss": float(test_loss),
+        "best_val_log_loss": float(best["val_loss"]),
+        "num_boost_round": int(best["num_boost_round"]),
+        "n_features": len(feature_names),
+        "params": params,
+        "dataset": args.dataset,
+        "seed": args.seed,
+        "trials": args.trials,
+        "splits": args.splits,
+        "fold_rows": fold_rows,
+        "class_weights": args.class_weights,
+        "calibration": calibration_method,
+    })
+    print(f"Saved run manifest: {manifest_path}")
 
     # The model is a positional matrix, so nothing in the .json records which
     # columns produced it. This is the exact list X was built from.

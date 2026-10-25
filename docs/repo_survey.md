@@ -10,74 +10,74 @@
 
 ## 1. Game-outcome and betting models
 
-| Repo | ★ | Model type | Key features | Reported results |
-|---|---|---|---|---|
-| [kyleskom/NBA-Machine-Learning-Sports-Betting](https://github.com/kyleskom/NBA-Machine-Learning-Sports-Betting) | 1746 | XGBoost + neural net (dual) | team stats, SBR odds, days-rest; 2012–26 dataset | **none in README** |
-| [cmunch1/nba-prediction](https://github.com/cmunch1/nba-prediction) | 312 | Classifier + Hopsworks feature store | engineered matchup features | **0.615** acc (2022-23); home-always baseline **0.580**; best public model **0.656** |
-| [NBA-Betting/NBA_Betting](https://github.com/NBA-Betting/NBA_Betting) | 208 | AutoGluon AutoML + custom sequence architecture | multi-source aggregate, play-by-play | accuracy shown only as images; states it **does not beat Vegas** |
-| [saccofrancesco/deepshot](https://github.com/saccofrancesco/deepshot) | 172 | XGBoost | EWMA rolling stats, basketball-reference | **none** |
-| [nealmick/Sports-Betting-ML-Tools-NBA](https://github.com/nealmick/Sports-Betting-ML-Tools-NBA) | 88 | Black-box trainer | **500+ features/game**, 20k+ games; FG/3P/FT%, pts/ast/blk/stl/reb/min/foul/to | spread accuracy + P/L surfaced in-app, not in README |
-| [whisdev/NBA-prediction-sports-betting](https://github.com/whisdev/NBA-prediction-sports-betting) | 90 | XGBoost (ONNX) | form, rest, live FanDuel/DK lines, EV + Kelly sizing | **~69% validation accuracy** (moneyline); totals model |
-| [luke-lite/NBA-Prediction-Modeling](https://github.com/luke-lite/NBA-Prediction-Modeling) | 53 | LogReg, Random Forest, NN, **Gaussian NB + PCA** | 10 seasons, 11,979 games, 46 columns; 10/20/30-game aggregates | best = **Gaussian Naive Bayes + PCA**; large false-positive reduction vs other models |
-| [agentscope-ai/DojoZero](https://github.com/agentscope-ai/DojoZero) | 56 | LLM agent platform | realtime events + odds, reproducible trial workflows | n/a — benchmark harness, not a model |
-| [JoshWeiner/NBA_Game_Prediction](https://github.com/JoshWeiner/NBA_Game_Prediction) | 29 | Course project (CIS 545) | — | **no README at all** |
-| [jensenbenjamin/NBA_Betting_Model](https://github.com/jensenbenjamin/NBA_Betting_Model) | 26 | Gradient Boosting **Regression** | score totals → over/under | **none** |
-| [bendominguez0111/nba-models](https://github.com/bendominguez0111/nba-models) | 20 | 3-point prop model | player prop lines | **none** |
-| [Spencer-Weston/NBApredict](https://github.com/Spencer-Weston/NBApredict) | 18 | **Four-Factor Regression** | scraped team stats, game results, betting lines in SQLite | **none** |
-| [garfjohnson/Nba-Sports-Betting-Model](https://github.com/garfjohnson/Nba-Sports-Betting-Model) | 18 | Bets every game in a season | — | **none** |
-| [VinceDiR/Prop_Betting_Regression_Project](https://github.com/VinceDiR/Prop_Betting_Regression_Project) | 14 | Regression | NBA prop betting strategy | **none** |
-| [digsallday/Beating-the-House](https://github.com/digsallday/Beating-the-House-Identifying-Inefficiencies-in-Sports-Betting-Markets) | 12 | +EV probability model | moneyline, vig removal | claims **above-market returns** on NFL/NBA/NCAAF/NCAAB |
-| [DevanshDaxini/Sports-EV-Bot](https://github.com/DevanshDaxini/Sports-EV-Bot) | 12 | **21-model XGBoost + LightGBM ensemble** (60/40) | **451 features**, 4 seasons, exponential recency weights, Optuna Bayesian HPO | full table below |
-| [Pirkn/NBA-Game-Outcome-Prediction](https://github.com/Pirkn/NBA-Game-Outcome-Prediction) | 12 | Ridge, XGBoost, Neural Network | **Elo + rolling averages**, team- and matchup-specific features | **NN 66.9%**, Ridge 65.05%, XGBoost 64.8% |
-| [Exidekat/math178project](https://github.com/Exidekat/math178project) | 4 | Linear + Logistic + HMM | ±1 roster indicator; home−away stat differences | **51.6% (roster) → 54.9% (stats) → 57.3% (both)** |
-| [rileypsmith/nba-game-prediction](https://github.com/rileypsmith/nba-game-prediction) | 4 | Random Forest (PCA) vs Logistic Regression | open APIs, correlation-pruned features | RF best; **80 PCs marginally > 10 PCs**; LogReg clearly worse |
-| [swapnil-ahlawat/NBA_Game_Predictor](https://github.com/swapnil-ahlawat/NBA_Game_Predictor) | 4 | Comparative study | team-only / player-only / combined | three separate scripts; **numbers only in program output** |
-| [josedv82/NBA_Schedule_XGBoost_Classifier](https://github.com/josedv82/NBA_Schedule_XGBoost_Classifier) | 4 | XGBoost | **schedule only**, SHAP attribution | **RMSE 0.4247, LogLoss 0.5333, AUCPR 0.8073** |
-| [muyangye/NBA_Prediction](https://github.com/muyangye/NBA_Prediction) | 4 | Logistic Regression | **Elo, 3PT%, offensive/defensive rating, opponent stats** | **none** |
-| [developermarko/crystal_basketball](https://github.com/developermarko/crystal_basketball) | 2 | **Random Forest + SVM** | three markets: game line, over/under, point spread | **none** |
-| [julesguasp/NBA_Spread_Model](https://github.com/julesguasp/NBA_Spread_Model) | 2 | **Lasso** (glm, binary classification) | point spread winners | **none** |
-| [nivekgnay/nba-prediction-models](https://github.com/nivekgnay/nba-prediction-models) | 6 | Multiple | — | results live in a notebook, not the README |
-| [7antoniosegovia/ML_NBA_Predictions](https://github.com/7antoniosegovia/ML_NBA_Predictions) | 6 | Multiple (R) | — | **none** |
+| Repo | ★ | Model type | Key features | Reported results | Gate |
+|---|---|---|---|---|---|
+| [kyleskom/NBA-Machine-Learning-Sports-Betting](https://github.com/kyleskom/NBA-Machine-Learning-Sports-Betting) | 1746 | XGBoost + neural net (dual) | team stats, SBR odds, days-rest; 2012–26 dataset | **none in README** | not run |
+| [cmunch1/nba-prediction](https://github.com/cmunch1/nba-prediction) | 312 | Classifier + Hopsworks feature store | engineered matchup features | **0.615** acc (2022-23); home-always baseline **0.580**; best public model **0.656** | not run |
+| [NBA-Betting/NBA_Betting](https://github.com/NBA-Betting/NBA_Betting) | 208 | AutoGluon AutoML + custom sequence architecture | multi-source aggregate, play-by-play | accuracy shown only as images; states it **does not beat Vegas** | not run |
+| [saccofrancesco/deepshot](https://github.com/saccofrancesco/deepshot) | 172 | XGBoost | EWMA rolling stats, basketball-reference | **none** | not run |
+| [nealmick/Sports-Betting-ML-Tools-NBA](https://github.com/nealmick/Sports-Betting-ML-Tools-NBA) | 88 | Black-box trainer | **500+ features/game**, 20k+ games; FG/3P/FT%, pts/ast/blk/stl/reb/min/foul/to | spread accuracy + P/L surfaced in-app, not in README | not run |
+| [whisdev/NBA-prediction-sports-betting](https://github.com/whisdev/NBA-prediction-sports-betting) | 90 | XGBoost (ONNX) | form, rest, live FanDuel/DK lines, EV + Kelly sizing | **~69% validation accuracy** (moneyline); totals model | not run |
+| [luke-lite/NBA-Prediction-Modeling](https://github.com/luke-lite/NBA-Prediction-Modeling) | 53 | LogReg, Random Forest, NN, **Gaussian NB + PCA** | 10 seasons, 11,979 games, 46 columns; 10/20/30-game aggregates | best = **Gaussian Naive Bayes + PCA**; large false-positive reduction vs other models | not run |
+| [agentscope-ai/DojoZero](https://github.com/agentscope-ai/DojoZero) | 56 | LLM agent platform | realtime events + odds, reproducible trial workflows | n/a — benchmark harness, not a model | not run |
+| [JoshWeiner/NBA_Game_Prediction](https://github.com/JoshWeiner/NBA_Game_Prediction) | 29 | Course project (CIS 545) | — | **no README at all** | not run |
+| [jensenbenjamin/NBA_Betting_Model](https://github.com/jensenbenjamin/NBA_Betting_Model) | 26 | Gradient Boosting **Regression** | score totals → over/under | **none** | not run |
+| [bendominguez0111/nba-models](https://github.com/bendominguez0111/nba-models) | 20 | 3-point prop model | player prop lines | **none** | not run |
+| [Spencer-Weston/NBApredict](https://github.com/Spencer-Weston/NBApredict) | 18 | **Four-Factor Regression** | scraped team stats, game results, betting lines in SQLite | **none** | not run |
+| [garfjohnson/Nba-Sports-Betting-Model](https://github.com/garfjohnson/Nba-Sports-Betting-Model) | 18 | Bets every game in a season | — | **none** | not run |
+| [VinceDiR/Prop_Betting_Regression_Project](https://github.com/VinceDiR/Prop_Betting_Regression_Project) | 14 | Regression | NBA prop betting strategy | **none** | not run |
+| [digsallday/Beating-the-House](https://github.com/digsallday/Beating-the-House-Identifying-Inefficiencies-in-Sports-Betting-Markets) | 12 | +EV probability model | moneyline, vig removal | claims **above-market returns** on NFL/NBA/NCAAF/NCAAB | not run |
+| [DevanshDaxini/Sports-EV-Bot](https://github.com/DevanshDaxini/Sports-EV-Bot) | 12 | **21-model XGBoost + LightGBM ensemble** (60/40) | **451 features**, 4 seasons, exponential recency weights, Optuna Bayesian HPO | full table below | not run |
+| [Pirkn/NBA-Game-Outcome-Prediction](https://github.com/Pirkn/NBA-Game-Outcome-Prediction) | 12 | Ridge, XGBoost, Neural Network | **Elo + rolling averages**, team- and matchup-specific features | **NN 66.9%**, Ridge 65.05%, XGBoost 64.8% | not run |
+| [Exidekat/math178project](https://github.com/Exidekat/math178project) | 4 | Linear + Logistic + HMM | ±1 roster indicator; home−away stat differences | **51.6% (roster) → 54.9% (stats) → 57.3% (both)** | not run |
+| [rileypsmith/nba-game-prediction](https://github.com/rileypsmith/nba-game-prediction) | 4 | Random Forest (PCA) vs Logistic Regression | open APIs, correlation-pruned features | RF best; **80 PCs marginally > 10 PCs**; LogReg clearly worse | not run |
+| [swapnil-ahlawat/NBA_Game_Predictor](https://github.com/swapnil-ahlawat/NBA_Game_Predictor) | 4 | Comparative study | team-only / player-only / combined | three separate scripts; **numbers only in program output** | not run |
+| [josedv82/NBA_Schedule_XGBoost_Classifier](https://github.com/josedv82/NBA_Schedule_XGBoost_Classifier) | 4 | XGBoost | **schedule only**, SHAP attribution | **RMSE 0.4247, LogLoss 0.5333, AUCPR 0.8073** | not run |
+| [muyangye/NBA_Prediction](https://github.com/muyangye/NBA_Prediction) | 4 | Logistic Regression | **Elo, 3PT%, offensive/defensive rating, opponent stats** | **none** | not run |
+| [developermarko/crystal_basketball](https://github.com/developermarko/crystal_basketball) | 2 | **Random Forest + SVM** | three markets: game line, over/under, point spread | **none** | not run |
+| [julesguasp/NBA_Spread_Model](https://github.com/julesguasp/NBA_Spread_Model) | 2 | **Lasso** (glm, binary classification) | point spread winners | **none** | not run |
+| [nivekgnay/nba-prediction-models](https://github.com/nivekgnay/nba-prediction-models) | 6 | Multiple | — | results live in a notebook, not the README | not run |
+| [7antoniosegovia/ML_NBA_Predictions](https://github.com/7antoniosegovia/ML_NBA_Predictions) | 6 | Multiple (R) | — | **none** | not run |
 
 ---
 
 ## 2. Elo and rating systems
 
-| Repo | ★ | Model type | Key features | Reported results |
-|---|---|---|---|---|
-| [tonyelhabr/nba_wp](https://github.com/tonyelhabr/nba_wp) | 7 | **443 discrete-time hazard regressions** + LOESS | repeats all records home/away to guarantee symmetry | reports log loss / mse / rate; **explicitly states his log loss is worse than Benz's 538 model** |
-| [colekev/nba_win_prob_calc](https://github.com/colekev/nba_win_prob_calc) | 9 | Win probability calculator (R) | — | qualitative only |
-| [nicidob/nba_elo](https://github.com/nicidob/nba_elo) | 12 | 538 Elo reimplementation + logistic-regression-as-Elo | PID control experiments | exploratory notebooks |
-| [bbwieland/nba-elo-2](https://github.com/bbwieland/nba-elo-2) | 3 | Elo, updated daily | — | publishes daily standings + probability table |
-| [bbwieland/NBAEloRatings](https://github.com/bbwieland/NBAEloRatings) | 2 | R package for Elo ratings | — | n/a |
-| [tmont/nba-elo](https://github.com/tmont/nba-elo) | 2 | Elo (JavaScript) | — | n/a |
-| [lucas-bishop/nba_wl_model](https://github.com/lucas-bishop/nba_wl_model) | 2 | 538 Elo + 4 other models | — | analysis, no single figure |
-| [DanielTomaro13/Basketball-Modelling](https://github.com/DanielTomaro13/Basketball-Modelling) | 2 | **Sample-shrunk opponent-adjusted profiles + margin-aware Elo + Monte Carlo** | pace, offense/defense; markets read off simulation | **walk-forward backtest (log-loss / Brier / accuracy) vs home-court baseline** |
-| [xpoes123/nba-modeling](https://github.com/xpoes123/nba-modeling) | 2 | **Hybrid RAPM (ridge) + Elo incremental updates** | stint-level data → Off/Def/Pace ratings → spread model | no score |
-| [SidTheKid007/CarmElo-2.0](https://github.com/SidTheKid007/CarmElo-2.0) | 2 | CarmElo-inspired | — | no score |
-| [Kush-Meta/OddsForge](https://github.com/Kush-Meta/OddsForge) | 2 | Elo + head-to-head + form ensemble (Rust) | edge detection API | no score |
+| Repo | ★ | Model type | Key features | Reported results | Gate |
+|---|---|---|---|---|---|
+| [tonyelhabr/nba_wp](https://github.com/tonyelhabr/nba_wp) | 7 | **443 discrete-time hazard regressions** + LOESS | repeats all records home/away to guarantee symmetry | reports log loss / mse / rate; **explicitly states his log loss is worse than Benz's 538 model** | not run |
+| [colekev/nba_win_prob_calc](https://github.com/colekev/nba_win_prob_calc) | 9 | Win probability calculator (R) | — | qualitative only | not run |
+| [nicidob/nba_elo](https://github.com/nicidob/nba_elo) | 12 | 538 Elo reimplementation + logistic-regression-as-Elo | PID control experiments | exploratory notebooks | not run |
+| [bbwieland/nba-elo-2](https://github.com/bbwieland/nba-elo-2) | 3 | Elo, updated daily | — | publishes daily standings + probability table | not run |
+| [bbwieland/NBAEloRatings](https://github.com/bbwieland/NBAEloRatings) | 2 | R package for Elo ratings | — | n/a | not run |
+| [tmont/nba-elo](https://github.com/tmont/nba-elo) | 2 | Elo (JavaScript) | — | n/a | not run |
+| [lucas-bishop/nba_wl_model](https://github.com/lucas-bishop/nba_wl_model) | 2 | 538 Elo + 4 other models | — | analysis, no single figure | not run |
+| [DanielTomaro13/Basketball-Modelling](https://github.com/DanielTomaro13/Basketball-Modelling) | 2 | **Sample-shrunk opponent-adjusted profiles + margin-aware Elo + Monte Carlo** | pace, offense/defense; markets read off simulation | **walk-forward backtest (log-loss / Brier / accuracy) vs home-court baseline** | not run |
+| [xpoes123/nba-modeling](https://github.com/xpoes123/nba-modeling) | 2 | **Hybrid RAPM (ridge) + Elo incremental updates** | stint-level data → Off/Def/Pace ratings → spread model | no score | not run |
+| [SidTheKid007/CarmElo-2.0](https://github.com/SidTheKid007/CarmElo-2.0) | 2 | CarmElo-inspired | — | no score | not run |
+| [Kush-Meta/OddsForge](https://github.com/Kush-Meta/OddsForge) | 2 | Elo + head-to-head + form ensemble (Rust) | edge detection API | no score | not run |
 
 ---
 
 ## 3. Player prop models
 
-| Repo | ★ | Model type | Key features | Reported results |
-|---|---|---|---|---|
-| [kpundhir/Prop-Model](https://github.com/kpundhir/Prop-Model) | 5 | RF + Logistic Regression, 5-fold stratified CV, SHAP | rolling averages, usage rates, home/away splits | **~60%+ test accuracy**; log loss console-only |
-| [ejjlittle/ev-betting-model](https://github.com/ejjlittle/ev-betting-model) | 6 | +EV player props (TypeScript) | tracked over time, profit view | no score |
-| [arnavsinghvi11/NBA_Betting_Model](https://github.com/arnavsinghvi11/NBA_Betting_Model) | 9 | Betting model | — | no score |
-| [PerryGraham/Betting-Model-NBA](https://github.com/PerryGraham/Betting-Model-NBA) | 7 | Data cleaning + feature engineering + regression | — | no score |
+| Repo | ★ | Model type | Key features | Reported results | Gate |
+|---|---|---|---|---|---|
+| [kpundhir/Prop-Model](https://github.com/kpundhir/Prop-Model) | 5 | RF + Logistic Regression, 5-fold stratified CV, SHAP | rolling averages, usage rates, home/away splits | **~60%+ test accuracy**; log loss console-only | not run |
+| [ejjlittle/ev-betting-model](https://github.com/ejjlittle/ev-betting-model) | 6 | +EV player props (TypeScript) | tracked over time, profit view | no score | not run |
+| [arnavsinghvi11/NBA_Betting_Model](https://github.com/arnavsinghvi11/NBA_Betting_Model) | 9 | Betting model | — | no score | not run |
+| [PerryGraham/Betting-Model-NBA](https://github.com/PerryGraham/Betting-Model-NBA) | 7 | Data cleaning + feature engineering + regression | — | no score | not run |
 
 ---
 
 ## 4. Market structure and non-ML approaches
 
-| Repo | ★ | Model type | Key features | Reported results |
-|---|---|---|---|---|
-| [yangyuan-zhen/polysniper](https://github.com/yangyuan-zhen/polysniper) | 14 | No model — arbitrage monitor | ESPN odds vs Polymarket prediction markets, WebSocket heartbeat, exit strategy | n/a |
-| [neeilan/DeepPlayByPlay](https://github.com/neeilan/DeepPlayByPlay) | 183 | Deep learning, play-by-play labelling | raw SportVU tracking data | n/a — labelling, not outcome prediction |
-| [danchyy/Basketball_Analytics](https://github.com/danchyy/Basketball_Analytics) | 172 | Notebook collection | defensive specialists, clutch splits, MVP | n/a — analysis, not a deployed model |
-| [fsmosca/Basketball-Winning-Probability](https://github.com/fsmosca/Basketball-Winning-Probability) | 2 | Multiple linear regression | 2PT%, steals, fouls, EFF; international tournaments | regression weights published per tournament phase |
+| Repo | ★ | Model type | Key features | Reported results | Gate |
+|---|---|---|---|---|---|
+| [yangyuan-zhen/polysniper](https://github.com/yangyuan-zhen/polysniper) | 14 | No model — arbitrage monitor | ESPN odds vs Polymarket prediction markets, WebSocket heartbeat, exit strategy | n/a | not run |
+| [neeilan/DeepPlayByPlay](https://github.com/neeilan/DeepPlayByPlay) | 183 | Deep learning, play-by-play labelling | raw SportVU tracking data | n/a — labelling, not outcome prediction | not run |
+| [danchyy/Basketball_Analytics](https://github.com/danchyy/Basketball_Analytics) | 172 | Notebook collection | defensive specialists, clutch splits, MVP | n/a — analysis, not a deployed model | not run |
+| [fsmosca/Basketball-Winning-Probability](https://github.com/fsmosca/Basketball-Winning-Probability) | 2 | Multiple linear regression | 2PT%, steals, fouls, EFF; international tournaments | regression weights published per tournament phase | not run |
 
 ---
 
@@ -151,6 +151,22 @@ Both report numbers, and both are among the smallest repos in the set:
 
 1. **DevanshDaxini/Sports-EV-Bot** — 21-model gradient-boosting ensemble with recency weighting, per-target metrics published.
 2. **DanielTomaro13/Basketball-Modelling** — Monte-Carlo simulation over sample-shrunk opponent-adjusted profiles blended with a margin-aware Elo, evaluated with a walk-forward backtest against a home-court baseline.
+
+### 6.7 None of these has been run through the leakage gate
+
+The `Gate` column above says **not run** for every repository, and that is the
+literal truth rather than a placeholder for "probably fine". The gate needs a
+`build_features(frame)` callable; a README states what a project used, not how
+to rebuild its frame. Inferring a pass from prose is exactly the kind of
+unfalsifiable claim this survey exists to stop.
+
+Running it is a few lines once the builder is in hand — see
+[the leakage gate](leakage_gate.md). The three questions it answers are:
+
+* does a feature read a later-dated record (`as_of`, a confirmed leak),
+* does it read other records sharing its event date (`blind`, the membership
+  shape; investigate),
+* does it read its own row (`self`, expected for a trailing average).
 
 ---
 

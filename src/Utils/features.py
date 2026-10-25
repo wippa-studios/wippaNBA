@@ -6,10 +6,32 @@ so the model only ever sees "column 41 is 0.504". A frame with the right
 columns in the WRONG order therefore raises nothing -- the splits still fire,
 the probabilities still sum to one, and every prediction is confidently wrong.
 
-That is why the drop lists and the ordering rule live here instead of being
-retyped in the trainers, in ``Create_Games`` and in the runners. One definition,
-one order, checked at the boundary.
+That is why the drop lists here are computed from
+``training_common.drop_columns_for`` instead of being retyped, and why the
+ordering rule lives here rather than in the trainers and runners. One
+definition, one order, checked at the boundary. A copy that is "mostly right" is
+worse than one that is obviously wrong, because it does not look like something
+to re-check.
 """
+
+import sys
+from pathlib import Path
+
+# The drop lists below are the trainers' own return values, not copies of them.
+# src/Train-Models has a hyphen and can never be a package, so it goes on
+# sys.path and training_common imports under its plain top-level name. Importing
+# features must not depend on the caller having done that already: the runners
+# import this module before their own path setup.
+_TRAIN_MODELS_DIR = Path(__file__).resolve().parents[1] / "Train-Models"
+if str(_TRAIN_MODELS_DIR) not in sys.path:
+    sys.path.insert(0, str(_TRAIN_MODELS_DIR))
+
+from training_common import (  # noqa: E402
+    GAME_DATE_COLUMN,
+    MONEYLINE_TARGET,
+    TOTALS_TARGET,
+    drop_columns_for,
+)
 
 # Columns that identify a team rather than describe its play. ``Create_Games``
 # strips TEAM_ID and TEAM_ID.1 before writing the dataset and keeps TEAM_NAME /
@@ -29,84 +51,24 @@ TEAM_FEATURE_DROP = ("TEAM_ID", "TEAM_NAME")
 #
 # Do NOT also add "GameDate.1": no step in the build produces a suffixed copy,
 # so the entry would be dead weight in a list that is read as the contract.
-GAME_DATE_COLUMN = "GameDate"
+# ``GAME_DATE_COLUMN`` is re-exported from training_common so there is one
+# spelling of the column name.
 
-# Verbatim from src/Train-Models/XGBoost_Model_UO.py (DROP_COLUMNS). OU is
-# deliberately NOT dropped here: it is the model input, and its position in the
-# dataset -- between the away-team block and OU-Cover -- is part of the contract.
-UO_LABEL_DROP_COLUMNS = [
-    "index",
-    "Score",
-    "Home-Team-Win",
-    "TEAM_NAME",
-    "Date",
-    "index.1",
-    "TEAM_NAME.1",
-    "Date.1",
-    GAME_DATE_COLUMN,
-    "OU-Cover",
-]
+# The four names are kept because the runners and tests refer to them by name.
+# Every one is computed; none is a literal list. OU stays in the totals input --
+# it is the feature, and its dataset position is part of the contract -- and the
+# moneyline list drops it.
+UO_LABEL_DROP_COLUMNS = drop_columns_for(TOTALS_TARGET)
+ML_DROP_COLUMNS = drop_columns_for(MONEYLINE_TARGET)
+NN_UO_DROP_COLUMNS = drop_columns_for(TOTALS_TARGET)
+NN_ML_DROP_COLUMNS = drop_columns_for(MONEYLINE_TARGET)
 
-# Verbatim from src/Train-Models/XGBoost_Model_ML.py (DROP_COLUMNS).
-ML_DROP_COLUMNS = [
-    "index",
-    "Score",
-    "Home-Team-Win",
-    "TEAM_NAME",
-    "Date",
-    "index.1",
-    "TEAM_NAME.1",
-    "Date.1",
-    GAME_DATE_COLUMN,
-    "OU-Cover",
-    "OU",
-]
-
-# src/Train-Models/NN_Model_UO.py was previously recorded here as a discrepancy:
-# it dropped "OU" and then re-added it via ``X["OU"] = ou_values`` after the drop,
-# so the NN totals model received OU as the LAST column while the XGBoost totals
-# model received it at its dataset position. That made two totals models disagree
-# about the order of one dataset.
-#
-# That is now fixed at the source. NN_Model_UO no longer drops "OU" and no longer
-# re-appends it, so it matches UO_LABEL_DROP_COLUMNS exactly and both totals
-# models receive OU in the same position.
-#
-# CONSEQUENCE: the committed artifact
-# Models/NN_Models/Trained-Model-OU-49.2_*.keras was trained against the OLD
-# trainer, which fed OU last. It has 107 inputs either way, so nothing raised --
-# but its column order is now wrong and it must be RETRAINED before it is used.
-# Do not silently point NN_Runner at it expecting correct totals.
-NN_UO_DROP_COLUMNS = [
-    "index",
-    "Score",
-    "Home-Team-Win",
-    "TEAM_NAME",
-    "Date",
-    "index.1",
-    "TEAM_NAME.1",
-    "Date.1",
-    GAME_DATE_COLUMN,
-    "OU-Cover",
-]
-
-# src/Train-Models/NN_Model_ML.py drops these two in the opposite order to
-# ML_DROP_COLUMNS. Order in the deny-list is irrelevant to the result -- the
-# surviving columns keep their dataset order either way -- so it is noted, not
-# normalised.
-NN_ML_DROP_COLUMNS = [
-    "index",
-    "Score",
-    "Home-Team-Win",
-    "TEAM_NAME",
-    "Date",
-    "index.1",
-    "TEAM_NAME.1",
-    "Date.1",
-    GAME_DATE_COLUMN,
-    "OU",
-    "OU-Cover",
-]
+# The NN moneyline list used to be written with "OU" before "OU-Cover", and a
+# comment asserted that deny-list order was irrelevant. It is: drop() removes by
+# membership, so the surviving columns keep their dataset order either way. The
+# order difference is now gone at the source as well -- the list is the trainer
+# function's own, not a transcription -- and Tests/test_drop_columns.py pins the
+# invariance rather than trusting the comment.
 
 
 def expected_feature_order(dataset_columns, drop_columns):

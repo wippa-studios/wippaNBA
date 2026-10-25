@@ -32,9 +32,10 @@ from training_common import (
     MONEYLINE_NUM_CLASSES,
     MONEYLINE_TARGET,
     drop_columns_for,
-    format_param,
     load_dataset,
+    neural_model_filename,
     report_search_selection_risk,
+    write_run_manifest,
 )
 
 
@@ -175,20 +176,32 @@ def main():
     print(f"Test loss: {loss:.4f}")
 
     params = best["params"]
-    model_name = (
-        f"Trained-Model-ML-{accuracy * 100:.1f}"
-        f"_d{len(params['units'])}"
-        f"_u{params['units'][0]}"
-        f"_dr{format_param(params['dropout'])}"
-        f"_bn{int(params['batch_norm'])}"
-        f"_l2{format_param(params['l2'])}"
-        f"_lr{format_param(params['lr'])}"
-        f"_bs{params['batch_size']}.keras"
-    )
+    # The filename carries the target and the held-out accuracy, nothing else.
+    # The winning configuration goes into the manifest below, which is
+    # gitignored. The runner's prefix glob still finds this artifact.
+    model_name = neural_model_filename("ML", accuracy)
     model_path = MODEL_DIR / model_name
     best_model.save(model_path)
     temp_path.unlink(missing_ok=True)
     print(f"Saved model: {model_path}")
+
+    manifest_path = write_run_manifest(model_path, {
+        "schema": 1,
+        "artifact": model_path.name,
+        "kind": "moneyline",
+        "target": TARGET_COLUMN,
+        "accuracy": float(accuracy),
+        "test_loss": float(loss),
+        "best_val_loss": float(best["val_loss"]),
+        "n_features": int(X_train.shape[1]),
+        "params": params,
+        "dataset": args.dataset,
+        "seed": args.seed,
+        "trials": args.trials,
+        "val_size": args.val_size,
+        "test_size": args.test_size,
+    })
+    print(f"Saved run manifest: {manifest_path}")
 
 
 def _crossentropy_standard_error(model, X_test, y_test):
