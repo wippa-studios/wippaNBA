@@ -185,9 +185,10 @@ afternoon games are uncovered there by construction).
 not parse under the current cell grammar. A 2019-01-15 report yields 0 rows and
 94 line-shaped rejections, all `missing required cell(s): Current Status` — the
 era printed a different column set, and the header guard reports it instead of
-mis-attributing statuses. 2020-02 onward parses cleanly (127 rows, 0 unparsed
-for 2020-02-01), so the usable backfill window starts with the 2019-20 season
-and the parser refuses, loudly, before that. Extending it to 2018-19 is a
+mis-attributing statuses. The layout changed for the better somewhere between
+2019-12-15 (still 0 rows) and 2020-01-05 (117 rows, 0 unparsed), so the usable
+window begins in **January 2020**, mid-way through the 2019-20 season, and the
+parser refuses loudly before that. Extending it to the earlier layout is a
 parser job, not a capture job.
 
 ## What it measured (#37): below the bar
