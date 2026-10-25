@@ -3,7 +3,6 @@ import json
 
 import joblib
 import numpy as np
-import xgboost as xgb
 from sklearn.metrics import accuracy_score, log_loss, roc_auc_score
 
 import os
@@ -23,6 +22,7 @@ import training_common
 
 from boosting_training import (
     BoosterWrapper,
+    predict_probabilities,
     prepare_data,
     sample_params,
     split_train_es_calib,
@@ -232,7 +232,7 @@ def main():
     calibration_method = resolve_calibration_method(
         args.calibration, len(X_calib), allow_isotonic=args.allow_isotonic
     )
-    raw_probabilities = best_model.predict(xgb.DMatrix(X_test))
+    raw_probabilities = predict_probabilities(best_model, X_test, NUM_CLASSES)
     calibrator = None
     if calibration_method == "none":
         probabilities = raw_probabilities

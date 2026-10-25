@@ -36,6 +36,7 @@ if str(TRAIN_MODELS_DIR) not in sys.path:
     sys.path.insert(0, str(TRAIN_MODELS_DIR))
 try:
     from training_common import DEFAULT_DATASET as DATASET_TABLE
+    from training_common import OU_PICK_LABELS
 except ImportError as _exc:  # pragma: no cover - only in a broken checkout
     # Deliberately NOT a second literal. A fallback name is a name that can drift
     # from the trainers' one, which is the whole defect being fixed here.
@@ -64,7 +65,7 @@ OU_PATTERN = re.compile(r"Trained-Model-OU-(\d+(?:\.\d+)?)")
 # Keys per game:
 #   home_team, away_team            team names as the pipeline received them
 #   home_confidence, away_confidence  win probability per team, percent 0-100
-#   ou_pick                          "OVER" or "UNDER"
+#   ou_pick                          "OVER", "UNDER", or "PUSH" (a void total)
 #   ou_value, ou_confidence         the totals line and the model's edge on it
 #   home_team_ev, away_team_ev       expected value per team, percent points
 #   home_team_odds, away_team_odds   American odds as ints, null when missing
@@ -304,28 +305,40 @@ def nn_runner(data, todays_games_uo, frame_ml, games, home_team_odds, away_team_
                 un_confidence = round(ou_predictions_array[count][0][0] * 100, 1)
                 print(
                     Fore.GREEN + home_team + Style.RESET_ALL + Fore.CYAN + f" ({winner_confidence}%)" + Style.RESET_ALL + ' vs ' + Fore.RED + away_team + Style.RESET_ALL + ': ' +
-                    Fore.MAGENTA + 'UNDER ' + Style.RESET_ALL + str(todays_games_uo[
+                    Fore.MAGENTA + OU_PICK_LABELS[under_over] + ' ' + Style.RESET_ALL + str(todays_games_uo[
                                                                         count]) + Style.RESET_ALL + Fore.CYAN + f" ({un_confidence}%)" + Style.RESET_ALL)
-            else:
+            elif under_over == 1:
                 un_confidence = round(ou_predictions_array[count][0][1] * 100, 1)
                 print(
                     Fore.GREEN + home_team + Style.RESET_ALL + Fore.CYAN + f" ({winner_confidence}%)" + Style.RESET_ALL + ' vs ' + Fore.RED + away_team + Style.RESET_ALL + ': ' +
-                    Fore.BLUE + 'OVER ' + Style.RESET_ALL + str(todays_games_uo[
+                    Fore.BLUE + OU_PICK_LABELS[under_over] + ' ' + Style.RESET_ALL + str(todays_games_uo[
                                                                     count]) + Style.RESET_ALL + Fore.CYAN + f" ({un_confidence}%)" + Style.RESET_ALL)
+            else:
+                un_confidence = round(ou_predictions_array[count][0][2] * 100, 1)
+                print(
+                    Fore.GREEN + home_team + Style.RESET_ALL + Fore.CYAN + f" ({winner_confidence}%)" + Style.RESET_ALL + ' vs ' + Fore.RED + away_team + Style.RESET_ALL + ': ' +
+                    Fore.YELLOW + OU_PICK_LABELS[under_over] + ' ' + Style.RESET_ALL + str(todays_games_uo[
+                                                                       count]) + Style.RESET_ALL + Fore.CYAN + f" ({un_confidence}%)" + Style.RESET_ALL)
         else:
             winner_confidence = round(winner_confidence[0][0] * 100, 1)
             if under_over == 0:
                 un_confidence = round(ou_predictions_array[count][0][0] * 100, 1)
                 print(
                     Fore.RED + home_team + Style.RESET_ALL + ' vs ' + Fore.GREEN + away_team + Style.RESET_ALL + Fore.CYAN + f" ({winner_confidence}%)" + Style.RESET_ALL + ': ' +
-                    Fore.MAGENTA + 'UNDER ' + Style.RESET_ALL + str(todays_games_uo[
+                    Fore.MAGENTA + OU_PICK_LABELS[under_over] + ' ' + Style.RESET_ALL + str(todays_games_uo[
                                                                         count]) + Style.RESET_ALL + Fore.CYAN + f" ({un_confidence}%)" + Style.RESET_ALL)
-            else:
+            elif under_over == 1:
                 un_confidence = round(ou_predictions_array[count][0][1] * 100, 1)
                 print(
                     Fore.RED + home_team + Style.RESET_ALL + ' vs ' + Fore.GREEN + away_team + Style.RESET_ALL + Fore.CYAN + f" ({winner_confidence}%)" + Style.RESET_ALL + ': ' +
-                    Fore.BLUE + 'OVER ' + Style.RESET_ALL + str(todays_games_uo[
+                    Fore.BLUE + OU_PICK_LABELS[under_over] + ' ' + Style.RESET_ALL + str(todays_games_uo[
                                                                     count]) + Style.RESET_ALL + Fore.CYAN + f" ({un_confidence}%)" + Style.RESET_ALL)
+            else:
+                un_confidence = round(ou_predictions_array[count][0][2] * 100, 1)
+                print(
+                    Fore.RED + home_team + Style.RESET_ALL + ' vs ' + Fore.GREEN + away_team + Style.RESET_ALL + Fore.CYAN + f" ({winner_confidence}%)" + Style.RESET_ALL + ': ' +
+                    Fore.YELLOW + OU_PICK_LABELS[under_over] + ' ' + Style.RESET_ALL + str(todays_games_uo[
+                                                                       count]) + Style.RESET_ALL + Fore.CYAN + f" ({un_confidence}%)" + Style.RESET_ALL)
         # Both teams' confidences go in the record, not just the winner's: the card
         # in Flask/templates/index.html compares the two to pick a lean.
         board.append(
@@ -334,7 +347,7 @@ def nn_runner(data, todays_games_uo, frame_ml, games, home_team_odds, away_team_
                 'away_team': away_team,
                 'home_confidence': round(ml_predictions_array[count][0][1] * 100, 1),
                 'away_confidence': round(ml_predictions_array[count][0][0] * 100, 1),
-                'ou_pick': 'UNDER' if under_over == 0 else 'OVER',
+                'ou_pick': OU_PICK_LABELS[under_over],
                 'ou_value': todays_games_uo[count],
                 'ou_confidence': un_confidence,
             }

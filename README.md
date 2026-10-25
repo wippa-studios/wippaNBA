@@ -385,6 +385,7 @@ pytest Tests/                  # or: python -m unittest discover -s Tests -t .
 | doc | what it covers |
 |---|---|
 | [The market anchor](market_anchor.md) | Why odds are legitimate as an input only here; the close absorbs everything the model knows |
+| [The totals target](docs/totals_target.md) | Why `OU-Cover` keeps its push class, what a void bet means, and the closing price that would justify folding it |
 | [The availability block](availability_block.md) | The one mechanism that survived: expected minutes over the prior game's squad |
 | [The injury-report pipeline](injury_pipeline.md) | Point-in-time availability as append-only evidence |
 | [The October 2026 experiment campaign](experiment_log_2026-10.md) | Every experiment from declared rationale to verdict, plus errata |

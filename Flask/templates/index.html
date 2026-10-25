@@ -171,7 +171,7 @@
                                     <span class="book-name">{{ sportsbook }}</span>
                                     {% if sbgame %}
                                         {% if sbgame.ou_pick %}
-                                            <span class="ou-chip {% if sbgame.ou_pick == 'UNDER' %}under{% endif %}">{{ sbgame.ou_pick }} {{ sbgame.ou_value }}</span>
+                                            <span class="ou-chip {% if sbgame.ou_pick == 'UNDER' %}under{% elif sbgame.ou_pick == 'PUSH' %}push{% endif %}">{{ sbgame.ou_pick }} {{ sbgame.ou_value }}</span>
                                         {% endif %}
                                     {% endif %}
                                 </div>

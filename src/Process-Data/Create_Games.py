@@ -453,6 +453,9 @@ def main():
                 days_rest_away.append(row.Days_Rest_Away)
                 win_margin.append(1 if row.Win_Margin > 0 else 0)
 
+                # 2 is a push: the total landed exactly on the line and the bet
+                # is void. It stays a distinct class in the totals head; see
+                # docs/totals_target.md for why it is not folded into a side.
                 if row.Points < row.OU:
                     ou_cover.append(0)
                 elif row.Points > row.OU:

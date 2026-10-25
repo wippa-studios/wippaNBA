@@ -125,11 +125,19 @@ DEFAULT_TRIALS = 15
 
 # The two prediction targets and how many classes each one carries. The
 # moneyline is home/away, a binary label; the totals label is under/over/push,
-# three classes.
+# three classes. Push is kept as its own class on purpose: it is a void bet, not
+# a side, and the decision layer must not fold it into over. The reasoning, the
+# measured class counts and the one measurement that would reopen the choice are
+# in docs/totals_target.md.
 MONEYLINE_TARGET = "Home-Team-Win"
 TOTALS_TARGET = "OU-Cover"
 MONEYLINE_NUM_CLASSES = 2
 TOTALS_NUM_CLASSES = 3
+
+# The totals head's class index -> what the runners may call it. Class 2 is a
+# push, a void bet, and deliberately has no side. Both runners share this tuple
+# so neither can reintroduce the old "not under, therefore over" mapping.
+OU_PICK_LABELS = ("UNDER", "OVER", "PUSH")
 
 # The closing total. It is known before tip-off, so it is a legitimate feature
 # for the totals trainers and never wanted by the moneyline trainers.

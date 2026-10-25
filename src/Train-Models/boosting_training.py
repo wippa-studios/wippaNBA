@@ -181,6 +181,15 @@ def sample_params(rng, seed, num_classes, class_weights="none"):
 
     ``max_delta_step`` is included only when class weighting is on; see the
     module docstring.
+
+    Two classes use ``binary:logistic``, not ``multi:softprob`` with
+    ``num_class=2``. Softmax over two logits is algebraically the sigmoid of
+    their difference, so the two objectives span the same function class, but
+    softmax fits one tree per class per round (two trees) while the sigmoid fits
+    one. ``logloss`` on the single probability equals ``mlogloss`` on the
+    two-column matrix exactly, so the selection criterion is unchanged. The
+    eval-metric list keeps the same order as the multiclass pair so early
+    stopping still reads the same quantity: xgboost stops on the LAST entry.
     """
     eta = 10 ** rng.uniform(np.log10(0.003), np.log10(0.3))
     params = {
@@ -195,12 +204,16 @@ def sample_params(rng, seed, num_classes, class_weights="none"):
         "max_bin": int(rng.integers(128, 1025)),
         "lambda": float(10 ** rng.uniform(np.log10(0.1), np.log10(10.0))),
         "alpha": float(10 ** rng.uniform(np.log10(0.01), np.log10(5.0))),
-        "objective": "multi:softprob",
-        "num_class": num_classes,
-        "eval_metric": ["mlogloss", "merror"],
         "seed": seed,
         "tree_method": "hist",
     }
+    if num_classes == 2:
+        params["objective"] = "binary:logistic"
+        params["eval_metric"] = ["logloss", "error"]
+    else:
+        params["objective"] = "multi:softprob"
+        params["num_class"] = num_classes
+        params["eval_metric"] = ["mlogloss", "merror"]
     if class_weights != "none":
         params["max_delta_step"] = int(rng.integers(0, 11))
     else:
@@ -225,16 +238,34 @@ def train_model(
     return model
 
 
+def predict_probabilities(booster, X, num_classes):
+    """Predict a probability matrix, whatever shape the objective returns.
+
+    ``binary:logistic`` returns one column (P(class 1)); every other objective
+    used here returns one column per class. The rest of the pipeline indexes
+    ``[:, 1]`` and hands the matrix to ``log_loss``/calibrators, so the binary
+    case is widened to two columns with ``1 - p`` in the first.
+    """
+    raw = booster.predict(xgb.DMatrix(X))
+    if num_classes == 2:
+        if raw.ndim == 1:
+            raw = np.column_stack((1.0 - raw, raw))
+        elif raw.shape[1] == 1:
+            raw = np.column_stack((1.0 - raw[:, 0], raw[:, 0]))
+    return raw
+
+
 class BoosterWrapper:
     def __init__(self, booster, num_class):
         self.booster = booster
         self.classes_ = np.arange(num_class)
+        self.num_classes_ = num_class
 
     def fit(self, X, y):
         return self
 
     def predict_proba(self, X):
-        return self.booster.predict(xgb.DMatrix(X))
+        return predict_probabilities(self.booster, X, self.num_classes_)
 
 
 def walk_forward_cv_loss(
@@ -279,7 +310,7 @@ def walk_forward_cv_loss(
             num_classes,
             class_weights,
         )
-        val_probs = model.predict(xgb.DMatrix(X[val_idx]))
+        val_probs = predict_probabilities(model, X[val_idx], num_classes)
         losses.append(
             log_loss(y[val_idx], val_probs, labels=list(range(num_classes)))
         )
