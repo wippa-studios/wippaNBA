@@ -174,7 +174,7 @@ Leakage was worth roughly **+2.8 points of accuracy and +6 points of phantom ROI
 
 - **Correctness.** Games join to the most recent stats snapshot *strictly before* the game date. Postponed and phantom-tie games are excluded. One shared days-rest implementation replaces three divergent ones. Both runners assert the inference frame matches the training column order.
 - **Evaluation.** Class weighting off by default; four disjoint chronological segments; fixed seeds; imputation fitted inside each fold; log loss, the closing-line baseline and realised ROI reported, not accuracy alone.
-- **Security.** API key read from `RAPIDAPI_KEY` and endpoints fail closed; debug mode removed; every network call has a timeout.
+- **Security.** API key read from `RAPIDAPI_KEY` and endpoints fail closed; the three upstream-costing routes are metered per client address, `/games` also carries a distinct-date budget, and `LEGIT_API_TOKEN` optionally closes the JSON routes; debug mode removed; every network call has a timeout.
 - **Engineering.** CI on Python 3.10–3.11, `pyproject.toml`, declared dependencies, six near-identical trainers collapsed into shared modules (2,255 → 1,551 lines, byte-identical output).
 - **Reference tooling.** One importable leakage gate (`src/Utils/leakage_gate.py`) that separates a **confirmed future-dated leak** from a **same-date dependency to investigate**, tested against the three known-fatal patterns and their clean counterparts.
 

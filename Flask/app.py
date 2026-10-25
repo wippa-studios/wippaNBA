@@ -4,9 +4,10 @@ import os
 import sys
 import threading
 from zoneinfo import ZoneInfo
-from flask import Flask, render_template,jsonify, request
+from flask import Flask, render_template,jsonify, request, make_response
 import subprocess, requests, re, time
-from collections import OrderedDict
+from collections import OrderedDict, deque
+import hmac
 from werkzeug.exceptions import HTTPException
 
 
@@ -72,6 +73,48 @@ EV_CEILING_WITHOUT_ODDS = 100.0
 EV_TOLERANCE = 0.01
 
 PLAYER_ID_RE = re.compile(r"^[0-9]+$")
+
+# --- public-route protection -------------------------------------------------
+# The app is public by default: the README runs it as a local web app, and the
+# HTML pages are meant to be opened in a browser. Three routes spend upstream
+# quota, so each carries a per-IP limit. Setting LEGIT_API_TOKEN additionally
+# requires a bearer token on the JSON data routes; /games stays public HTML
+# because a browser navigation cannot carry an API key cleanly, and its cost is
+# bounded by the distinct-date budget below as well as the request limit.
+#
+# The defaults leave normal browsing untouched (240 requests/minute, 64 distinct
+# dates/hour) while stopping a caller from walking a year of dates or hammering
+# RapidAPI. Deployments behind a reverse proxy should enforce their own limit at
+# the edge as well; `request.remote_addr` is deliberately not the spoofable
+# X-Forwarded-For header.
+def _env_positive_int(name, default):
+    """Read a positive integer from the environment, falling back on garbage.
+
+    An unparseable or non-positive limit is a deployment typo, not a reason to
+    refuse to boot: the app falls back to its documented default and the value
+    stays visible in this module for any test that wants to assert it. Zero is
+    rejected here so it cannot be mistaken for "deny everything"; pass a
+    negative value in code, not in the environment, to disable a limit.
+    """
+    raw = os.environ.get(name)
+    if raw is None:
+        return default
+    try:
+        value = int(raw)
+    except (TypeError, ValueError):
+        return default
+    return value if value > 0 else default
+
+
+API_TOKEN = os.environ.get("LEGIT_API_TOKEN", "")
+RATE_LIMIT_WINDOW_SECONDS = 60
+RATE_LIMIT_REQUESTS = _env_positive_int("LEGIT_RATE_LIMIT_REQUESTS", 240)
+GAMES_RATE_LIMIT_REQUESTS = _env_positive_int("LEGIT_GAMES_RATE_LIMIT_REQUESTS", 120)
+GAMES_DATE_BUDGET = _env_positive_int("LEGIT_GAMES_DATE_BUDGET", 64)
+GAMES_DATE_WINDOW_SECONDS = 3600
+# Cap on distinct client keys held by a limiter, so an attacker cycling source
+# addresses cannot turn the limiter itself into an unbounded memory leak.
+RATE_LIMIT_MAX_KEYS = 4096
 
 # One lock per sportsbook so concurrent requests share one child process, plus a
 # global semaphore so a burst of requests cannot spawn unbounded children.
@@ -173,6 +216,155 @@ def rapidapi_unavailable_response():
         'success': False,
         'error': 'Player data service is not configured'
     }), 503
+
+
+class SlidingWindowLimiter:
+    """Per-key request counter over a rolling window.
+
+    This is the metering half of issue #50. A caller is identified by whatever
+    its route passes as ``key`` -- this app uses the client address -- and the
+    limiter records the timestamps of the requests it ALLOWED. A request is
+    refused while the oldest of those timestamps is still inside the window, so
+    a caller cannot reset the count by waiting for a fixed-clock bucket to roll
+    over (the same arithmetic mistake ``TTLCache`` was written to avoid).
+
+    Refused requests are not recorded: recording them would let a rejected
+    caller push its own reset further away forever. The window therefore slides
+    on allowed traffic only, and ``retry_after`` says when the next request may
+    pass.
+
+    ``max_keys`` bounds memory. The oldest untouched key is evicted when the
+    table is full, so cycling source addresses costs the attacker a request per
+    key but cannot grow this dict without limit.
+    """
+
+    def __init__(self, max_keys=RATE_LIMIT_MAX_KEYS):
+        self.max_keys = max_keys
+        self.entries = OrderedDict()
+        self.lock = threading.Lock()
+
+    def allow(self, key, limit, window, now=None):
+        """Record one request for ``key``, or return False if it is over budget.
+
+        A non-positive ``limit`` or ``window`` disables the limiter; that is the
+        code-only escape hatch (the environment parser refuses zero) and it is
+        what a test uses to isolate another check.
+        """
+        if limit <= 0 or window <= 0:
+            return True
+        now = time.time() if now is None else now
+        cutoff = now - window
+        with self.lock:
+            hits = self.entries.get(key)
+            if hits is None:
+                hits = deque()
+                self.entries[key] = hits
+                while len(self.entries) > self.max_keys:
+                    self.entries.popitem(last=False)
+            while hits and hits[0] <= cutoff:
+                hits.popleft()
+            self.entries.move_to_end(key)
+            if len(hits) >= limit:
+                return False
+            hits.append(now)
+            return True
+
+    def retry_after(self, key, window, now=None):
+        """Seconds until ``key`` may try again; 0 when it is not blocked."""
+        if window <= 0:
+            return 0
+        now = time.time() if now is None else now
+        with self.lock:
+            hits = self.entries.get(key)
+            if not hits:
+                return 0
+            remaining = hits[0] + window - now
+        return max(0, int(remaining) + (1 if remaining % 1 else 0))
+
+    def clear(self):
+        """Forget every key. The test suite, and nothing else."""
+        with self.lock:
+            self.entries.clear()
+
+
+class DistinctDateBudget:
+    """Per-key budget on DISTINCT days requested from ``/games``.
+
+    The request limiter alone is not enough for that route: a caller under its
+    per-minute ceiling can still walk ``?date=`` one day at a time and cost one
+    ScoreboardV3 call per day, which is the exact pattern that earns a 403 (see
+    issue #27). Re-requesting a day already counted is free, so following the
+    "previous day" / "next day" links costs nothing.
+
+    Entries expire ``window`` seconds after the day was FIRST seen, not on each
+    repeat -- otherwise a caller parked on one date would keep the whole budget
+    alive indefinitely. Expired days can be counted again.
+    """
+
+    def __init__(self, max_keys=RATE_LIMIT_MAX_KEYS):
+        self.max_keys = max_keys
+        self.entries = OrderedDict()
+        self.lock = threading.Lock()
+
+    def allow(self, key, day, limit, window, now=None):
+        """Count ``day`` for ``key``, or return False if the budget is spent."""
+        if limit <= 0 or window <= 0 or day is None:
+            return True
+        now = time.time() if now is None else now
+        cutoff = now - window
+        with self.lock:
+            seen = self.entries.get(key)
+            if seen is None:
+                seen = OrderedDict()
+                self.entries[key] = seen
+                while len(self.entries) > self.max_keys:
+                    self.entries.popitem(last=False)
+            while seen:
+                oldest_day, first_seen = next(iter(seen.items()))
+                if first_seen <= cutoff:
+                    seen.popitem(last=False)
+                else:
+                    break
+            self.entries.move_to_end(key)
+            if day in seen:
+                return True
+            if len(seen) >= limit:
+                return False
+            seen[day] = now
+            return True
+
+    def retry_after(self, key, window, now=None):
+        """Seconds until the oldest counted day expires; 0 when nothing is held."""
+        if window <= 0:
+            return 0
+        now = time.time() if now is None else now
+        with self.lock:
+            seen = self.entries.get(key)
+            if not seen:
+                return 0
+            remaining = next(iter(seen.values())) + window - now
+        return max(0, int(remaining) + (1 if remaining % 1 else 0))
+
+    def clear(self):
+        """Forget every key. The test suite, and nothing else."""
+        with self.lock:
+            self.entries.clear()
+
+
+# Two stores, not one: the games page and the RapidAPI data routes have
+# different costs and different limits, and sharing a counter would let a busy
+# slate exhaust the budget for player lookups (and the reverse).
+GAMES_REQUEST_LIMITER = SlidingWindowLimiter()
+DATA_REQUEST_LIMITER = SlidingWindowLimiter()
+GAMES_DATE_BUDGETS = DistinctDateBudget()
+
+
+def reset_rate_limits():
+    """Clear every limiter. Called by tests; safe to call between deployments."""
+    GAMES_REQUEST_LIMITER.clear()
+    DATA_REQUEST_LIMITER.clear()
+    GAMES_DATE_BUDGETS.clear()
+
 
 
 PREDICTION_CACHE = TTLCache()
@@ -479,6 +671,148 @@ def handle_unexpected_error(error):
     return "Something went wrong. Please try again shortly.", 500
 
 
+def client_key():
+    """The limiter bucket for this request: the connecting address.
+
+    ``X-Forwarded-For`` is deliberately not read. It is caller-controlled unless
+    a trusted proxy strips and rewrites it, so honouring it here would let any
+    client pick a fresh bucket per request and walk straight past the limit.
+    A deployment behind such a proxy should terminate the limit there (or add
+    ``ProxyFix`` once the proxy is known to overwrite the header).
+    """
+    return request.remote_addr or "unknown"
+
+
+def json_too_many_requests(retry_after):
+    """429 for the JSON data routes, in the same envelope as their other errors."""
+    response = jsonify({'success': False, 'error': 'Too many requests'})
+    response.status_code = 429
+    response.headers["Retry-After"] = str(max(0, int(retry_after)))
+    return response
+
+
+def games_too_many_requests(retry_after):
+    """429 as the rendered games page, because /games is public HTML.
+
+    The page needs the same variables the route supplies, including the day
+    somebody asked for: a limit is about upstream cost, not about hiding which
+    date was refused. Nothing is fetched here.
+    """
+    zone, zone_label = resolve_viewer_timezone()
+    today = datetime.now(zone).date()
+    requested = request.args.get("date")
+    day = parse_game_date(requested)
+    if day is None:
+        day = today
+    response = make_response(render_template(
+        "games.html",
+        game_date=day,
+        today=today,
+        timezone_name=zone_label,
+        tz_query=request.args.get("tz"),
+        games=[],
+        games_count=0,
+        status="too_many_requests",
+        notice=GAMES_NOTICES["too_many_requests"],
+        degraded_note=None,
+        yesterday=day - timedelta(days=1),
+        tomorrow=day + timedelta(days=1),
+    ), 429)
+    response.headers["Retry-After"] = str(max(0, int(retry_after)))
+    return response
+
+
+def bearer_token():
+    """The bearer token on this request, or "" when there is not one."""
+    header = request.headers.get("Authorization", "")
+    scheme, separator, token = header.partition(" ")
+    if not separator or scheme.lower() != "bearer":
+        return ""
+    return token.strip()
+
+
+def request_is_authorised():
+    """Whether this request may use a JSON data route.
+
+    Authentication is OPT-IN: with no ``LEGIT_API_TOKEN`` configured the routes
+    keep the public read-only behaviour they have always had, and setting the
+    variable is the deployment switch that closes them. The comparison is
+    constant-time and the token is accepted only from the Authorization header,
+    never from the query string, so it cannot leak into logs or browser history
+    by being pasted into a URL.
+    """
+    if not API_TOKEN:
+        return True
+    supplied = bearer_token()
+    if not supplied:
+        return False
+    return hmac.compare_digest(supplied.encode("utf-8"),
+                               API_TOKEN.encode("utf-8"))
+
+
+@app.before_request
+def enforce_public_route_limits():
+    """Meter and, when configured, authenticate the three upstream-costing routes.
+
+    This runs before the route function, so a refused request costs nothing
+    upstream. The ordering is request limit -> authentication for the JSON
+    routes: a caller guessing tokens hits the same per-IP ceiling as one reading
+    data, and it cannot spend an unlimited number of guesses per minute.
+
+    Bypass is the property under test: the counters are keyed on the client
+    address, and varying ``date``, ``team_name``, ``player_id``, a query
+    parameter or ``X-Forwarded-For`` does not produce a new bucket. The one
+    thing that legitimately splits a bucket is the actual source address.
+    """
+    endpoint = request.endpoint
+    key = client_key()
+
+    if endpoint == "games":
+        if not GAMES_REQUEST_LIMITER.allow(
+                key, GAMES_RATE_LIMIT_REQUESTS, RATE_LIMIT_WINDOW_SECONDS):
+            retry_after = GAMES_REQUEST_LIMITER.retry_after(
+                key, RATE_LIMIT_WINDOW_SECONDS)
+            app.logger.warning("Rate-limited /games for %s (retry in %ss)",
+                               key, retry_after)
+            return games_too_many_requests(retry_after)
+
+        # Only a valid, explicit date can cost an upstream call: no date means
+        # "today" (one key, already bounded by the request limit) and an invalid
+        # date is rejected by the route without fetching anything.
+        requested = request.args.get("date")
+        day = parse_game_date(requested)
+        if requested is not None and day is not None:
+            if not GAMES_DATE_BUDGETS.allow(
+                    key, day.isoformat(), GAMES_DATE_BUDGET,
+                    GAMES_DATE_WINDOW_SECONDS):
+                retry_after = GAMES_DATE_BUDGETS.retry_after(
+                    key, GAMES_DATE_WINDOW_SECONDS)
+                app.logger.warning(
+                    "Distinct-date budget spent for %s at %s (retry in %ss)",
+                    key, day, retry_after)
+                return games_too_many_requests(retry_after)
+        return None
+
+    if endpoint in ("team_data", "player_stats"):
+        if not DATA_REQUEST_LIMITER.allow(
+                key, RATE_LIMIT_REQUESTS, RATE_LIMIT_WINDOW_SECONDS):
+            retry_after = DATA_REQUEST_LIMITER.retry_after(
+                key, RATE_LIMIT_WINDOW_SECONDS)
+            app.logger.warning("Rate-limited %s for %s (retry in %ss)",
+                               request.path, key, retry_after)
+            return json_too_many_requests(retry_after)
+
+        if not request_is_authorised():
+            app.logger.warning("Rejected unauthenticated request to %s from %s",
+                               request.path, key)
+            response = jsonify({'success': False, 'error': 'Unauthorized'})
+            response.status_code = 401
+            response.headers["WWW-Authenticate"] = "Bearer"
+            return response
+
+    return None
+
+
 @app.route("/")
 def index():
     # One window for all three books, as when a single shared ttl_hash drove them
@@ -590,6 +924,12 @@ GAMES_NOTICES = {
     "unavailable": (
         "Game data is temporarily unavailable",
         "The NBA scoreboard could not be reached. Please try again shortly.",
+    ),
+    "too_many_requests": (
+        "Too many requests from this address",
+        "This page is metered because every date it shows costs one NBA "
+        "request. Wait a minute and try again, or follow the day links rather "
+        "than walking dates from a script.",
     ),
 }
 
@@ -1140,8 +1480,11 @@ def get_player_data(team_abv):
         }
 
 
-# TODO(security): /team-data and /player-stats are unauthenticated and unmetered.
-# They need authentication and rate limiting before this app is exposed publicly.
+# Protected by `enforce_public_route_limits`: every call costs RapidAPI quota, so
+# it is metered per client address, and setting LEGIT_API_TOKEN closes it to
+# callers without a bearer token. The same hook covers /player-stats and the
+# public HTML /games route (request limit plus a distinct-date budget). See the
+# "public-route protection" block near the top of this module.
 @app.route("/team-data/<team_name>")
 def team_data(team_name):
     # Convert full team name to abbreviation using the existing dictionary
