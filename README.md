@@ -176,8 +176,39 @@ Leakage was worth roughly **+2.8 points of accuracy and +6 points of phantom ROI
 - **Evaluation.** Class weighting off by default; four disjoint chronological segments; fixed seeds; imputation fitted inside each fold; log loss, the closing-line baseline and realised ROI reported, not accuracy alone.
 - **Security.** API key read from `RAPIDAPI_KEY` and endpoints fail closed; debug mode removed; every network call has a timeout.
 - **Engineering.** CI on Python 3.10–3.11, `pyproject.toml`, declared dependencies, six near-identical trainers collapsed into shared modules (2,255 → 1,551 lines, byte-identical output).
+- **Reference tooling.** One importable leakage gate (`src/Utils/leakage_gate.py`) that separates a **confirmed future-dated leak** from a **same-date dependency to investigate**, tested against the three known-fatal patterns and their clean counterparts.
 
 [Full list, plus the evaluation tooling added →](audit_and_fixes.md#what-this-fork-changes)
+
+### The reusable leakage gate
+
+The audit's most instructive result was a leak that truncation could not see: the
+player-Elo block scored \|z\| = 5.18 by summing over the players who *actually
+played*. The weights were causal; the **membership** was not.
+
+`src/Utils/leakage_gate.py` turns that lesson into a tool. It is one importable
+function, `audit_future_dependence(build_features, frame, date_col, row_key)`,
+with no dependency on this repository's data layout — copy it into another
+project and pass that project's feature builder.
+
+| probe | question it asks | how to read a change |
+|---|---|---|
+| `as_of` | does the feature read a **later-dated** record? | **a real leak.** Trust it. |
+| `blind` | does it read **other records sharing its date**? | a membership dependency. Investigate; do not conclude. |
+| `self` (optional) | does it read **its own row**? | expected for causal self-reference; diagnostic only. |
+
+The split is the point. An earlier single-probe design deleted the probe event's
+own row, so every trailing average was flagged by construction — the gate cried
+wolf on exactly the features that were clean. Keeping the event's own row makes
+`blind` fair to self-reference while still catching the membership shape. The
+report keeps the answers in separate collections (`leaks`,
+`membership_dependencies`, `self_dependencies`), and its summary never calls a
+blind finding a leak.
+
+The gate is tested against the three known-fatal patterns — **the 68.9%
+headline, player-Elo over the actual squad, availability over the actual squad**
+— and against their clean counterparts, including a strictly causal trailing
+mean that must pass. [The API, the fixtures and what the gate cannot see →](docs/leakage_gate.md)
 
 ---
 
@@ -358,6 +389,7 @@ pytest Tests/                  # or: python -m unittest discover -s Tests -t .
 | [The injury-report pipeline](injury_pipeline.md) | Point-in-time availability as append-only evidence |
 | [The October 2026 experiment campaign](experiment_log_2026-10.md) | Every experiment from declared rationale to verdict, plus errata |
 | [The player-Elo leak](player_elo_leak.md) | A \|z\| = 5.18 result that was target leakage |
+| [The reusable leakage gate](docs/leakage_gate.md) | One function, three probes, three known leaks as fixtures; `as_of` leaks kept apart from `blind` membership dependencies |
 | [Two measurement bugs](measurement_bugs.md) | The ROI denominator and the data guard |
 | [The feature search](feature_search.md) | Four pre-registered candidates and the fold-count artifact |
 | [Modelling exploration](modeling_exploration.md) | Nine further candidate blocks, all scored, all null |
