@@ -41,10 +41,12 @@ import contextlib
 import json
 import sqlite3
 import sys
+from dataclasses import dataclass
 from pathlib import Path
 
 import numpy as np
 import pandas as pd
+from sklearn.preprocessing import StandardScaler
 
 BASE_DIR = Path(__file__).resolve().parents[2]
 DATASET_DB = BASE_DIR / "Data" / "dataset.sqlite"
@@ -298,6 +300,86 @@ def impute_split(train, *others):
     cleaned = [frame.replace([np.inf, -np.inf], np.nan) for frame in frames]
     medians = cleaned[0].median(numeric_only=True)
     return tuple(frame.fillna(medians).fillna(0) for frame in cleaned)
+
+
+@dataclass
+class FeatureScaler:
+    """Train-fitted imputation and standardisation, saved beside a model.
+
+    Every scikit-learn trainer already standardises with statistics fit on the
+    training rows. The neural path did not: it divided each row by its own L2
+    norm (``tf.keras.utils.normalize``), which puts every game on the unit
+    sphere and turns the first layer's logit into ``(w·x_i)/||x_i||``. Two
+    games with the same feature direction but raw norms 250 and 330 then differ
+    by 32% purely from magnitude, and that magnitude is uncorrelated with the
+    outcome (r = -0.023 on this dataset). The network was therefore fed an
+    uncontrolled per-row gain that no other model in the repo sees (#16).
+
+    This object is the replacement: imputation values and ``StandardScaler``
+    statistics are both fit on TRAIN rows only, then applied unchanged to every
+    held-out row and to live inference. ``transform`` accepts a DataFrame (the
+    runner's case) or a positional matrix (the trainers' case), reorders named
+    columns into training order, and refuses a frame that is missing one.
+
+    It is deliberately a plain dataclass holding plain sklearn/numpy/pandas
+    objects so ``joblib`` can round-trip it: the runner only needs the pickled
+    object's own class path, which resolves once ``training_common`` is on
+    ``sys.path`` (the runner already puts it there).
+    """
+
+    feature_names: list
+    fill_values: pd.Series
+    scaler: StandardScaler
+
+    def transform(self, frame):
+        """Return the standardised matrix for ``frame`` in training column order.
+
+        A DataFrame is aligned by NAME, so an inference frame built by a
+        different query cannot silently permute the inputs. A matrix is taken
+        positionally and must already have one column per training feature.
+        """
+        if isinstance(frame, pd.DataFrame):
+            missing = [name for name in self.feature_names if name not in frame.columns]
+            if missing:
+                raise ValueError(
+                    "inference frame is missing training feature(s): "
+                    + ", ".join(map(str, missing[:10]))
+                    + (" ..." if len(missing) > 10 else "")
+                )
+            values = frame.loc[:, self.feature_names].to_numpy(dtype=float)
+        else:
+            values = np.asarray(frame, dtype=float)
+            if values.ndim != 2 or values.shape[1] != len(self.feature_names):
+                raise ValueError(
+                    f"expected a matrix with {len(self.feature_names)} columns, "
+                    f"got {getattr(values, 'shape', None)}"
+                )
+        values = np.where(np.isfinite(values), values, np.nan)
+        values = pd.DataFrame(values, columns=self.feature_names)
+        values = values.fillna(self.fill_values).fillna(0)
+        return self.scaler.transform(values.to_numpy(dtype=float))
+
+
+def fit_feature_scaler(train, *others):
+    """Fit imputation + ``StandardScaler`` on ``train``, transform every frame.
+
+    Returns ``(FeatureScaler, matrices)``. The first matrix is ``train``; the
+    rest are the held-out frames, in the order given. Medians and means come
+    from ``train`` alone, so a held-out row cannot influence the transform it
+    is then scored under.
+
+    This is the split-safe replacement for per-row normalisation and for
+    fitting a scaler before the chronological cut. It is used by the two neural
+    trainers; the scikit-learn trainers keep their own per-fold scalers.
+    """
+    frames = (train,) + tuple(others)
+    cleaned = [frame.replace([np.inf, -np.inf], np.nan) for frame in frames]
+    medians = cleaned[0].median(numeric_only=True)
+    filled = [frame.fillna(medians).fillna(0) for frame in cleaned]
+    scaler = StandardScaler().fit(filled[0].to_numpy(dtype=float))
+    matrices = tuple(scaler.transform(frame.to_numpy(dtype=float)) for frame in filled)
+    fill_values = medians.reindex(train.columns).fillna(0)
+    return FeatureScaler(list(train.columns), fill_values, scaler), matrices
 
 
 def resolve_fold_rows(n_rows, n_splits, fold_rows=None):

@@ -100,8 +100,9 @@ python -m src.Train-Models.XGBoost_Model_ML --dataset dataset_2012-26 --trials 1
 python -m src.Train-Models.XGBoost_Model_UO --dataset dataset_2012-26 --trials 15 --splits 5
 python -m src.Train-Models.Logistic_Regression_ML --dataset dataset_2012-26 --trials 15 --splits 5
 
-# the neural trainers take the same --dataset and --trials, but validate on one
-# contiguous slice rather than a fold series, so --splits does not apply:
+# the neural trainers take the same --dataset and --trials. They validate on one
+# contiguous slice rather than a fold series, so --splits does not apply, but
+# they now take --calib-size for the calibration segment:
 python -m src.Train-Models.NN_Model_ML --dataset dataset_2012-26 --trials 15
 python -m src.Train-Models.NN_Model_UO --dataset dataset_2012-26 --trials 15
 ```
@@ -109,7 +110,11 @@ python -m src.Train-Models.NN_Model_UO --dataset dataset_2012-26 --trials 15
 Each XGBoost trainer writes three files: the model, a `*_calibration.pkl`, and a
 `*_features.json` holding the **exact ordered column list** the matrix was built
 from — the model itself is a positional matrix, so nothing inside the `.json` records
-that order.
+that order. The neural trainers write to `Models/NN_Models/` (the directory the
+runner reads) and save a `*_preprocessor.pkl` holding the train-fitted imputation
+values and `StandardScaler`, plus `*_calibration.pkl` when calibration is on. The
+runner applies that saved preprocessor and refuses a model that has none, because
+the old per-row L2 normalisation cannot be reproduced from a raw inference frame.
 
 ### The feature-order contract
 

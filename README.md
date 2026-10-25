@@ -349,6 +349,9 @@ pytest Tests/                  # or: python -m unittest discover -s Tests -t .
    `Models/NN_Models/Trained-Model-OU-49.2.keras` additionally carries the old
    totals column order — it has 107 inputs either way, so nothing will raise, it will
    simply be wrong. Treat everything in `Models/` as untrusted until retrained.
+   The neural runner now refuses an artifact with no `*_preprocessor.pkl` beside it;
+   the scaler fitted during training cannot be recovered from the `.keras` file, and
+   the old per-row normalisation is no longer applied.
 7. **The totals model should not be used.** It does not beat a coin flip or a constant
    prior.
 8. **Kelly sizing is full Kelly** with no fractional scaling, bankroll cap,
