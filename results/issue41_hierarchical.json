@@ -1,0 +1,368 @@
+{
+  "alpha_grid": [
+    0.3,
+    1.0,
+    3.0,
+    10.0,
+    30.0,
+    100.0,
+    300.0
+  ],
+  "delta_vs_canonical": {
+    "abs_z": 9.595657238398516,
+    "bootstrap_seed": 42,
+    "ci_hi": -0.029099520321057743,
+    "ci_lo": -0.04390144755611122,
+    "delta_candidate_minus_reference": -0.03623388496301183,
+    "n_boot": 2000,
+    "p_positive": 0.0,
+    "se": 0.003776071202086742,
+    "z": -9.595657238398516
+  },
+  "delta_vs_e14": {
+    "abs_z": 9.239799014799585,
+    "bootstrap_seed": 42,
+    "ci_hi": -0.026468339704502054,
+    "ci_lo": -0.04071855303092353,
+    "delta_candidate_minus_reference": -0.03358967487518982,
+    "n_boot": 2000,
+    "p_positive": 0.0,
+    "se": 0.003635325272918655,
+    "z": -9.239799014799585
+  },
+  "generated_utc": "2026-10-25T09:35:10.427184+00:00",
+  "issue": 41,
+  "metrics": {
+    "canonical": {
+      "accuracy": 0.6572727272727272,
+      "auc": 0.7141182345896924,
+      "brier": 0.21333326538658776,
+      "log_loss": 0.6156636493358131,
+      "n": 6600
+    },
+    "e14": {
+      "accuracy": 0.655,
+      "auc": 0.7092760483525888,
+      "brier": 0.21459653483476135,
+      "log_loss": 0.6183078594236351,
+      "n": 6600
+    },
+    "hierarchical": {
+      "accuracy": 0.6168181818181818,
+      "auc": 0.6521921095718632,
+      "brier": 0.22999383344745658,
+      "log_loss": 0.6518975342988249,
+      "n": 6600
+    }
+  },
+  "n_scored": 6600,
+  "panel_rows": 403305,
+  "per_fold_vs_canonical": {
+    "fold_0": {
+      "delta": -0.036923284512722865,
+      "n": 1320
+    },
+    "fold_1": {
+      "delta": -0.010600662895904667,
+      "n": 1320
+    },
+    "fold_2": {
+      "delta": -0.032574395394977196,
+      "n": 1320
+    },
+    "fold_3": {
+      "delta": -0.0378224902750236,
+      "n": 1320
+    },
+    "fold_4": {
+      "delta": -0.06324859173643149,
+      "n": 1320
+    },
+    "fold_delta_sd": 0.018729971022872164,
+    "n_folds": 5,
+    "n_folds_candidate_better": 0,
+    "pooled_mean": -0.03623388496301196
+  },
+  "per_fold_vs_e14": {
+    "fold_0": {
+      "delta": -0.03691198514156491,
+      "n": 1320
+    },
+    "fold_1": {
+      "delta": -0.005930333165146684,
+      "n": 1320
+    },
+    "fold_2": {
+      "delta": -0.03400828118692778,
+      "n": 1320
+    },
+    "fold_3": {
+      "delta": -0.03518018693532221,
+      "n": 1320
+    },
+    "fold_4": {
+      "delta": -0.05591758794698831,
+      "n": 1320
+    },
+    "fold_delta_sd": 0.01786979008927103,
+    "n_folds": 5,
+    "n_folds_candidate_better": 0,
+    "pooled_mean": -0.033589674875189976
+  },
+  "protocol_ref": "I41-prereg-hierarchical",
+  "recorded_canonical_reference": 0.619,
+  "runtime_seconds": 67.1,
+  "split_table": [
+    {
+      "alpha_grid": [
+        {
+          "alpha": 0.3,
+          "inner_log_loss": 0.6720546478764594,
+          "n_inner_validation": 1320
+        },
+        {
+          "alpha": 1.0,
+          "inner_log_loss": 0.6661197146092829,
+          "n_inner_validation": 1320
+        },
+        {
+          "alpha": 3.0,
+          "inner_log_loss": 0.6657465772264686,
+          "n_inner_validation": 1320
+        },
+        {
+          "alpha": 10.0,
+          "inner_log_loss": 0.6714440555937976,
+          "n_inner_validation": 1320
+        },
+        {
+          "alpha": 30.0,
+          "inner_log_loss": 0.6791658972254762,
+          "n_inner_validation": 1320
+        },
+        {
+          "alpha": 100.0,
+          "inner_log_loss": 0.6856460958870745,
+          "n_inner_validation": 1320
+        },
+        {
+          "alpha": 300.0,
+          "inner_log_loss": 0.6885248750129661,
+          "n_inner_validation": 1320
+        }
+      ],
+      "calibration_a": 0.11006499489832189,
+      "calibration_b": -0.07328936773061843,
+      "inner_log_loss": 0.6657465772264686,
+      "intercept": -1.0877596163458882,
+      "n_players": 1022,
+      "n_test": 1320,
+      "n_train": 6599,
+      "selected_alpha": 3.0,
+      "split": 1,
+      "test_log_loss": 0.6624195734010933,
+      "theta_sd": 4.075376191228896
+    },
+    {
+      "alpha_grid": [
+        {
+          "alpha": 0.3,
+          "inner_log_loss": 0.6746478531310603,
+          "n_inner_validation": 1584
+        },
+        {
+          "alpha": 1.0,
+          "inner_log_loss": 0.6680200955938713,
+          "n_inner_validation": 1584
+        },
+        {
+          "alpha": 3.0,
+          "inner_log_loss": 0.670703312101861,
+          "n_inner_validation": 1584
+        },
+        {
+          "alpha": 10.0,
+          "inner_log_loss": 0.6762763727179322,
+          "n_inner_validation": 1584
+        },
+        {
+          "alpha": 30.0,
+          "inner_log_loss": 0.6807606273407678,
+          "n_inner_validation": 1584
+        },
+        {
+          "alpha": 100.0,
+          "inner_log_loss": 0.6843807679634711,
+          "n_inner_validation": 1584
+        },
+        {
+          "alpha": 300.0,
+          "inner_log_loss": 0.6860866922422705,
+          "n_inner_validation": 1584
+        }
+      ],
+      "calibration_a": 0.0883703004968982,
+      "calibration_b": 0.029224227053109654,
+      "inner_log_loss": 0.6680200955938713,
+      "intercept": -1.6826415577270357,
+      "n_players": 1156,
+      "n_test": 1320,
+      "n_train": 7919,
+      "selected_alpha": 1.0,
+      "split": 2,
+      "test_log_loss": 0.649932582598184,
+      "theta_sd": 6.452117519601572
+    },
+    {
+      "alpha_grid": [
+        {
+          "alpha": 0.3,
+          "inner_log_loss": 0.6599454584216482,
+          "n_inner_validation": 1848
+        },
+        {
+          "alpha": 1.0,
+          "inner_log_loss": 0.6578085194719855,
+          "n_inner_validation": 1848
+        },
+        {
+          "alpha": 3.0,
+          "inner_log_loss": 0.6606987760289307,
+          "n_inner_validation": 1848
+        },
+        {
+          "alpha": 10.0,
+          "inner_log_loss": 0.66777700031407,
+          "n_inner_validation": 1848
+        },
+        {
+          "alpha": 30.0,
+          "inner_log_loss": 0.6751002469723592,
+          "n_inner_validation": 1848
+        },
+        {
+          "alpha": 100.0,
+          "inner_log_loss": 0.6807659831577196,
+          "n_inner_validation": 1848
+        },
+        {
+          "alpha": 300.0,
+          "inner_log_loss": 0.6832866432226857,
+          "n_inner_validation": 1848
+        }
+      ],
+      "calibration_a": 0.10565701344891447,
+      "calibration_b": 0.06126913530066953,
+      "inner_log_loss": 0.6578085194719855,
+      "intercept": -1.8707185142696034,
+      "n_players": 1238,
+      "n_test": 1320,
+      "n_train": 9239,
+      "selected_alpha": 1.0,
+      "split": 3,
+      "test_log_loss": 0.6475993175512104,
+      "theta_sd": 6.67213353647623
+    },
+    {
+      "alpha_grid": [
+        {
+          "alpha": 0.3,
+          "inner_log_loss": 0.6569730793932458,
+          "n_inner_validation": 2112
+        },
+        {
+          "alpha": 1.0,
+          "inner_log_loss": 0.6543643456671211,
+          "n_inner_validation": 2112
+        },
+        {
+          "alpha": 3.0,
+          "inner_log_loss": 0.6591131336126764,
+          "n_inner_validation": 2112
+        },
+        {
+          "alpha": 10.0,
+          "inner_log_loss": 0.666281338299763,
+          "n_inner_validation": 2112
+        },
+        {
+          "alpha": 30.0,
+          "inner_log_loss": 0.6737241010845003,
+          "n_inner_validation": 2112
+        },
+        {
+          "alpha": 100.0,
+          "inner_log_loss": 0.6802985923753629,
+          "n_inner_validation": 2112
+        },
+        {
+          "alpha": 300.0,
+          "inner_log_loss": 0.6834102995589969,
+          "n_inner_validation": 2112
+        }
+      ],
+      "calibration_a": 0.11296307331694413,
+      "calibration_b": 0.03863801822038802,
+      "inner_log_loss": 0.6543643456671211,
+      "intercept": -2.2340020303596506,
+      "n_players": 1342,
+      "n_test": 1320,
+      "n_train": 10559,
+      "selected_alpha": 1.0,
+      "split": 4,
+      "test_log_loss": 0.644775361864774,
+      "theta_sd": 6.905514769027763
+    },
+    {
+      "alpha_grid": [
+        {
+          "alpha": 0.3,
+          "inner_log_loss": 0.6686905486203888,
+          "n_inner_validation": 2376
+        },
+        {
+          "alpha": 1.0,
+          "inner_log_loss": 0.6604996908641224,
+          "n_inner_validation": 2376
+        },
+        {
+          "alpha": 3.0,
+          "inner_log_loss": 0.6622306612122403,
+          "n_inner_validation": 2376
+        },
+        {
+          "alpha": 10.0,
+          "inner_log_loss": 0.6692267290157646,
+          "n_inner_validation": 2376
+        },
+        {
+          "alpha": 30.0,
+          "inner_log_loss": 0.677007705183822,
+          "n_inner_validation": 2376
+        },
+        {
+          "alpha": 100.0,
+          "inner_log_loss": 0.6837586955686863,
+          "n_inner_validation": 2376
+        },
+        {
+          "alpha": 300.0,
+          "inner_log_loss": 0.6869561296093731,
+          "n_inner_validation": 2376
+        }
+      ],
+      "calibration_a": 0.11795203622419154,
+      "calibration_b": -0.059221411794915295,
+      "inner_log_loss": 0.6604996908641224,
+      "intercept": -2.5473414567694426,
+      "n_players": 1449,
+      "n_test": 1320,
+      "n_train": 11879,
+      "selected_alpha": 1.0,
+      "split": 5,
+      "test_log_loss": 0.6547608360788633,
+      "theta_sd": 7.211767255565039
+    }
+  ],
+  "verdict": "NULL: hierarchical partial pooling does not beat the same-row canonical model at |z| > 3, nor the 43-column frame. At this sample size the team-level aggregates already carry the recoverable signal."
+}
