@@ -178,6 +178,11 @@ AVAILABILITY_COLUMNS: tuple[str, ...] = (
 # The home indicator. Constant 1.0 by construction: see note 3 in the docstring.
 HOME_COLUMN = "home_adv"
 
+# The momentum brackets (issue #60): cumulative thresholds on each side's
+# entering win streak. Fixed ex ante from the claims (>=4 is Byrnes), not from
+# the data.
+MOMENTUM_BRACKETS: tuple[int, ...] = (2, 3, 4, 6)
+
 # Never standardised, never centred. Standardising a zero-variance column is a
 # division by zero; centring it destroys the home-court coefficient.
 NO_SCALE: frozenset[str] = frozenset({HOME_COLUMN})
@@ -241,6 +246,10 @@ def feature_groups(with_rebounds: bool = True) -> dict[str, list[str]]:
         # from the shared `nba_data.availability_features`; the canonical order
         # is `AVAILABILITY_COLUMNS` and `load_design` pins the block to it.
         "availability": list(AVAILABILITY_COLUMNS),
+        # Momentum streak brackets (issue #60): cumulative >=2/3/4/6 indicators
+        # of each side's entering win streak. Opt-in; never part of "full".
+        "momentum": [f"{s}_streak_ge{k}"
+                     for s in ("home", "away") for k in MOMENTUM_BRACKETS],
     }
 
 
@@ -259,6 +268,10 @@ DEFAULT_MODELS: dict[str, list[str]] = {
     # literally the canonical frame plus two). A candidate, never the canonical.
     "full_tz": ["rating", "matchup", "schedule", "home", "availability",
                 "travel_tz"],
+    # Issue #60 arm: the canonical 26 PLUS the 8 momentum brackets, appended.
+    # A candidate, never the canonical.
+    "full_momentum": ["rating", "matchup", "schedule", "home", "availability",
+                      "momentum"],
     "full_sched_diff": ["rating", "matchup", "schedule_diff", "home"],
     "net+home": ["net_diff", HOME_COLUMN],
 }
@@ -622,6 +635,37 @@ def rest_features(games: pd.DataFrame, rest_df: pd.DataFrame) -> pd.DataFrame:
     # venue (else its home city). Both are pre-game schedule geometry.
     out["tz_offset_diff"] = rest_df["tz_offset_diff"].to_numpy(dtype=float)
     out["away_tz_crossed"] = rest_df["away_tz_crossed"].to_numpy(dtype=float)
+    return out
+
+
+def momentum_brackets(enter: pd.DataFrame,
+                      brackets: tuple[int, ...] = (2, 3, 4, 6)) -> pd.DataFrame:
+    """Cumulative streak-bracket indicators from ``streak_features`` output.
+
+    ``home_streak_geK`` = 1 iff the home team's entering win streak is >= K
+    (and the away-side analogue), for K in ``brackets``.  Cumulative indicators
+    are the honest shape for a threshold claim (Byrnes & Farinella's >=4 in
+    particular): a linear count would force the model to use one slope for a
+    relationship that is 'past this threshold and not otherwise'.
+    """
+    out = pd.DataFrame(index=enter.index)
+    for side, col in (("home", "home_streak_enter"),
+                      ("away", "away_streak_enter")):
+        s = enter[col].to_numpy(dtype=int)
+        for k in brackets:
+            out[f"{side}_streak_ge{k}"] = (s >= k).astype(float)
+    return out
+
+
+def momentum_loss_brackets(enter: pd.DataFrame,
+                           brackets: tuple[int, ...] = (2, 3, 4, 6)) -> pd.DataFrame:
+    """The loss-streak analogue, for the descriptive sensitivity arm."""
+    out = pd.DataFrame(index=enter.index)
+    for side, col in (("home", "home_loss_streak_enter"),
+                      ("away", "away_loss_streak_enter")):
+        s = enter[col].to_numpy(dtype=int)
+        for k in brackets:
+            out[f"{side}_loss_streak_ge{k}"] = (s >= k).astype(float)
     return out
 
 

@@ -1,0 +1,125 @@
+{
+  "brackets": [
+    2,
+    3,
+    4,
+    6
+  ],
+  "decision_protocol": "single last-season holdout: train < 2025-10-21, test = 2025-26 season; no whole-frame number",
+  "delta_momentum_vs_canonical": {
+    "abs_z": 0.29151181316414004,
+    "bootstrap_seed": 42,
+    "ci_hi": 0.002065880988142049,
+    "ci_lo": -0.0014314242957029404,
+    "delta_candidate_minus_reference": 0.0002600827883783019,
+    "n_boot": 2000,
+    "p_positive": 0.6205,
+    "se": 0.0008921861023582548,
+    "z": 0.29151181316414004
+  },
+  "generated_utc": "2026-10-25T23:53:04.011562+00:00",
+  "issue": 60,
+  "metrics": {
+    "availability_off_22_holdout": {
+      "accuracy": 0.6693877551020408,
+      "auc": 0.7297226582940868,
+      "brier": 0.207735347029183,
+      "log_loss": 0.6029871727939907,
+      "n": 1225
+    },
+    "canonical_26_holdout": {
+      "accuracy": 0.6669387755102041,
+      "auc": 0.7415721244881774,
+      "brier": 0.2038428852431653,
+      "log_loss": 0.5937403164861292,
+      "n": 1225
+    },
+    "plus_momentum_34_holdout": {
+      "accuracy": 0.6718367346938775,
+      "auc": 0.7423354750306149,
+      "brier": 0.20364922730214585,
+      "log_loss": 0.5934802336977509,
+      "n": 1225
+    }
+  },
+  "momentum_columns": [
+    "home_streak_ge2",
+    "home_streak_ge3",
+    "home_streak_ge4",
+    "home_streak_ge6",
+    "away_streak_ge2",
+    "away_streak_ge3",
+    "away_streak_ge4",
+    "away_streak_ge6"
+  ],
+  "n_test": 1225,
+  "n_train": 11974,
+  "per_bracket_coefficients": {
+    "away_streak_ge2": 0.04439736268081517,
+    "away_streak_ge3": -0.013499828587957416,
+    "away_streak_ge4": 0.02222661224397459,
+    "away_streak_ge6": -0.002544848498906708,
+    "home_streak_ge2": -0.03570062754716447,
+    "home_streak_ge3": 0.0657680425430009,
+    "home_streak_ge4": -0.05161077305855981,
+    "home_streak_ge6": -0.0225495642530825
+  },
+  "positive_control_availability_on_minus_off": {
+    "abs_z": 4.932708473912023,
+    "bootstrap_seed": 42,
+    "ci_hi": 0.012908035705048906,
+    "ci_lo": 0.005559737879449628,
+    "delta_candidate_minus_reference": 0.009246856307861484,
+    "n_boot": 2000,
+    "p_positive": 1.0,
+    "se": 0.0018746002032688554,
+    "z": 4.932708473912023
+  },
+  "protocol_ref": "I60-prereg-momentum-streaks",
+  "runtime_seconds": 8.7,
+  "sensitivity": {
+    "away_only": {
+      "delta": {
+        "abs_z": 0.26966076575614706,
+        "bootstrap_seed": 42,
+        "ci_hi": 0.0012226786450075843,
+        "ci_lo": -0.0008756522641733572,
+        "delta_candidate_minus_reference": 0.00014434895737358566,
+        "n_boot": 2000,
+        "p_positive": 0.625,
+        "se": 0.0005352983292501651,
+        "z": 0.26966076575614706
+      },
+      "log_loss": 0.5935959675287557
+    },
+    "home_only": {
+      "delta": {
+        "abs_z": 0.2189291565386948,
+        "bootstrap_seed": 42,
+        "ci_hi": 0.001553748663637866,
+        "ci_lo": -0.0011632527082824583,
+        "delta_candidate_minus_reference": 0.0001517453429422666,
+        "n_boot": 2000,
+        "p_positive": 0.5725,
+        "se": 0.0006931253257509639,
+        "z": 0.2189291565386948
+      },
+      "log_loss": 0.593588571143187
+    },
+    "loss_streaks": {
+      "delta": {
+        "abs_z": 0.8344306123115298,
+        "bootstrap_seed": 42,
+        "ci_hi": 0.0012321438573118014,
+        "ci_lo": -0.0030850340403857563,
+        "delta_candidate_minus_reference": -0.0009189927459467562,
+        "n_boot": 2000,
+        "p_positive": 0.225,
+        "se": 0.0011013411209842522,
+        "z": -0.8344306123115298
+      },
+      "log_loss": 0.594659309232076
+    }
+  },
+  "verdict": "NULL on 2025-26: the streak brackets' point estimate is +0.000260 nats against the canonical model (CI [-0.001431, +0.002066], |z| 0.29). The interval includes zero, so there is no evidence the brackets help on the season that would actually be bet; positive is not promoted."
+}

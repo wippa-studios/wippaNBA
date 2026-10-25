@@ -125,7 +125,16 @@ Runner-up (not promoted): **momentum streaks** —
 claim betting *with* ≥4-game streaks wins 56.5%, directly contradicting
 Paul & Weinbach (2005; bet *against* streaks).  The repo's recency weighting
 is already null; two contradictory claims do not justify re-opening it without
-a streak-count feature test.
+a streak-count feature test.  **Status (issue #60, revised parity): measured
+null on the 2025-26 season only.**  Pre-game entering-streak brackets
+(>=2/3/4/6, home and away; season-reset) appended to the canonical 26 read
+**+0.000260 nats, CI [−0.001431, +0.002066], |z| 0.29** on the 1,225-game
+2025-26 holdout (train = everything before 2025-10-21), with sensitivity arms
+(home-only, away-only, loss-streaks) all below |z| 1.0.  Since the identical
+holdout resolves the known availability effect at **+0.009247 nats, |z| 4.93**,
+this null is informative, not underpowered: if pre-game streaks carried
+availability-sized signal, the season that would be bet would have shown it.
+[results/issue60_momentum.json](../results/issue60_momentum.json).
 
 ---
 
