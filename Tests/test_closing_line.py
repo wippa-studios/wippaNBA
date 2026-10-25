@@ -476,7 +476,7 @@ class TestFeatureFrameGuards(unittest.TestCase):
         rest = pd.DataFrame({c: [1.0] * len(games) for c in (
             "home_rest_days", "away_rest_days", "home_back_to_back",
             "away_back_to_back", "home_in_3_of_4", "away_in_3_of_4",
-            "travel_miles")})
+            "travel_miles", "tz_offset_diff", "away_tz_crossed")})
         empty = pd.DataFrame(index=range(len(games)))
         return games, (
             mock.patch.object(cl.lr.nd, "rolling_team_features", return_value=roll),

@@ -1,0 +1,140 @@
+{
+  "delta_tz_vs_canonical": {
+    "abs_z": 0.2758353958021061,
+    "bootstrap_seed": 42,
+    "ci_hi": 0.0002719987388024479,
+    "ci_lo": -0.00022837343500539675,
+    "delta_candidate_minus_reference": 3.52099213584145e-05,
+    "n_boot": 2000,
+    "p_positive": 0.58,
+    "se": 0.00012764830726682853,
+    "z": 0.2758353958021061
+  },
+  "frame_columns": [
+    "net_diff",
+    "margin_diff",
+    "off_diff",
+    "def_diff",
+    "ts_diff",
+    "efg_diff",
+    "tov_diff",
+    "ftr_diff",
+    "pace_diff",
+    "pace_mean",
+    "orb_diff",
+    "drb_diff",
+    "matchup_home",
+    "matchup_away",
+    "rest_home",
+    "rest_away",
+    "b2b_home",
+    "b2b_away",
+    "three_home",
+    "three_away",
+    "travel_k",
+    "home_adv",
+    "home_expected_minutes",
+    "away_expected_minutes",
+    "home_expected_minutes_diff",
+    "away_expected_minutes_diff",
+    "tz_offset_diff",
+    "away_tz_crossed"
+  ],
+  "generated_utc": "2026-10-25T23:23:52.679429+00:00",
+  "issue": 56,
+  "metrics": {
+    "canonical": {
+      "accuracy": 0.6572727272727272,
+      "auc": 0.7141182345896924,
+      "brier": 0.21333326538984018,
+      "log_loss": 0.615663649343085,
+      "n": 6600
+    },
+    "tz_candidate": {
+      "accuracy": 0.656060606060606,
+      "auc": 0.7142414598488089,
+      "brier": 0.2133124035464567,
+      "log_loss": 0.6156284394217266,
+      "n": 6600
+    }
+  },
+  "n_games": 13199,
+  "n_scored": 6600,
+  "per_fold": {
+    "fold_0": {
+      "delta": -0.0002778320204778195,
+      "n": 1320
+    },
+    "fold_1": {
+      "delta": -0.00015518416371829158,
+      "n": 1320
+    },
+    "fold_2": {
+      "delta": 0.00022271245405369733,
+      "n": 1320
+    },
+    "fold_3": {
+      "delta": -1.991110055188372e-05,
+      "n": 1320
+    },
+    "fold_4": {
+      "delta": 0.00040626443748581487,
+      "n": 1320
+    },
+    "fold_delta_sd": 0.0002784430577976925,
+    "n_folds": 5,
+    "n_folds_candidate_better": 2,
+    "pooled_mean": 3.5209921358303475e-05
+  },
+  "population": "build_games(), all seasons",
+  "protocol_ref": "I56-prereg-tz-travel",
+  "recorded_canonical_log_loss": 0.615663649,
+  "reproduced_canonical_log_loss": 0.615663649343085,
+  "reproduced_within_tolerance": true,
+  "reproduction_drift": 3.4308500485025206e-10,
+  "runtime_seconds": 12.7,
+  "sensitivity": {
+    "crossed_only": {
+      "delta": {
+        "abs_z": 0.13766779987393152,
+        "bootstrap_seed": 42,
+        "ci_hi": 0.00021893284257075673,
+        "ci_lo": -0.00021911199611733269,
+        "delta_candidate_minus_reference": 1.5384126746287308e-05,
+        "n_boot": 2000,
+        "p_positive": 0.5305,
+        "se": 0.00011174818483607082,
+        "z": 0.13766779987393152
+      },
+      "features_dropped": [
+        "tz_offset_diff"
+      ],
+      "log_loss": 0.6156482652163388,
+      "n_features": 27
+    },
+    "tz_offset_only": {
+      "delta": {
+        "abs_z": 0.646251553380446,
+        "bootstrap_seed": 42,
+        "ci_hi": 5.5205296479382525e-05,
+        "ci_lo": -0.00010982232655568358,
+        "delta_candidate_minus_reference": -2.7206968530313347e-05,
+        "n_boot": 2000,
+        "p_positive": 0.265,
+        "se": 4.209965668631314e-05,
+        "z": -0.646251553380446
+      },
+      "features_dropped": [
+        "away_tz_crossed"
+      ],
+      "log_loss": 0.6156908563116154,
+      "n_features": 27
+    }
+  },
+  "stage_2_market_stack": "RUN IF AND ONLY IF the model bar cleared (|z| > 3 positive); this run did not run it unless the verdict says otherwise.",
+  "tz_columns": [
+    "tz_offset_diff",
+    "away_tz_crossed"
+  ],
+  "verdict": "NULL: the tz block's point estimate is +0.000035 nats against the canonical model (CI [-0.000228, +0.000272], |z| 0.28, better in 2/5 folds). The interval includes zero, so this is not evidence of a difference either way; positive is not promoted, and stage 2 is not run."
+}

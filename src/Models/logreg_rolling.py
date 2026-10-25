@@ -226,6 +226,11 @@ def feature_groups(with_rebounds: bool = True) -> dict[str, list[str]]:
         "schedule_diff": [
             "rest_diff", "b2b_diff", "three_diff", "travel_k",
         ],
+        # Time-zone / travel geometry (issue #56). Two named pre-game columns,
+        # deliberately NOT folded into "schedule": the schedule block is the
+        # canonical frame's, and changing IT would change the canonical model.
+        # This group is opt-in, consumed only by DEFAULT_MODELS["full_tz"].
+        "travel_tz": ["tz_offset_diff", "away_tz_crossed"],
         # Off and defence WITHOUT net_diff, so the two coefficients are
         # identified. Only meaningful as a coefficient read, never as a
         # performance row.
@@ -249,6 +254,11 @@ DEFAULT_MODELS: dict[str, list[str]] = {
     "rating+matchup+home": ["rating", "matchup", "home"],
     "rating+schedule+home": ["rating", "schedule", "home"],
     "full": ["rating", "matchup", "schedule", "home", "availability"],
+    # Issue #56 arm: the canonical 26 PLUS the two time-zone travel columns,
+    # appended in that order (the canonical columns first, so the candidate is
+    # literally the canonical frame plus two). A candidate, never the canonical.
+    "full_tz": ["rating", "matchup", "schedule", "home", "availability",
+                "travel_tz"],
     "full_sched_diff": ["rating", "matchup", "schedule_diff", "home"],
     "net+home": ["net_diff", HOME_COLUMN],
 }
@@ -606,6 +616,12 @@ def rest_features(games: pd.DataFrame, rest_df: pd.DataFrame) -> pd.DataFrame:
     out["three_away"] = rest_df["away_in_3_of_4"].to_numpy(dtype=float)
     out["three_diff"] = out["three_home"] - out["three_away"]
     out["travel_k"] = rest_df["travel_miles"].to_numpy(dtype=float) / 1000.0
+    # Time-zone travel (issue #56), forwarded verbatim from the shared builder:
+    # tz_offset_diff = |standard-time offset home - away|; away_tz_crossed =
+    # zones the away team crosses to this game from its previous same-season
+    # venue (else its home city). Both are pre-game schedule geometry.
+    out["tz_offset_diff"] = rest_df["tz_offset_diff"].to_numpy(dtype=float)
+    out["away_tz_crossed"] = rest_df["away_tz_crossed"].to_numpy(dtype=float)
     return out
 
 

@@ -140,6 +140,21 @@ TEAM_COORDS = {
     "TOR": (43.643, -79.379), "UTA": (40.768, -111.901), "WAS": (38.898, -77.021),
 }
 
+# Standard-time UTC offsets (whole hours, negative west of Greenwich) for each
+# club's home city, used by the time-zone travel features (issue #56).  Deliberately
+# an explicit table rather than a longitude projection: city timezones sit on
+# political boundaries, not meridians (OKC and SAS are Central, not Mountain),
+# so deriving them from TEAM_COORDS longitude would mislabel the boundary
+# cities.  30 rows, one per REAL_TEAMS entry, stated without DST: the features
+# measure schedule geometry, not the instant a game starts.
+TEAM_TZ_OFFSET: dict[str, int] = {
+    "ATL": -5, "BOS": -5, "BKN": -5, "CHA": -5, "CHI": -6, "CLE": -5,
+    "DAL": -6, "DEN": -7, "DET": -5, "GSW": -8, "HOU": -6, "IND": -5,
+    "LAC": -8, "LAL": -8, "MEM": -6, "MIA": -5, "MIL": -6, "MIN": -6,
+    "NOP": -6, "NYK": -5, "OKC": -6, "ORL": -5, "PHI": -5, "PHX": -7,
+    "POR": -8, "SAC": -8, "SAS": -6, "TOR": -5, "UTA": -7, "WAS": -5,
+}
+
 _EARTH_RADIUS_MI = 3958.8
 
 
@@ -1168,25 +1183,51 @@ def _asof_roster(team_games: pd.DataFrame, appearances: pd.DataFrame,
 
 
 def rest_and_travel(games: pd.DataFrame) -> pd.DataFrame:
-    """Rest days, back-to-back, 3-in-4, and great-circle travel distance.
+    """Rest days, back-to-back, 3-in-4, great-circle travel, and time-zone travel.
 
-    All four are strictly known before tip-off from the schedule, so none of them
-    leak. Travel is measured between the two clubs' home arenas.
+    All are strictly known before tip-off from the schedule, so none of them
+    leak. Travel is measured between the two clubs' home arenas.  The two
+    time-zone facts (issue #56) are schedule geometry, not clock instants:
+
+    * ``tz_offset_diff`` - the absolute standard-time offset between the two
+      clubs' home cities (how many zones one side is from the other; 0..3).
+    * ``away_tz_crossed`` - how many zones the AWAY team crosses to reach the
+      game, measured from the venue city of its PREVIOUS game when that game is
+      in the same season, else from the team's own home city (its origin at a
+      season opener).  The home team is at home by definition, so only the away
+      side carries a crossing.
     """
     g = games.copy()
     g["gid"] = range(len(g))
-    # Long frame of every (team, game) appearance.
-    # Long frame of every (team, game) appearance. `home` is kept intact on both
-    # blocks - renaming it to `team` in the first block would leave `home` NaN there
-    # and silently make every row look like an away appearance.
+    # Long frame of every (team, game) appearance. Both blocks carry `home`:
+    # the venue of ANY game is the home club's arena, which is where the away
+    # team travels TO. Renaming to `team` in the first block would leave `home`
+    # NaN there and silently make every row look like an away appearance.
     long = pd.concat([
-        g[["GAME_ID", "GAME_DATE", "gid", "home"]].assign(team=lambda d: d["home"]),
-        g[["GAME_ID", "GAME_DATE", "gid", "away"]].assign(team=lambda d: d["away"]),
+        g[["GAME_ID", "GAME_DATE", "SEASON", "gid", "home", "away"]]
+         .assign(team=lambda d: d["home"]),
+        g[["GAME_ID", "GAME_DATE", "SEASON", "gid", "home", "away"]]
+         .assign(team=lambda d: d["away"]),
     ], ignore_index=True)
     long["is_home"] = long["team"] == long["home"]
     long = long.sort_values(["team", "GAME_DATE"])
     long["prev_date"] = long.groupby("team")["GAME_DATE"].shift(1)
     long["rest_days"] = (long["GAME_DATE"] - long["prev_date"]).dt.days
+
+    # Time-zone travel: the arena city (always the home club's) of this game vs
+    # the origin city (this team's previous same-season arena, else the team's
+    # own home city).  A team's previous game in a DIFFERENT season (the
+    # offseason hole) is not travel.  The HOME team is at home by definition, so
+    # only the away rows carry a real crossing; out["away_tz_crossed"] reads
+    # exactly those.
+    long["venue"] = long["home"]
+    long["venue_tz"] = long["venue"].map(TEAM_TZ_OFFSET).astype(float)
+    long["home_tz"] = long["team"].map(TEAM_TZ_OFFSET).astype(float)
+    long["prev_venue_tz"] = long.groupby("team")["venue_tz"].shift(1)
+    long["prev_season"] = long.groupby("team")["SEASON"].shift(1)
+    same_season_prev = (long["prev_season"] == long["SEASON"]).fillna(False)
+    origin_tz = np.where(same_season_prev, long["prev_venue_tz"], long["home_tz"])
+    long["tz_crossed"] = (long["venue_tz"] - origin_tz).abs()
 
     # 3-in-4: count that team's games in the 3 preceding days. Computed per ROW, not
     # via a gid-keyed dict: each game has two teams, so a gid-keyed map lets one
@@ -1217,6 +1258,9 @@ def rest_and_travel(games: pd.DataFrame) -> pd.DataFrame:
     out["home_in_3_of_4"] = h["games_in_last_3"].reindex(g.index).fillna(0).astype(float)
     out["away_in_3_of_4"] = a["games_in_last_3"].reindex(g.index).fillna(0).astype(float)
     out["travel_miles"] = [dist(hh, aa) for hh, aa in zip(g["home"], g["away"])]
+    out["tz_offset_diff"] = (
+        g["home"].map(TEAM_TZ_OFFSET) - g["away"].map(TEAM_TZ_OFFSET)).abs().astype(float)
+    out["away_tz_crossed"] = a["tz_crossed"].reindex(g.index).astype(float)
     out["is_home"] = 1.0
     return out
 

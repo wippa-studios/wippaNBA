@@ -88,7 +88,12 @@ market-anchored stack used for the availability block).
    back-to-back flags but no distance or time-zone-crossing quantity.  Smallest
    test: add (a) |timezone offset| home−away and (b) away-team zones crossed to
    the canonical logistic; same walk-forward and market-stack protocol as the
-   availability measurement.
+   availability measurement.  **Status (issue #56): measured null.**  The two
+   columns (`tz_offset_diff`, `away_tz_crossed`, built in `rest_and_travel`)
+   take the canonical 26 → 28 and read **+0.000035 nats, CI [−0.000228,
+   +0.000272], |z| 0.28, better in 2/5 folds** — interval includes zero, so
+   the Langborg effect is not visible on this frame's pre-game stylisation,
+   and stage 2 (the market stack) was correctly not run.  [results/issue56_tz_travel.json](../results/issue56_tz_travel.json).
 2. **Spread-cover as the betting objective.**
    [**Peterson (2020)**, CMU capstone](https://www.stat.cmu.edu/capstoneresearch/spring2020/495-Peterson-Poster.pdf),
    building on [Polson & Stern (2015), *The implied volatility of a sports

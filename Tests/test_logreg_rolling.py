@@ -212,6 +212,11 @@ def synthetic_games(n: int = 4000, seed: int = 7):
         "home_in_3_of_4": rng.integers(0, 3, n_games).astype(float),
         "away_in_3_of_4": rng.integers(0, 3, n_games).astype(float),
         "travel_miles": rng.uniform(0, 2700, n_games),
+        # Time-zone travel columns, mirroring rest_and_travel's contract
+        # (issue #56). The fixture's teams are placeholders, so the values are
+        # draws, not geometry -- nothing here asserts their semantics.
+        "tz_offset_diff": rng.integers(0, 4, n_games).astype(float),
+        "away_tz_crossed": rng.integers(0, 4, n_games).astype(float),
         "is_home": 1.0,
     })
     games = pd.DataFrame({
