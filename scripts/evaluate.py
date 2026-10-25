@@ -81,28 +81,17 @@ GAME_DATE_COLUMN = "GameDate"
 HOME_TEAM = "TEAM_NAME"
 AWAY_TEAM = "TEAM_NAME.1"
 
-# Mirrors training_common.drop_columns_for(MONEYLINE_TARGET, include_team_ids=True)
-# so this harness trains on the feature set the trainers do. TEAM_ID was dropped
-# from the dataset during the audit; the entries stay because the trainer list
-# keeps them and `errors="ignore"` makes an absent column a no-op.
-DROP_COLUMNS = [
-    "index",
-    "Score",
-    MONEYLINE_TARGET,
-    HOME_TEAM,
-    "TEAM_ID",
-    DATE_COLUMN,
-    "index.1",
-    AWAY_TEAM,
-    "TEAM_ID.1",
-    "Date.1",
-    # The real game date, added when the leak fix changed `Date` to mean the
-    # as-of snapshot date. It is an identifier, not a feature, and it is what the
-    # odds join must use -- see GAME_DATE_COLUMN.
-    GAME_DATE_COLUMN,
-    "OU-Cover",
-    "OU",
-]
+# The trainers' own function, not a mirror of it. A hand-copied list is how this
+# harness previously trained on a feature set that differed from the trainers' in
+# exactly the positions a positional model cannot tolerate (#28). TEAM_ID /
+# TEAM_ID.1 are absent from the shipped table; the flag is kept because the
+# logistic trainers ask for it, `errors="ignore"` makes them no-ops, and this
+# harness must select the same columns they do.
+if str(TRAINING_DIR) not in sys.path:
+    sys.path.insert(0, str(TRAINING_DIR))
+from training_common import drop_columns_for  # noqa: E402
+
+DROP_COLUMNS = drop_columns_for(MONEYLINE_TARGET, include_team_ids=True)
 
 DEFAULT_DATASET = "dataset_2012-26"
 DEFAULT_TEST_SIZE = 0.1
