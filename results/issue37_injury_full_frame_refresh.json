@@ -1,0 +1,137 @@
+{
+  "buffer_minutes": 15.0,
+  "coverage": {
+    "coverage_share": 0.5459504507917267,
+    "coverage_share_of_all_games": 0.5459504507917267,
+    "designations_applied": 71393,
+    "designations_on_prior_squad": 15114,
+    "events_ambiguous": 0,
+    "events_resolved": 234776,
+    "events_stored": 237311,
+    "games": 13199,
+    "games_total": 13199,
+    "games_with_changed_weight": 5642,
+    "games_with_designation": 7206,
+    "games_with_pre_tip_snapshot": 7206,
+    "games_with_prior_squad_designation": 6007,
+    "match_methods": {
+      "exact": 234776,
+      "unresolved": 2535
+    },
+    "resolution_rate": 0.98931781501911,
+    "scored_rows_with_changed_weight": 4855,
+    "share_of_all_games_with_changed_weight": 0.427456625501932,
+    "share_of_scored_rows_with_changed_weight": 0.7356060606060606,
+    "status_counts": {
+      "Available": 5337,
+      "Doubtful": 1183,
+      "Out": 53788,
+      "Probable": 3068,
+      "Questionable": 8017
+    },
+    "status_on_prior_squad": {
+      "Available": 2445,
+      "Doubtful": 399,
+      "Out": 6599,
+      "Probable": 2002,
+      "Questionable": 3669
+    }
+  },
+  "declared_after_season_result": true,
+  "delta_availability_vs_e14": {
+    "abs_z": 4.667722288486812,
+    "bootstrap_seed": 42,
+    "ci_hi": 0.005486432624430507,
+    "ci_lo": 0.00229566884455156,
+    "delta_candidate_minus_reference": 0.003799457340195378,
+    "n_boot": 2000,
+    "p_positive": 1.0,
+    "se": 0.0008139853027603943,
+    "z": 4.667722288486812
+  },
+  "delta_injury_vs_availability": {
+    "abs_z": 4.469379767287032,
+    "bootstrap_seed": 42,
+    "ci_hi": 0.003779268451667816,
+    "ci_lo": 0.001470621660553864,
+    "delta_candidate_minus_reference": 0.0026322471377068224,
+    "n_boot": 2000,
+    "p_positive": 1.0,
+    "se": 0.0005889513254105566,
+    "z": 4.469379767287032
+  },
+  "delta_injury_vs_e14": {
+    "abs_z": 6.137187659430174,
+    "bootstrap_seed": 42,
+    "ci_hi": 0.008540852993838619,
+    "ci_lo": 0.0044328120034487165,
+    "delta_candidate_minus_reference": 0.0064317044779022,
+    "n_boot": 2000,
+    "p_positive": 1.0,
+    "se": 0.0010479888891811028,
+    "z": 6.137187659430174
+  },
+  "generated_utc": "2026-10-25T22:32:07.189578+00:00",
+  "issue": 37,
+  "metrics": {
+    "e14": {
+      "accuracy": 0.655,
+      "auc": 0.7092760483525888,
+      "brier": 0.21459653483476135,
+      "log_loss": 0.6183078594236351,
+      "n": 6600
+    },
+    "e14_plus_availability": {
+      "accuracy": 0.6598484848484848,
+      "auc": 0.7147671404756811,
+      "brier": 0.21286192253321704,
+      "log_loss": 0.6145084020834397,
+      "n": 6600
+    },
+    "e14_plus_injury": {
+      "accuracy": 0.6624242424242425,
+      "auc": 0.7181702748359721,
+      "brier": 0.21177027588326677,
+      "log_loss": 0.6118761549457329,
+      "n": 6600
+    }
+  },
+  "n_games": 13199,
+  "n_scored": 6600,
+  "per_fold_injury_vs_availability": {
+    "fold_0": {
+      "delta": 0.003020727672094825,
+      "n": 1320
+    },
+    "fold_1": {
+      "delta": 0.0012416730234623419,
+      "n": 1320
+    },
+    "fold_2": {
+      "delta": 0.0017814790335120012,
+      "n": 1320
+    },
+    "fold_3": {
+      "delta": 0.0017218258283179244,
+      "n": 1320
+    },
+    "fold_4": {
+      "delta": 0.00539553013114713,
+      "n": 1320
+    },
+    "fold_delta_sd": 0.001678765895110623,
+    "n_folds": 5,
+    "n_folds_candidate_better": 5,
+    "pooled_mean": 0.0026322471377068445
+  },
+  "population": "build_games(), all seasons",
+  "protocol_ref": "I37-prereg-injury-full-frame-refresh",
+  "recorded_bar": 0.618307119,
+  "reproduced_e14_log_loss": 0.6183078594236351,
+  "reproduced_within_tolerance": true,
+  "reproduction_drift": 7.404236350705418e-07,
+  "runtime_seconds": 61.3,
+  "store_report_dates": 1037,
+  "store_snapshots": 2046,
+  "verdict": "INJURY ADJUSTMENT CLEARS THE AVAILABILITY BLOCK on the full frame: +0.002632 nats, |z| 4.47. Coverage is 7206/13199 games (54.6%); 26.4% of scored rows are identical between the arms, so the delta is diluted by construction. This is a criterion result, not a promotion."
+}

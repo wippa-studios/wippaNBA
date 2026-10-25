@@ -240,9 +240,14 @@ class TestUrlConstruction(unittest.TestCase):
         self.assertEqual(gid.time_token(date(2026, 10, 23), 11, 59), "11_59AM")
         self.assertEqual(gid.time_token(date(2026, 10, 23), 0, 30), "12_30AM")
 
-    def test_format_boundary_is_2025_26_opening_night(self):
-        self.assertEqual(gid.time_token(date(2025, 10, 20), 23, 0), "11PM")
-        self.assertEqual(gid.time_token(date(2025, 10, 21), 23, 0), "11_00PM")
+    def test_format_boundary_is_2025_12_22(self):
+        # The minute era arrived MID-season, not at 2025-26 opening night.
+        # Recovered from the CDN: every minute-era URL before 2025-12-22 is
+        # 403 while the matching hour-only URL is 200; minute-era URLs are 200
+        # from 2025-12-22 on. The day before the boundary is hour-only, the
+        # boundary day is minute.
+        self.assertEqual(gid.time_token(date(2025, 12, 21), 23, 0), "11PM")
+        self.assertEqual(gid.time_token(date(2025, 12, 22), 23, 0), "11_00PM")
 
     def test_hour_era_rejects_minutes_rather_than_rounding_them(self):
         with self.assertRaises(gid.InjuryUrlError):
