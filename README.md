@@ -346,7 +346,7 @@ pytest Tests/                  # or: python -m unittest discover -s Tests -t .
 
 6. **The committed model artifacts predate every fix in this fork and must be
    retrained before use.** They were fitted on the leaked dataset above, and
-   `Models/NN_Models/Trained-Model-OU-49.2_*.keras` additionally carries the old
+   `Models/NN_Models/Trained-Model-OU-49.2.keras` additionally carries the old
    totals column order — it has 107 inputs either way, so nothing will raise, it will
    simply be wrong. Treat everything in `Models/` as untrusted until retrained.
 7. **The totals model should not be used.** It does not beat a coin flip or a constant

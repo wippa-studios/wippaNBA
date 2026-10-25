@@ -15,7 +15,7 @@ sizes for the day's games, and ships a Flask UI for browsing the output.
 Its central number is **68.9% accuracy**, and that figure appears nowhere in the
 original README as prose. It exists only in a screenshot
 (`Screenshots/output.png`) and in model filenames
-(`Models/XGBoost_Models/XGBoost_68.9%_ML_*.json`). An unsourced, undated,
+(`Models/XGBoost_Models/XGBoost_68.9%_ML.json`). An unsourced, undated,
 unqualified headline accuracy for a product whose entire purpose is placing bets
 is what prompted this fork.
 

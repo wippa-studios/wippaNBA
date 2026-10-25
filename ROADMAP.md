@@ -80,7 +80,7 @@ Done in PR #1. Summary, for context:
 **Standing hazard:** nothing has been retrained. `xgboost` and TensorFlow are
 absent from the review environment, so the XGBoost and NN paths were verified by
 construction and AST comparison, never by execution. Every artifact in
-`Models/` predates the fixes and is untrusted. `Trained-Model-OU-49.2_*.keras`
+`Models/` predates the fixes and is untrusted. `Trained-Model-OU-49.2.keras`
 additionally carries the old totals column order and will fail **silently**.
 
 ---
