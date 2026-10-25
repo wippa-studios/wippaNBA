@@ -895,6 +895,7 @@ def load_design(halflife: float = 10.0, min_games: int = 5,
                 with_rebounds: bool = True,
                 with_home_split: bool = True,
                 with_availability: bool = True,
+                availability_weights: pd.DataFrame | None = None,
                 games: pd.DataFrame | None = None) -> pd.DataFrame:
     """Everything from the shared module, assembled into one design matrix.
 
@@ -906,6 +907,12 @@ def load_design(halflife: float = 10.0, min_games: int = 5,
     [+0.0023, +0.0055]; issue #36) and is consumed VERBATIM, never re-derived
     here: there is exactly one implementation of it (issue #30's duplicated-copy
     lesson) and this flag decides only whether the canonical frame carries it.
+
+    ``availability_weights`` forwards a same-game per-player discount to that
+    block (issue #37). ``None`` is the canonical prior-game block; a
+    ``(GAME_ID, PLAYER_ID, weight)`` frame replaces it with prior-game minutes
+    discounted by the official pre-tip designations. Only the multiplier
+    changes - the squad, the halflife and the causality are the block's own.
 
     The prior-game squad is deliberate - the sum must not depend on who actually
     dresses tonight - and the block keeps its own measured halflife (15 games of
@@ -952,7 +959,7 @@ def load_design(halflife: float = 10.0, min_games: int = 5,
         # group that resolves from it) names these columns positionally, so a
         # block that changed shape must be re-declared rather than silently
         # absorbed into the model in a new order.
-        avail = nd.availability_features(g).reset_index(drop=True)
+        avail = nd.availability_features(g, weights=availability_weights).reset_index(drop=True)
         if list(avail.columns) != list(AVAILABILITY_COLUMNS):
             raise ValueError(
                 "nba_data.availability_features returned columns "
