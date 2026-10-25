@@ -3,7 +3,6 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 import pandas as pd
-import tensorflow as tf
 import toml
 from colorama import Fore, Style
 
@@ -260,7 +259,7 @@ def resolve_games(odds, sportsbook, todays_games_url=TODAYS_GAMES_URL):
     return create_todays_games(games_json), None
 
 
-def run_models(data, normalized_data, todays_games_uo, frame_ml, games, home_team_odds, away_team_odds, args):
+def run_models(data, todays_games_uo, frame_ml, games, home_team_odds, away_team_odds, args):
     if args.xgb:
         print("---------------XGBoost Model Predictions---------------")
         XGBoost_Runner.xgb_runner(
@@ -269,8 +268,11 @@ def run_models(data, normalized_data, todays_games_uo, frame_ml, games, home_tea
         print("-------------------------------------------------------")
     if args.nn:
         print("------------Neural Network Model Predictions-----------")
+        # The runner applies the saved train-fitted scaler. main.py must not
+        # pre-scale: a second, differently fitted transform is the defect this
+        # path is fixing (issue #16).
         NN_Runner.nn_runner(
-            normalized_data, todays_games_uo, frame_ml, games, home_team_odds, away_team_odds, args.kc
+            frame_ml, todays_games_uo, games, home_team_odds, away_team_odds, args.kc
         )
         print("-------------------------------------------------------")
 
@@ -304,10 +306,8 @@ def main(args):
         args.xgb = True
         args.nn = True
 
-    normalized_data = tf.keras.utils.normalize(data, axis=1) if args.nn else None
     run_models(
         data,
-        normalized_data,
         todays_games_uo,
         frame_ml,
         games,

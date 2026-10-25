@@ -119,6 +119,8 @@ All models scored on the same 6,600 walk-forward test rows across five splits. L
 
 Boosting loses significantly to the canonical model (XGBoost Δ −0.00785, CI [−0.01038, −0.00533]). Player ratings, rank columns, recency weighting and the rebound block are all nulls. [Full comparison and experiment log →](results_pipeline_a.md)
 
+The older player-ratings null was measured on a **proxy**, not on RAPM: no stint design existed when it was written. True RAPM has since been fitted on the 2020-21 rotation file — 728 downloaded games, 724 usable after the five-players-per-side and `PT_DIFF` checks, 46,108 stint rows — and scored walk-forward on 362 test games. It reaches 0.6594 log loss, against 0.6682 for the same-season 43-column frame (Δ +0.0088, 95% CI [−0.0264, +0.0470], |z| 0.47) and 0.6516 for the same-season canonical model (Δ −0.0078, CI [−0.0364, +0.0204], |z| 0.54). That is still a null/inconclusive result, but it is now a null for RAPM on one season rather than a null for a proxy. The full backfill (#34) remains open.
+
 ### Model against the market (Pipeline B)
 
 | scorer | log loss ↓ | Brier ↓ | AUC ↑ | accuracy |
@@ -174,7 +176,7 @@ Leakage was worth roughly **+2.8 points of accuracy and +6 points of phantom ROI
 
 - **Correctness.** Games join to the most recent stats snapshot *strictly before* the game date. Postponed and phantom-tie games are excluded. One shared days-rest implementation replaces three divergent ones. Both runners assert the inference frame matches the training column order.
 - **Evaluation.** Class weighting off by default; four disjoint chronological segments; fixed seeds; imputation fitted inside each fold; log loss, the closing-line baseline and realised ROI reported, not accuracy alone.
-- **Security.** API key read from `RAPIDAPI_KEY` and endpoints fail closed; debug mode removed; every network call has a timeout.
+- **Security.** API key read from `RAPIDAPI_KEY` and endpoints fail closed; the three upstream-costing routes are metered per client address, `/games` also carries a distinct-date budget, and `LEGIT_API_TOKEN` optionally closes the JSON routes; debug mode removed; every network call has a timeout.
 - **Engineering.** CI on Python 3.10–3.11, `pyproject.toml`, declared dependencies, six near-identical trainers collapsed into shared modules (2,255 → 1,551 lines, byte-identical output).
 - **Reference tooling.** One importable leakage gate (`src/Utils/leakage_gate.py`) that separates a **confirmed future-dated leak** from a **same-date dependency to investigate**, tested against the three known-fatal patterns and their clean counterparts.
 
@@ -349,6 +351,9 @@ pytest Tests/                  # or: python -m unittest discover -s Tests -t .
    `Models/NN_Models/Trained-Model-OU-49.2.keras` additionally carries the old
    totals column order — it has 107 inputs either way, so nothing will raise, it will
    simply be wrong. Treat everything in `Models/` as untrusted until retrained.
+   The neural runner now refuses an artifact with no `*_preprocessor.pkl` beside it;
+   the scaler fitted during training cannot be recovered from the `.keras` file, and
+   the old per-row normalisation is no longer applied.
 7. **The totals model should not be used.** It does not beat a coin flip or a constant
    prior.
 8. **Kelly sizing is full Kelly** with no fractional scaling, bankroll cap,

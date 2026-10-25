@@ -6,8 +6,8 @@ import sqlite3
 import sys
 from pathlib import Path
 
+import joblib
 import numpy as np
-import tensorflow as tf
 from colorama import Fore, Style, init, deinit
 from keras.models import load_model
 from src.Utils import Expected_Value
@@ -22,7 +22,10 @@ init()
 
 BASE_DIR = Path(__file__).resolve().parents[2]
 MODEL_DIR = BASE_DIR / "Models"
-LEGACY_MODEL_DIR = MODEL_DIR / "NN_Models"
+# Both neural trainers write here (issue #16). `MODEL_DIR` is still searched
+# for pre-#16 artifacts, but those have no preprocessor sidecar and are
+# filtered out by `_select_best_model`.
+NN_MODEL_DIR = MODEL_DIR / "NN_Models"
 DATASET_DB = BASE_DIR / "Data" / "dataset.sqlite"
 
 # The one dataset table inference reads, shared with the trainers rather than
@@ -85,6 +88,10 @@ PREDICTIONS_SCHEMA_VERSION = 1
 
 _model = None
 _ou_model = None
+_ml_preprocessor = None
+_ou_preprocessor = None
+_ml_calibrator = None
+_ou_calibrator = None
 
 
 def _json_safe(value):
@@ -131,7 +138,7 @@ def emit_predictions(games):
 
 def _list_model_candidates(prefix):
     candidates = []
-    for base in (MODEL_DIR, LEGACY_MODEL_DIR):
+    for base in (MODEL_DIR, NN_MODEL_DIR):
         if not base.exists():
             continue
         for path in base.glob(f"{prefix}*"):
@@ -143,10 +150,39 @@ def _list_model_candidates(prefix):
     return candidates
 
 
+def _sidecar_path(model_path, suffix):
+    """The artifact stored beside a model, e.g. ``<stem>_preprocessor.pkl``.
+
+    One naming rule for both sidecars, shared by the trainers (which write
+    them) and this runner (which reads them), so a model can never be paired
+    with another run's scaler.
+    """
+    model_path = Path(model_path)
+    return model_path.with_name(f"{model_path.stem}_{suffix}")
+
+
+def _has_preprocessor(model_path):
+    return _sidecar_path(model_path, "preprocessor.pkl").exists()
+
+
 def _select_best_model(prefix, pattern):
     candidates = _list_model_candidates(prefix)
     if not candidates:
         raise FileNotFoundError(f"No model found for prefix {prefix} in {MODEL_DIR}")
+
+    # A model without a preprocessor was trained under the old per-row L2
+    # normalisation, which no current artifact can reproduce. Prefer the
+    # models that can actually be served, and if none can, say so instead of
+    # silently applying a different transform than the one training used.
+    usable = [path for path in candidates if _has_preprocessor(path)]
+    if not usable:
+        raise FileNotFoundError(
+            f"No usable model for prefix {prefix}: every candidate in "
+            f"{MODEL_DIR} / {NN_MODEL_DIR} predates feature scaling. Retrain "
+            "with src/Train-Models/NN_Model_ML.py or NN_Model_UO.py; the trainer "
+            "saves the scaler beside the model (issue #16)."
+        )
+    candidates = usable
 
     def score(path):
         # The accuracy is parsed out of the FILE NAME, not read from the artifact:
@@ -161,14 +197,34 @@ def _select_best_model(prefix, pattern):
     return max(candidates, key=score)
 
 
+def _load_calibrator(model_path):
+    """The saved calibrator, or None when this model was trained without one."""
+    path = _sidecar_path(model_path, "calibration.pkl")
+    if not path.exists():
+        return None
+    return joblib.load(path)
+
+
 def _load_models():
     global _model, _ou_model
+    global _ml_preprocessor, _ou_preprocessor, _ml_calibrator, _ou_calibrator
     if _model is None:
         ml_path = _select_best_model("Trained-Model-ML-", ML_PATTERN)
         _model = load_model(str(ml_path), compile=False)
+        _ml_preprocessor = joblib.load(_sidecar_path(ml_path, "preprocessor.pkl"))
+        _ml_calibrator = _load_calibrator(ml_path)
     if _ou_model is None:
         ou_path = _select_best_model("Trained-Model-OU-", OU_PATTERN)
         _ou_model = load_model(str(ou_path), compile=False)
+        _ou_preprocessor = joblib.load(_sidecar_path(ou_path, "preprocessor.pkl"))
+        _ou_calibrator = _load_calibrator(ou_path)
+
+
+def _predict_matrix(model, calibrator, matrix):
+    """Probabilities for a whole matrix, calibrated when the run saved one."""
+    if calibrator is not None:
+        return np.asarray(calibrator.predict_proba(matrix), dtype=float)
+    return np.asarray(model.predict(matrix, verbose=0), dtype=float)
 
 
 def _dataset_columns():
@@ -265,13 +321,19 @@ def _bankroll_fraction(odds, model_prob):
     return ' Fraction of Bankroll: ' + str(fraction) + '%'
 
 
-def nn_runner(data, todays_games_uo, frame_ml, games, home_team_odds, away_team_odds, kelly_criterion):
+def nn_runner(frame_ml, todays_games_uo, games, home_team_odds, away_team_odds, kelly_criterion):
+    """Score today's slate with the saved moneyline and totals networks.
+
+    ``frame_ml`` arrives RAW from main.py. The train-fitted imputation and
+    ``StandardScaler`` are loaded from the chosen artifacts and applied here,
+    because refitting them on today's one-row slate would reproduce none of the
+    training transform. The old code divided each row by its own L2 norm, a
+    per-row gain that no trainer used (issue #16).
+    """
     _load_models()
 
-    ml_predictions_array = []
-
-    for row in data:
-        ml_predictions_array.append(_model.predict(np.array([row])))
+    ml_matrix = _ml_preprocessor.transform(frame_ml)
+    ml_predictions_array = _predict_matrix(_model, _ml_calibrator, ml_matrix)
 
     uo_columns = _expected_uo_columns(frame_ml)
     frame_uo = copy.deepcopy(frame_ml)
@@ -281,14 +343,8 @@ def nn_runner(data, todays_games_uo, frame_ml, games, home_team_odds, away_team_
     frame_uo = frame_uo[uo_columns]
     if features is not None:
         features.validate_feature_frame(frame_uo, uo_columns, "neural network totals inference frame")
-    data = frame_uo.values
-    data = data.astype(float)
-    data = tf.keras.utils.normalize(data, axis=1)
-
-    ou_predictions_array = []
-
-    for row in data:
-        ou_predictions_array.append(_ou_model.predict(np.array([row])))
+    uo_matrix = _ou_preprocessor.transform(frame_uo)
+    ou_predictions_array = _predict_matrix(_ou_model, _ou_calibrator, uo_matrix)
 
     count = 0
     board = []
@@ -302,19 +358,19 @@ def nn_runner(data, todays_games_uo, frame_ml, games, home_team_odds, away_team_
         if winner == 1:
             winner_confidence = round(winner_confidence[0][1] * 100, 1)
             if under_over == 0:
-                un_confidence = round(ou_predictions_array[count][0][0] * 100, 1)
+                un_confidence = round(ou_predictions_array[count][0] * 100, 1)
                 print(
                     Fore.GREEN + home_team + Style.RESET_ALL + Fore.CYAN + f" ({winner_confidence}%)" + Style.RESET_ALL + ' vs ' + Fore.RED + away_team + Style.RESET_ALL + ': ' +
                     Fore.MAGENTA + OU_PICK_LABELS[under_over] + ' ' + Style.RESET_ALL + str(todays_games_uo[
                                                                         count]) + Style.RESET_ALL + Fore.CYAN + f" ({un_confidence}%)" + Style.RESET_ALL)
             elif under_over == 1:
-                un_confidence = round(ou_predictions_array[count][0][1] * 100, 1)
+                un_confidence = round(ou_predictions_array[count][1] * 100, 1)
                 print(
                     Fore.GREEN + home_team + Style.RESET_ALL + Fore.CYAN + f" ({winner_confidence}%)" + Style.RESET_ALL + ' vs ' + Fore.RED + away_team + Style.RESET_ALL + ': ' +
                     Fore.BLUE + OU_PICK_LABELS[under_over] + ' ' + Style.RESET_ALL + str(todays_games_uo[
                                                                     count]) + Style.RESET_ALL + Fore.CYAN + f" ({un_confidence}%)" + Style.RESET_ALL)
             else:
-                un_confidence = round(ou_predictions_array[count][0][2] * 100, 1)
+                un_confidence = round(ou_predictions_array[count][2] * 100, 1)
                 print(
                     Fore.GREEN + home_team + Style.RESET_ALL + Fore.CYAN + f" ({winner_confidence}%)" + Style.RESET_ALL + ' vs ' + Fore.RED + away_team + Style.RESET_ALL + ': ' +
                     Fore.YELLOW + OU_PICK_LABELS[under_over] + ' ' + Style.RESET_ALL + str(todays_games_uo[
@@ -322,19 +378,19 @@ def nn_runner(data, todays_games_uo, frame_ml, games, home_team_odds, away_team_
         else:
             winner_confidence = round(winner_confidence[0][0] * 100, 1)
             if under_over == 0:
-                un_confidence = round(ou_predictions_array[count][0][0] * 100, 1)
+                un_confidence = round(ou_predictions_array[count][0] * 100, 1)
                 print(
                     Fore.RED + home_team + Style.RESET_ALL + ' vs ' + Fore.GREEN + away_team + Style.RESET_ALL + Fore.CYAN + f" ({winner_confidence}%)" + Style.RESET_ALL + ': ' +
                     Fore.MAGENTA + OU_PICK_LABELS[under_over] + ' ' + Style.RESET_ALL + str(todays_games_uo[
                                                                         count]) + Style.RESET_ALL + Fore.CYAN + f" ({un_confidence}%)" + Style.RESET_ALL)
             elif under_over == 1:
-                un_confidence = round(ou_predictions_array[count][0][1] * 100, 1)
+                un_confidence = round(ou_predictions_array[count][1] * 100, 1)
                 print(
                     Fore.RED + home_team + Style.RESET_ALL + ' vs ' + Fore.GREEN + away_team + Style.RESET_ALL + Fore.CYAN + f" ({winner_confidence}%)" + Style.RESET_ALL + ': ' +
                     Fore.BLUE + OU_PICK_LABELS[under_over] + ' ' + Style.RESET_ALL + str(todays_games_uo[
                                                                     count]) + Style.RESET_ALL + Fore.CYAN + f" ({un_confidence}%)" + Style.RESET_ALL)
             else:
-                un_confidence = round(ou_predictions_array[count][0][2] * 100, 1)
+                un_confidence = round(ou_predictions_array[count][2] * 100, 1)
                 print(
                     Fore.RED + home_team + Style.RESET_ALL + ' vs ' + Fore.GREEN + away_team + Style.RESET_ALL + Fore.CYAN + f" ({winner_confidence}%)" + Style.RESET_ALL + ': ' +
                     Fore.YELLOW + OU_PICK_LABELS[under_over] + ' ' + Style.RESET_ALL + str(todays_games_uo[
@@ -345,8 +401,8 @@ def nn_runner(data, todays_games_uo, frame_ml, games, home_team_odds, away_team_
             {
                 'home_team': home_team,
                 'away_team': away_team,
-                'home_confidence': round(ml_predictions_array[count][0][1] * 100, 1),
-                'away_confidence': round(ml_predictions_array[count][0][0] * 100, 1),
+                'home_confidence': round(ml_predictions_array[count][1] * 100, 1),
+                'away_confidence': round(ml_predictions_array[count][0] * 100, 1),
                 'ou_pick': OU_PICK_LABELS[under_over],
                 'ou_value': todays_games_uo[count],
                 'ou_confidence': un_confidence,
@@ -366,9 +422,9 @@ def nn_runner(data, todays_games_uo, frame_ml, games, home_team_odds, away_team_
         away_odds = _coerce_odds(away_team_odds[count])
         if home_odds is not None and away_odds is not None:
             ev_home = float(
-                Expected_Value.expected_value(ml_predictions_array[count][0][1], home_odds))
+                Expected_Value.expected_value(ml_predictions_array[count][1], home_odds))
             ev_away = float(
-                Expected_Value.expected_value(ml_predictions_array[count][0][0], away_odds))
+                Expected_Value.expected_value(ml_predictions_array[count][0], away_odds))
         expected_value_colors = {'home_color': Fore.GREEN if ev_home > 0 else Fore.RED,
                                  'away_color': Fore.GREEN if ev_away > 0 else Fore.RED}
         # Kelly is only ever used when -kc was passed, and it needs a real moneyline,
@@ -376,10 +432,10 @@ def nn_runner(data, todays_games_uo, frame_ml, games, home_team_odds, away_team_
         bankroll_fraction_home = bankroll_fraction_away = ''
         home_kelly = away_kelly = None
         if kelly_criterion:
-            home_kelly = _kelly_fraction(home_odds, ml_predictions_array[count][0][1])
-            away_kelly = _kelly_fraction(away_odds, ml_predictions_array[count][0][0])
-            bankroll_fraction_home = _bankroll_fraction(home_odds, ml_predictions_array[count][0][1])
-            bankroll_fraction_away = _bankroll_fraction(away_odds, ml_predictions_array[count][0][0])
+            home_kelly = _kelly_fraction(home_odds, ml_predictions_array[count][1])
+            away_kelly = _kelly_fraction(away_odds, ml_predictions_array[count][0])
+            bankroll_fraction_home = _bankroll_fraction(home_odds, ml_predictions_array[count][1])
+            bankroll_fraction_away = _bankroll_fraction(away_odds, ml_predictions_array[count][0])
 
         print(home_team + ' EV: ' + expected_value_colors['home_color'] + str(ev_home) + Style.RESET_ALL + (
             bankroll_fraction_home if kelly_criterion else ''))

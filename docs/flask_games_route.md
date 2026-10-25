@@ -67,4 +67,48 @@ through two unauthenticated routes, and its README told users to run
 included, on any unhandled exception. Both are fixed: the key is read from
 `RAPIDAPI_KEY` and endpoints fail closed with a 503, and debug mode is gone.
 Unhandled exceptions return a generic response logged server-side. See
-[What this fork changes](../README.md#security-and-operations).
+[What this fork changes](../README.md#what-this-fork-changes).
+
+## Public-route protection (issue #50)
+
+**Posture: public by default, private on request.** The README runs this as a
+local web app, so `/games` stays reachable without credentials and the JSON data
+routes stay public unless a token is configured. Nothing here replaces an edge
+limit in front of a real deployment; it bounds what one caller can cost from
+inside the app.
+
+| route | request limit | extra budget | token |
+|---|---|---|---|
+| `GET /games` | 120/min per client address | 64 distinct dates/hour | not required |
+| `GET /team-data/<team>` | 240/min per client address | — | required if `LEGIT_API_TOKEN` is set |
+| `GET /player-stats/<id>` | 240/min per client address | — | required if `LEGIT_API_TOKEN` is set |
+
+The limits are configurable:
+
+```bash
+export LEGIT_API_TOKEN="<optional bearer token>"
+export LEGIT_RATE_LIMIT_REQUESTS=240
+export LEGIT_GAMES_RATE_LIMIT_REQUESTS=120
+export LEGIT_GAMES_DATE_BUDGET=64
+```
+
+The caller bucket is `request.remote_addr`, deliberately **not**
+`X-Forwarded-For` — that header is caller-controlled unless a trusted proxy
+rewrites it. Put the rate limit at that proxy (or add `ProxyFix` once the proxy
+is known to overwrite the header) if the app runs behind one.
+
+A refusal costs nothing upstream. The JSON routes answer `401` for a missing or
+wrong token and `429` for a spent request budget, both in the routes' own
+envelope:
+
+```json
+{"success": false, "error": "Unauthorized"}
+{"success": false, "error": "Too many requests"}
+```
+
+`/games` renders the same 429 as a page notice and sets `Retry-After` on both
+responses. Varying `date`, `team`, `player_id`, a query parameter or a forwarded
+header does not create a new bucket; the distinct-date budget counts each valid
+`?date=` once per hour, while re-opening a date already counted is free, so the
+previous/next links keep working. Tests:
+`Tests/test_webapp_security.py`.

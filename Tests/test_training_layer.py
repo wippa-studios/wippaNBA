@@ -1151,22 +1151,21 @@ class TestFoldGeometry(unittest.TestCase):
 
     def test_every_trainer_exposes_fold_geometry_flags(self):
         # The four walk-forward trainers get the geometry flags. The two neural
-        # networks validate on ONE contiguous slice and have no calibrator, so
-        # those flags do not exist for them -- and the test says which is which
-        # rather than skipping both.
+        # networks validate on ONE contiguous slice and get a separate
+        # calibration slice instead, so the flag that exists for them is
+        # --calib-size -- but calibration is shared by all six now.
         for name in TRAINER_SOURCES:
             parser = load_trainer_module(name).build_parser()
             flags = {action.dest for action in parser._actions}
             folds = "NN_" not in name
             self.assertEqual("fold_rows" in flags, folds, name)
             self.assertEqual("fold_half_life" in flags, folds, name)
-            # Calibration is the other half of the split. The networks get a
-            # single validation slice instead of a fold series, so they carry
-            # --val-size / --test-size rather than --splits.
+            # Calibration is the other half of the split.
             self.assertEqual("splits" in flags, folds, name)
             self.assertEqual("val_size" in flags, not folds, name)
-            self.assertEqual("calibration" in flags, folds, name)
-            self.assertEqual("allow_isotonic" in flags, folds, name)
+            self.assertEqual("calib_size" in flags, not folds, name)
+            self.assertEqual("calibration" in flags, True, name)
+            self.assertEqual("allow_isotonic" in flags, True, name)
 
     def test_the_purged_split_is_still_not_the_fix(self):
         # Documented, not adopted: embargo_pct=0.01 over this span resolves to a
@@ -1403,6 +1402,45 @@ class TestSplitHygiene(unittest.TestCase):
         self.assertFalse(np.isinf(filled["a"]).any())
         self.assertEqual(filled["a"].tolist(), [1.0, 2.0, 3.0])
 
+    def test_feature_scaler_is_fit_on_train_rows_only(self):
+        # Held-out rows are a different regime on purpose: if the scaler saw
+        # them, the train matrix would not be standardised and the test matrix
+        # would be. Fitting only on train keeps train mean 0 / sd 1 and sends
+        # the test row through unchanged.
+        train = pd.DataFrame({"a": [0.0, 2.0, 4.0, np.nan], "b": [10.0, 20.0, 30.0, 40.0]})
+        test = pd.DataFrame({"a": [1000.0], "b": [1000.0]})
+
+        preprocessor, (train_matrix, test_matrix) = training_common.fit_feature_scaler(train, test)
+
+        self.assertAlmostEqual(float(train_matrix[:, 0].mean()), 0.0, places=12)
+        self.assertAlmostEqual(float(train_matrix[:, 0].std(ddof=0)), 1.0, places=12)
+        self.assertAlmostEqual(float(preprocessor.scaler.mean_[0]), 2.0, places=12)
+        expected = (1000.0 - preprocessor.scaler.mean_[0]) / preprocessor.scaler.scale_[0]
+        self.assertAlmostEqual(float(test_matrix[0, 0]), float(expected), places=12)
+        # The old per-row L2 normalisation made every row's norm exactly 1.
+        self.assertFalse(np.allclose(np.linalg.norm(train_matrix, axis=1), 1.0))
+
+    def test_feature_scaler_aligns_columns_by_name_and_refuses_a_missing_one(self):
+        train = pd.DataFrame({"a": [1.0, 2.0, 3.0], "b": [10.0, 20.0, 30.0]})
+        preprocessor, _ = training_common.fit_feature_scaler(train)
+
+        reversed_columns = pd.DataFrame({"b": [1000.0], "a": [1000.0]})
+        transformed = preprocessor.transform(reversed_columns)
+        self.assertAlmostEqual(
+            float(transformed[0, 0]),
+            float((1000.0 - preprocessor.scaler.mean_[0]) / preprocessor.scaler.scale_[0]),
+            places=12,
+        )
+        with self.assertRaises(ValueError):
+            preprocessor.transform(pd.DataFrame({"a": [1.0]}))
+
+    def test_feature_scaler_imputes_inference_nans_with_train_values(self):
+        train = pd.DataFrame({"a": [1.0, 2.0, np.nan, 4.0]})
+        preprocessor, _ = training_common.fit_feature_scaler(train)
+        transformed = preprocessor.transform(pd.DataFrame({"a": [np.nan, np.inf]}))
+        # Both rows take the train median, so both standardise identically.
+        self.assertAlmostEqual(float(transformed[0, 0]), float(transformed[1, 0]), places=12)
+
     def test_infinities_are_removed_even_before_the_split(self):
         frame = self.frame.copy()
         frame.loc[0, "F1"] = np.inf
@@ -1425,15 +1463,26 @@ class TestSplitHygiene(unittest.TestCase):
     def test_neural_training_defers_imputation_until_after_the_split(self):
         source = (TRAIN_MODELS_DIR / "neural_training.py").read_text()
         self.assertIn("def to_model_matrix(", source)
-        self.assertIn("impute_split(X_train, *others)", source)
+        self.assertIn("fit_feature_scaler(X_train, *others)", source)
         self.assertNotIn("X.fillna(", source)
+        # Per-row L2 normalisation is the defect #16 removed: it scales each
+        # game by its own raw magnitude, which no other model in the repo sees.
+        self.assertNotIn("tf.keras.utils.normalize", source)
         for name in ("NN_Model_ML.py", "NN_Model_UO.py"):
             body = trainer_source(name)
-            self.assertIn(
-                "X_train, X_val, X_test = to_model_matrix(X_train, X_val, X_test)",
-                body,
-                name,
-            )
+            self.assertIn("preprocessor, (X_train, X_es, X_calib, X_test) = to_model_matrix(", body, name)
+            self.assertNotIn("tf.keras.utils.normalize", body, name)
+            self.assertIn("MODEL_DIR = BASE_DIR / \"Models\" / \"NN_Models\"", body, name)
+            self.assertIn("finally:", body, name)
+            self.assertIn("temp_path.unlink(missing_ok=True)", body, name)
+
+    def test_neural_inference_does_not_normalise_rows(self):
+        source = (PREDICT_DIR / "NN_Runner.py").read_text()
+        self.assertNotIn("tf.keras.utils.normalize", source)
+        self.assertIn("_ml_preprocessor.transform(frame_ml)", source)
+        self.assertIn("_ou_preprocessor.transform(frame_uo)", source)
+        # main.py must hand the runner a raw frame, not a pre-scaled matrix.
+        self.assertNotIn("normalized_data", (REPO_ROOT / "main.py").read_text())
 
     def test_the_totals_script_pins_its_sagas_random_state(self):
         source = trainer_source("Logistic_Regression_UO.py")
