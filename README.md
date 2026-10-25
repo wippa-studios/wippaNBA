@@ -42,7 +42,7 @@ A fork of [kyleskom/NBA-Machine-Learning-Sports-Betting](https://github.com/kyle
 | **Selective betting does not rescue it** | The parameter-free rule (bet wherever the model beats the posted price, both sides considered) places 4,828 bets and returns **−8.23%**. No margin or threshold cell reaches \|z\| = 3. The sweep's one positive cell, +3.99%, is \|z\| = 0.46 noise. |
 | **One mechanism genuinely works** | Player-level *expected minutes* (availability) improves log loss by **+0.00390** nats at **\|z\| = 4.78**, the only effect here that clears the project's \|z\| > 3 bar honestly. The closing line already prices it in. |
 | **The biggest-looking win was a leak** | A per-player Elo block measured \|z\| = 5.18 and was leaking the real lineup. On a pre-game roster it is +0.00065 and does not earn its place. |
-| **The simplest sensible model wins** | Logistic regression (log loss **0.6157**) beats XGBoost, HistGradientBoosting, random forest, Gaussian NB and margin/total models. Every run is logged in `results/experiments.jsonl`. |
+| **The simplest sensible model wins** | Logistic regression (log loss **0.6157**) still leads XGBoost, HistGradientBoosting, random forest, Gaussian NB, a five-seed neural network and margin/total models. Every run is logged in `results/experiments.jsonl`. |
 | **The close absorbs everything our model knows** | Price + model loses to price alone by 0.00177 nats (\|z\| 3.15). Availability beyond price + model is a tight null. |
 | **The null is the field's finding too** | Of ~45 public NBA repos surveyed, accuracy tops out at 65–69%, and only two say plainly that they lose to the market. |
 | **Do not use the committed model files** | They were trained on the leaked dataset and must be retrained. |
@@ -77,7 +77,7 @@ Knowing which one you are using is the most useful thing to settle first.
 |---|---|---|
 | **Purpose** | Predict game outcomes and measure how good the predictions are | Predict games against sportsbook odds, with Kelly sizing |
 | **Data** | NBA's own data via `nba_api` (310 CSVs, 11 seasons, 13,199 games) | Scraped team stats and sportsbook odds |
-| **Models** | Elo, logistic regression, margin/total, gradient boosting | XGBoost and neural networks |
+| **Models** | Elo, logistic regression, margin/total, gradient boosting, MLP | XGBoost and neural networks |
 | **Judged on** | Log loss, Brier, AUC, calibration | Accuracy, log loss, market baseline, ROI |
 | **Entry points** | `scripts/download_nba_data.py`, `python -m src.Models.*` | `main.py`, `src/Process-Data/`, `src/Train-Models/` |
 
@@ -116,8 +116,9 @@ All models scored on the same 6,600 walk-forward test rows across five splits. L
 | margin + total → Φ(m̂/σ) | 0.6204 | 0.2156 | 0.7074 | 0.6562 |
 | logistic regression, availability off (pre-#36) | 0.6196 | 0.2151 | 0.7085 | 0.6564 |
 | **logistic regression (canonical, 26 features)** | **0.6157** | **0.2133** | **0.7141** | **0.6573** |
+| neural network (MLP, five-seed average, 26 features) | 0.6167 | 0.2138 | 0.7122 | 0.6617 |
 
-Boosting loses significantly to the canonical model (XGBoost Δ −0.00785, CI [−0.01038, −0.00533]). Player ratings, rank columns, recency weighting and the rebound block are all nulls. [Full comparison and experiment log →](results_pipeline_a.md)
+Boosting loses significantly to the canonical model (XGBoost Δ −0.00785, CI [−0.01038, −0.00533]). The pre-registered neural arm does not clear it either: the five-seed MLP is −0.00099 nats (CI [−0.00295, +0.00084], |z| 1.03), and every individual seed is worse. Player ratings, rank columns, recency weighting and the rebound block are all nulls. [Full comparison and experiment log →](results_pipeline_a.md)
 
 The older player-ratings null was measured on a **proxy**, not on RAPM: no stint design existed when it was written. True RAPM has since been fitted on the 2020-21 rotation file — 728 downloaded games, 724 usable after the five-players-per-side and `PT_DIFF` checks, 46,108 stint rows — and scored walk-forward on 362 test games. It reaches 0.6594 log loss, against 0.6682 for the same-season 43-column frame (Δ +0.0088, 95% CI [−0.0264, +0.0470], |z| 0.47) and 0.6516 for the same-season canonical model (Δ −0.0078, CI [−0.0364, +0.0204], |z| 0.54). That is still a null/inconclusive result, but it is now a null for RAPM on one season rather than a null for a proxy. The full backfill (#34) remains open.
 
@@ -239,7 +240,7 @@ mean that must pass. [The API, the fixtures and what the gate cannot see →](do
 └── ROADMAP.md
 ```
 
-**Contributing?** Start with [Models, features and retraining](models_and_training.md). It covers the six model modules (12 approaches, 18 configurations), the one shared `load_design` feature builder, and the feature-order contract between trainers and runners.
+**Contributing?** Start with [Models, features and retraining](models_and_training.md). It covers the seven model modules (13 approaches, 19 configurations), the one shared `load_design` feature builder, and the feature-order contract between trainers and runners.
 
 ---
 

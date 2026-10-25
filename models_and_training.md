@@ -11,26 +11,26 @@ This is the section a new contributor needs first, because the model files in
 artifact additionally carries the old column order — 107 inputs either way, so
 nothing raises, it simply predicts wrong. Retrain before using anything.
 
-### The model modules — 6 files, 12 distinct approaches, 18 configurations
+### The model modules — 7 files, 13 distinct approaches, 19 configurations
 
-Six modules under `src/Models/`, each standalone — `python -m src.Models.<name>` —
+Seven modules under `src/Models/`, each standalone — `python -m src.Models.<name>` —
 and each printing its own numbers, so nothing here depends on trusting this page.
 
-**Six files is not six models, and the distinction matters.** Those six modules
-hold **12 distinct model approaches**, scored in **18 configurations** — and the
+**Seven files is not seven models, and the distinction matters.** Those seven modules
+hold **13 distinct model approaches**, scored in **19 configurations** — and the
 count is itself part of the argument: "the simplest sensible model wins" only
 carries weight if the alternatives were genuinely tried.
 
 | | approaches | configurations |
 |---|---|---|
-| Scored head-to-head in the [Pipeline A comparison](results_pipeline_a.md#pipeline-a-model-comparison) | 9 | 13 |
+| Scored head-to-head in the [Pipeline A comparison](results_pipeline_a.md#pipeline-a-model-comparison) | 10 | 14 |
 | Unique to the [experiment log](results_pipeline_a.md#the-experiment-log-17-pre-registered-runs) | 3 | 5 |
 | `player_ratings` methods (features, not standalone predictors) | 2 | 2 |
 
-The nine are: a constant, Elo, SRS, Bradley-Terry, log-linear Elo, margin-and-total
-→ Φ, XGBoost, HistGradientBoosting, and logistic regression. Several carry several
-configurations — Elo alone appears four times (with and without a movement term,
-K=10 and K=20), SRS twice.
+The ten are: a constant, Elo, SRS, Bradley-Terry, log-linear Elo, margin-and-total
+→ Φ, XGBoost, HistGradientBoosting, a feed-forward MLP, and logistic regression.
+Several carry several configurations — Elo alone appears four times (with and
+without a movement term, K=10 and K=20), SRS twice.
 
 Three approaches exist in **no model module at all** and live only in
 `scripts/experiments.py`: **random forest**, **Gaussian Naive Bayes + PCA**, and
@@ -47,9 +47,10 @@ favourite**. The other two extra configurations are logistic at `C=0.1` and
 | `margin_total` | Does **not** predict a winner. Predicts the two things a game is made of — the point margin and the combined total — then converts to a win probability with Φ(margin/σ) and reports spread error too. | Tests whether a richer target pays for itself. It also outputs a pick-no-edge line, which is what a bettor actually needs. |
 | `logreg_rolling` | One L2-penalised logistic regression on **exponentially-weighted team form**: each team's past margin, net rating, pace and four factors, plus rest days, back-to-backs, 3-in-4 and travel distance — and, since issue #36, the availability block (22 → 26 features). | The model the whole suite is measured against. Deliberately simple and deliberately causal. |
 | `gbm` | Gradient boosting (XGBoost and HistGradientBoosting) on the **same features** as the model above, so the only variable is the algorithm. | The project spec expected boosting to win. It does not, and the confidence interval proves it is not a tie. |
+| `nn_rolling` | A feed-forward MLP (64, 32) on the **same 26 features** as `logreg_rolling`, pre-registered as M01: five-seed average, train-only impute/scale, identical folds. | Tests whether a non-linear model class can beat the linear canonical model. It does not: −0.00099 nats, \|z\| 1.03, and every individual seed is worse. The four sensitivity configurations are reported in `results/nn_rolling.md` and cannot promote. |
 | `player_ratings` | Builds **player-level** ratings and adds them to the team prediction. | The spec calls this "likely your biggest edge", so it was built to be falsifiable rather than to look good. Across 2 methods × 3 families it came back a null. |
 
-A seventh mechanism — player-level **expected minutes**, summed over the squad that
+An eighth mechanism — player-level **expected minutes**, summed over the squad that
 played the team's *previous* game — lives in the shared layer rather than in a module
 of its own, because it is a feature block and not a model. It is the one mechanism
 that survived measurement, and since issue #36 it is part of the canonical model
