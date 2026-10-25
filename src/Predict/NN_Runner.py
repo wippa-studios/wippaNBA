@@ -22,7 +22,10 @@ init()
 
 BASE_DIR = Path(__file__).resolve().parents[2]
 MODEL_DIR = BASE_DIR / "Models"
-LEGACY_MODEL_DIR = MODEL_DIR / "NN_Models"
+# Both neural trainers write here (issue #16). `MODEL_DIR` is still searched
+# for pre-#16 artifacts, but those have no preprocessor sidecar and are
+# filtered out by `_select_best_model`.
+NN_MODEL_DIR = MODEL_DIR / "NN_Models"
 DATASET_DB = BASE_DIR / "Data" / "dataset.sqlite"
 
 # The one dataset table inference reads, shared with the trainers rather than
@@ -135,7 +138,7 @@ def emit_predictions(games):
 
 def _list_model_candidates(prefix):
     candidates = []
-    for base in (MODEL_DIR, LEGACY_MODEL_DIR):
+    for base in (MODEL_DIR, NN_MODEL_DIR):
         if not base.exists():
             continue
         for path in base.glob(f"{prefix}*"):
@@ -175,7 +178,7 @@ def _select_best_model(prefix, pattern):
     if not usable:
         raise FileNotFoundError(
             f"No usable model for prefix {prefix}: every candidate in "
-            f"{MODEL_DIR} / {LEGACY_MODEL_DIR} predates feature scaling. Retrain "
+            f"{MODEL_DIR} / {NN_MODEL_DIR} predates feature scaling. Retrain "
             "with src/Train-Models/NN_Model_ML.py or NN_Model_UO.py; the trainer "
             "saves the scaler beside the model (issue #16)."
         )

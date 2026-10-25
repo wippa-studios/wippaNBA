@@ -184,7 +184,7 @@ class TestRunnerUsesTheSavedArtifacts(unittest.TestCase):
             self._touch_model(tmp, "Trained-Model-ML-70.0.keras", with_preprocessor=False)
             usable = self._touch_model(tmp, "Trained-Model-ML-50.0.keras", with_preprocessor=True)
             with mock.patch.object(NN_Runner, "MODEL_DIR", Path(tmp)), \
-                    mock.patch.object(NN_Runner, "LEGACY_MODEL_DIR", Path(tmp) / "legacy"):
+                    mock.patch.object(NN_Runner, "NN_MODEL_DIR", Path(tmp) / "legacy"):
                 selected = NN_Runner._select_best_model("Trained-Model-ML-", NN_Runner.ML_PATTERN)
 
         self.assertEqual(selected, usable)
@@ -193,7 +193,7 @@ class TestRunnerUsesTheSavedArtifacts(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             self._touch_model(tmp, "Trained-Model-ML-64.6.keras", with_preprocessor=False)
             with mock.patch.object(NN_Runner, "MODEL_DIR", Path(tmp)), \
-                    mock.patch.object(NN_Runner, "LEGACY_MODEL_DIR", Path(tmp) / "legacy"):
+                    mock.patch.object(NN_Runner, "NN_MODEL_DIR", Path(tmp) / "legacy"):
                 with self.assertRaises(FileNotFoundError) as caught:
                     NN_Runner._select_best_model("Trained-Model-ML-", NN_Runner.ML_PATTERN)
 
