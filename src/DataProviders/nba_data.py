@@ -544,7 +544,9 @@ def _ewm_by_player(df: pd.DataFrame, value: str, halflife: float) -> pd.Series:
 
 
 def availability_features(games: pd.DataFrame, halflife: float = 15.0,
-                          weights: pd.DataFrame | None = None) -> pd.DataFrame:
+                          weights: pd.DataFrame | None = None,
+                          squad_mode: str = "prior_game",
+                          top_n: int | None = None) -> pd.DataFrame:
     """Player-level EXPECTED minutes, summed over a roster known before tip-off.
 
     WHY THIS EXISTS
@@ -589,14 +591,51 @@ def availability_features(games: pd.DataFrame, halflife: float = 15.0,
     default to 1.0. The default ``None`` is the exact pre-#37 block, and a test
     asserts that. A weight is a same-game fact known before tip, like a rest
     day: it never reads who actually played.
+
+    ``squad_mode`` (issue #71) selects WHICH set of players is summed:
+
+    * ``"prior_game"`` (default) -- the squad that appeared in the team's
+      previous game. The recorded construction; the default is bit-identical.
+    * ``"season_average"`` -- the union of every player who has appeared for
+      the team in EARLIER games of the same season (July-to-June seasons). The
+      union adds the current game only after that game's roster has been
+      assigned, so it is strictly past as well.
+
+    ``top_n`` (issue #71) sums only the ``top_n`` largest expected minutes
+    within the chosen roster (``None`` keeps every member -- the recorded
+    construction). The selection happens after any injury weight, so with
+    weights it means "the N players expected to consume the most minutes
+    tonight".
     """
+    if squad_mode not in ("prior_game", "season_average"):
+        raise ValueError("squad_mode must be 'prior_game' or 'season_average'")
+    if top_n is not None and (not isinstance(top_n, (int, np.integer))
+                              or int(top_n) <= 0):
+        raise ValueError("top_n must be a positive integer or None")
     pm = player_minutes(games)
     pm["expected_min"] = _ewm_by_player(pm, "MIN", halflife)
 
     squad = (pm.groupby(["TEAM_ABBREVIATION", "GAME_ID", "GAME_DATE"], as_index=False)
              .agg(squad=("PLAYER_ID", lambda s: frozenset(s))))
     squad = squad.sort_values(["TEAM_ABBREVIATION", "GAME_DATE"]).reset_index(drop=True)
-    squad["prev_squad"] = squad.groupby("TEAM_ABBREVIATION", sort=False)["squad"].shift(1)
+    if squad_mode == "prior_game":
+        squad["roster"] = squad.groupby(
+            "TEAM_ABBREVIATION", sort=False)["squad"].shift(1)
+    else:
+        # Cumulative union of prior rosters WITHIN a season. The NBA season
+        # starts in October, so July is the boundary: 2025-10-01 belongs to
+        # 2025-26 and 2026-01-01 does too, while 2026-07-01 starts 2026-27.
+        squad["season"] = (squad["GAME_DATE"].dt.year
+                           - (squad["GAME_DATE"].dt.month < 7).astype(int))
+        squad["roster"] = np.nan
+        squad["roster"] = squad["roster"].astype(object)
+        for _, grp in squad.groupby(["TEAM_ABBREVIATION", "season"],
+                                    sort=False):
+            seen: set[int] = set()
+            for i in grp.sort_values("GAME_DATE").index:
+                squad.at[i, "roster"] = frozenset(seen) if seen else np.nan
+                seen |= squad.at[i, "squad"]
+        squad = squad.drop(columns=["season"])
 
     # Each player's expectation must be the value AS OF the game being predicted,
     # not their most recent value anywhere in the frame.
@@ -607,9 +646,9 @@ def availability_features(games: pd.DataFrame, halflife: float = 15.0,
     # information, invisible in the output and producing an excellent-looking
     # score. Truncating the future exposes it immediately, which is exactly what
     # the causality check below is for.
-    queries = squad.loc[squad["prev_squad"].notna()].copy()
-    exploded = queries[["GAME_ID", "TEAM_ABBREVIATION", "GAME_DATE", "prev_squad"]].explode(
-        "prev_squad").rename(columns={"prev_squad": "PLAYER_ID"})
+    queries = squad.loc[squad["roster"].notna()].copy()
+    exploded = queries[["GAME_ID", "TEAM_ABBREVIATION", "GAME_DATE", "roster"]].explode(
+        "roster").rename(columns={"roster": "PLAYER_ID"})
     exploded = exploded.dropna(subset=["PLAYER_ID"])
     hist = (pm.dropna(subset=["expected_min"])
             .sort_values("GAME_DATE")[["PLAYER_ID", "GAME_DATE", "expected_min"]])
@@ -651,6 +690,16 @@ def availability_features(games: pd.DataFrame, halflife: float = 15.0,
             raise ValueError("weights must lie in [0, 1]")
         asof["weight"] = asof["weight"].fillna(1.0)
         asof["expected_min"] = asof["expected_min"] * asof["weight"]
+    if top_n is not None:
+        # The N players expected to consume the most minutes tonight. Sorting
+        # is deterministic on (expected_min desc) with the merge order as the
+        # tiebreak; the sum below is order-independent.
+        asof = (asof.sort_values(["GAME_ID", "TEAM_ABBREVIATION",
+                                  "expected_min"],
+                                 ascending=[True, True, False])
+                .groupby(["GAME_ID", "TEAM_ABBREVIATION"], as_index=False,
+                         sort=False)
+                .head(int(top_n)))
     totals = (asof.dropna(subset=["expected_min"])
               .groupby(["GAME_ID", "TEAM_ABBREVIATION"], as_index=False)["expected_min"]
               .sum())
