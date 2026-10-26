@@ -44,6 +44,7 @@ The same models, scored against the closing line and the posted price — the au
 
 - **The market beats the model decisively:** on 5,788 games with both a prediction and a closing line, market log loss **0.59766** vs model + availability **0.62034** — a gap of 0.02268 nats, interval entirely on the market's side (|z| 7.28).
 - **Selective betting does not rescue it:** bet wherever the model beats the posted price (both sides, no free parameters) → **−8.23%** over 4,828 bets; no margin/threshold cell reaches |z| 3.
+- **The folk spots are priced as well:** a 5-5 home team against a 2-8 road team wins **79.5%** of the time and the close asks **82.7%** — **−4.12%** on the moneyline, **−5.28%** on the spread at −110 over 965 games. The broader form gap covers 48.8% of the time, a real |z| 4.36 mispricing that is smaller than the vig.
 - **The one real model edge is already in the price:** availability adds +0.00390 nats to the model, then *nothing* after conditioning on the close (tight null at the market-anchored stack). The injury multiplier is measured as a model feature, not at the close.
 - **The original pipeline's headline was measured leakage:** the audit found and fixed six defects, including a 68.9% accuracy and ROI inflation from target leakage, a leaked API key, and a totals model with no signal.
 
@@ -69,6 +70,7 @@ A single reproducible feature layer over NBA's own data, and the tooling that ke
 | **The 68.9% headline was target leakage** | Season-to-date stats were scraped with the game's own result included. Rebuilt without the leak, accuracy is ~48% on the affected rows. |
 | **The market beats the model decisively** | Market log loss **0.59766** vs model + availability **0.62034** on 5,788 games. Gap 0.02268 nats, \|z\| 7.28 — a loss, not a tie. |
 | **Selective betting does not rescue it** | Bet-where-the-model-beats-the-price returns **−8.23%** over 4,828 bets; no margin or threshold cell reaches \|z\| 3. |
+| **Folk betting spots are already priced** | A 5-5 home team against a 2-8 road team wins 79.5% of the time; the close asks 82.7% → **−4.12%** on the moneyline, **−5.28%** on the spread at −110 over 965 games. The broad form gap covers 48.8%, a real \|z\| 4.36 mispricing that is smaller than the vig. |
 | **Who plays is what works** | Player-level *expected minutes* (availability) improves log loss **+0.00390** at \|z\| 4.78; the pre-tip injury multiplier on top of it clears a forward two-season holdout at **+0.003579, \|z\| 3.85**. Availability is priced out at the close; the multiplier is a model result, not a measured bet. |
 | **The biggest-looking win was a leak** | A per-player Elo block measured \|z\| 5.18 and was leaking the real lineup; on a pre-game roster it is +0.00065. |
 | **The simplest sensible model wins** | Logistic regression (0.6157) leads XGBoost, HistGradientBoosting, random forest, Gaussian NB, a five-seed neural network and margin/total models. |
@@ -130,6 +132,7 @@ python scripts/closing_line.py             # does any of this beat the closing l
 | [Results: Pipeline B](results_pipeline_b.md) | Closing-line comparison, betting rules, the repo survey |
 | [The market anchor](docs/market_anchor.md) | Why odds are legitimate as an input only here; the close absorbs everything |
 | [The totals target](docs/totals_target.md) | Why `OU-Cover` keeps its push class; the closing price that would justify folding it |
+| [Form-mismatch spots](docs/form_mismatch.md) | The hot-home / cold-road rule, priced: the mismatch is real, the close already has it |
 | [The audit and the fixes](audit_and_fixes.md) | The six defects found in the original, and everything this fork changed |
 | [ROADMAP](ROADMAP.md) | The levels between this pipeline and a real forecasting engine |
 
