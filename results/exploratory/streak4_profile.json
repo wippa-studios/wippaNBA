@@ -1,0 +1,264 @@
+{
+  "betting": {
+    "actual_mean": 0.5841,
+    "all_priced": {
+      "n": 1582,
+      "roi": 0.0088,
+      "z": 0.3
+    },
+    "coherent_only": {
+      "n": 1336,
+      "roi": -0.027,
+      "z": -1.0
+    },
+    "implied_mean": 0.5769
+  },
+  "by_season": {
+    "2015-16": 0.5762,
+    "2016-17": 0.5844,
+    "2017-18": 0.5643,
+    "2018-19": 0.6111,
+    "2019-20": 0.6116,
+    "2020-21": 0.6131,
+    "2021-22": 0.6552,
+    "2022-23": 0.4694,
+    "2023-24": 0.5478,
+    "2024-25": 0.6133,
+    "2025-26": 0.5733
+  },
+  "by_venue": {
+    "0": {
+      "n": 798,
+      "win_rate": 0.5
+    },
+    "1": {
+      "n": 798,
+      "win_rate": 0.6654
+    }
+  },
+  "calibration": [
+    {
+      "actual": 0.2885,
+      "devig_bucket": "(0.2, 0.4]",
+      "implied": 0.3126,
+      "n": 305,
+      "roi_betting_team": -0.0578
+    },
+    {
+      "actual": 0.4972,
+      "devig_bucket": "(0.4, 0.5]",
+      "implied": 0.4485,
+      "n": 179,
+      "roi_betting_team": 0.0953
+    },
+    {
+      "actual": 0.562,
+      "devig_bucket": "(0.5, 0.6]",
+      "implied": 0.5518,
+      "n": 258,
+      "roi_betting_team": 0.006
+    },
+    {
+      "actual": 0.6633,
+      "devig_bucket": "(0.6, 0.7]",
+      "implied": 0.6498,
+      "n": 294,
+      "roi_betting_team": 0.0113
+    },
+    {
+      "actual": 0.8054,
+      "devig_bucket": "(0.7, 0.9]",
+      "implied": 0.7911,
+      "n": 447,
+      "roi_betting_team": 0.0035
+    }
+  ],
+  "d_significance_note": "SE of d \u2248 0.050; with ~19 comparisons, |d| > ~0.13 survives a 99% single-comparison test; multiplicity applies",
+  "exploratory": true,
+  "feature_profile": [
+    {
+      "d": 0.955,
+      "feature": "devig",
+      "mean_lost": 0.474,
+      "mean_won": 0.65
+    },
+    {
+      "d": 0.745,
+      "feature": "is_fav",
+      "mean_lost": 0.456,
+      "mean_won": 0.795
+    },
+    {
+      "d": -0.594,
+      "feature": "elo_opp",
+      "mean_lost": 33.631,
+      "mean_won": -25.57
+    },
+    {
+      "d": -0.419,
+      "feature": "form10_opp",
+      "mean_lost": 5.464,
+      "mean_won": 4.599
+    },
+    {
+      "d": 0.407,
+      "feature": "elo_self",
+      "mean_lost": 34.966,
+      "mean_won": 68.393
+    },
+    {
+      "d": 0.345,
+      "feature": "is_home",
+      "mean_lost": 0.401,
+      "mean_won": 0.571
+    },
+    {
+      "d": 0.254,
+      "feature": "streak_margin",
+      "mean_lost": 11.457,
+      "mean_won": 12.818
+    },
+    {
+      "d": -0.177,
+      "feature": "opp_win_streak",
+      "mean_lost": 1.252,
+      "mean_won": 0.951
+    },
+    {
+      "d": 0.175,
+      "feature": "form10_self",
+      "mean_lost": 6.248,
+      "mean_won": 6.488
+    },
+    {
+      "d": -0.115,
+      "feature": "tz_crossed",
+      "mean_lost": 0.365,
+      "mean_won": 0.292
+    },
+    {
+      "d": -0.11,
+      "feature": "in3of4",
+      "mean_lost": 1.24,
+      "mean_won": 1.186
+    },
+    {
+      "d": -0.107,
+      "feature": "b2b",
+      "mean_lost": 0.203,
+      "mean_won": 0.161
+    },
+    {
+      "d": 0.1,
+      "feature": "opp_b2b",
+      "mean_lost": 0.164,
+      "mean_won": 0.202
+    },
+    {
+      "d": 0.039,
+      "feature": "rest",
+      "mean_lost": 2.234,
+      "mean_won": 2.471
+    },
+    {
+      "d": 0.027,
+      "feature": "gp_season",
+      "mean_lost": 40.059,
+      "mean_won": 40.663
+    },
+    {
+      "d": 0.026,
+      "feature": "opp_in3of4",
+      "mean_lost": 1.221,
+      "mean_won": 1.234
+    },
+    {
+      "d": -0.02,
+      "feature": "travel_miles",
+      "mean_lost": 1071.127,
+      "mean_won": 1058.416
+    },
+    {
+      "d": -0.01,
+      "feature": "opp_rest",
+      "mean_lost": 2.32,
+      "mean_won": 2.269
+    },
+    {
+      "d": -0.005,
+      "feature": "streak_opp_elo",
+      "mean_lost": -23.547,
+      "mean_won": -23.853
+    }
+  ],
+  "generated": "2026-10-26T18:13:37.004717+00:00",
+  "n": 1596,
+  "overall_win_rate": 0.5827,
+  "population": "team-games entering on exactly a 3-game win streak, 2015-16..2025-26",
+  "subgroups": {
+    "away": {
+      "n": 798,
+      "win_rate": 0.5
+    },
+    "home": {
+      "n": 798,
+      "win_rate": 0.665
+    },
+    "market favourite": {
+      "n": 1043,
+      "win_rate": 0.709
+    },
+    "market underdog": {
+      "n": 553,
+      "win_rate": 0.345
+    },
+    "opponent entering win streak <= 1": {
+      "n": 1195,
+      "win_rate": 0.607
+    },
+    "opponent entering win streak >= 2": {
+      "n": 401,
+      "win_rate": 0.511
+    },
+    "opponent on B2B": {
+      "n": 297,
+      "win_rate": 0.633
+    },
+    "opponent rest <= 1": {
+      "n": 297,
+      "win_rate": 0.633
+    },
+    "opponent rest >= 2": {
+      "n": 1299,
+      "win_rate": 0.571
+    },
+    "own B2B": {
+      "n": 285,
+      "win_rate": 0.526
+    },
+    "own rest <= 1": {
+      "n": 285,
+      "win_rate": 0.526
+    },
+    "own rest >= 2": {
+      "n": 1311,
+      "win_rate": 0.595
+    },
+    "streak margin < median": {
+      "n": 798,
+      "win_rate": 0.531
+    },
+    "streak margin >= median": {
+      "n": 798,
+      "win_rate": 0.634
+    },
+    "streak opponents < median elo": {
+      "n": 798,
+      "win_rate": 0.585
+    },
+    "streak opponents >= median elo": {
+      "n": 798,
+      "win_rate": 0.58
+    }
+  }
+}

@@ -61,7 +61,7 @@ A single reproducible feature layer over NBA's own data, and the tooling that ke
 - **13,199 games, one shared design:** `scripts/download_nba_data.py` builds 310 CSVs (10+ seasons) and `src/DataProviders/nba_data.py` assembles **26 causal feature columns** used by every model. No model has a second loader.
 - **Causality is tested, not asserted:** deleting 5,199 future games changes no historical feature by more than `0.000e+00`; a reusable leakage gate separates confirmed future-dated leaks from same-date dependencies.
 - **Append-only evidence:** the injury-report store holds **2,046 snapshots across 1,037 report dates / 237,436 designation events** (official pre-tip injury reports, point-in-time semantics).
-- **1,543 tests, 0 failing, 104 subtests** across 63 files; CI on Python 3.10 & 3.11 and both sides of the scikit-learn 1.7 `multi_class` removal.
+- **1,545 tests, 0 failing, 104 subtests** across 64 files; CI on Python 3.10 & 3.11 and both sides of the scikit-learn 1.7 `multi_class` removal.
 
 **Start here:** [Models, features and retraining](models_and_training.md) · [the availability block](docs/availability_block.md) · [the injury-report pipeline](docs/injury_pipeline.md) · [the feature search](docs/feature_search.md) · [reproducing every number](reproducing.md).
 
@@ -144,6 +144,7 @@ python scripts/closing_line.py             # does any of this beat the closing l
 | [Layered Elo + form](docs/layered_elo_form.md) | Stacking an Elo filter with the form filter: the layer re-selects the favourite and loses the vig |
 | [The search loop](docs/edge_search.md) | A pre-registered 42-arm scan of the close, the multiplicity bar, and why the full-season 2025-26 holdout replaced the snapshot |
 | [Best-of-books moneylines](docs/edge_search.md) | The profit objective: OddsPortal best prices backfilled to 2015-16, and why the apparent underdog edge is a snapshot artifact |
+| [Exploratory follow-ups](docs/edge_search.md) | What 4th-win teams look like pre-game, and the Elo-parity underdog — the worst measured bet in the repo (−9.8%, z −7.5) |
 | [The audit and the fixes](audit_and_fixes.md) | The six defects found in the original, and everything this fork changed |
 | [ROADMAP](ROADMAP.md) | The levels between this pipeline and a real forecasting engine |
 

@@ -249,6 +249,45 @@ The routes that remain open need data that does not exist here — player
 props, live/in-play, alternate and second-half lines, or a multi-season
 opening-line archive.
 
+## Exploratory follow-ups (user-directed, not pre-registered)
+
+Two questions asked outside the loop, recorded here with the same honesty
+rule — every number measured, nothing promoted without a bar.
+
+### What does a team that wins its 4th straight look like? (`EXP1`)
+
+1,596 team-games enter on exactly a 3-game win streak. **58.3% win the 4th**
+(home 66.5%, away 50.0%), and the market prices the spot almost exactly:
+implied 57.7% vs actual 58.4% — betting every 3-streak team at best prices
+returns +0.9% (z 0.30), −2.7% on coherent rows.
+
+What separates the teams that extend from the ones that stop at three is the
+**matchup, not the streak**: opponent Elo (d −0.59), opponent last-10 form
+(d −0.42), own Elo (+0.41), home (+0.35). How the streak was built carries
+essentially nothing — the quality of the three victims (d −0.005) and the
+margin of the wins (d +0.25) are near-noise, and rest/travel/B2B are all
+below 0.12. Subgroups: streaks die in hot-vs-hot games (opponent on a 2+
+streak: 51.1% win) and on B2Bs (52.6%). One bright cell — 3-streak *mild
+underdogs* (de-vigged 0.40-0.50) win 49.7% vs 44.9% implied, ROI +9.5% — is
+one bucket of five with n=179; multiplicity applies, it is not evidence.
+
+### Does betting the underdog make money when the Elo gap is under 100? (`EXP2`)
+
+**No — and at the spread it is the worst measured spot in this repo.** With
+the adjusted Elo gap under 100 (issue-#81 Elo pass), betting the ATS
+underdog at −110 returns **−9.84% on discovery (z −7.48, n 5,249)** and
+−3.18% on the holdout; |gap| < 50 is −9.9%/−9.4%. The ML at best-of-books
+prices looks like +2.20% discovery / +0.43% holdout — the same snapshot
+artifact family 3 exposed; coherent rows are −2.23%/+3.08%.
+
+Why: when Elo says "even" but the market prices a favourite, the market is
+usually right — it knows about injuries, rest, and matchups a single Elo
+number cannot carry. In the 28% of parity games where Elo and the market
+disagree on the favourite, the market's favourite covers at **+2.75%**
+(n 1,622) while the dog loses 11.8%; in the 72% where they agree, both sides
+pay the hold. Fading raw Elo is the profitable side of the disagreement —
+consistent with the repo's oldest result, the market beats every model.
+
 ## Adding a family
 
 1. Write `family_<name>(j)` in `scripts/edge_search.py`; return `(arms, meta)`
