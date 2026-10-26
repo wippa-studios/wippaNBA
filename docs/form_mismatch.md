@@ -71,9 +71,8 @@ not a mismatch in *price*.  The spread loses a little more than the moneyline:
 the same overpricing is on both prices, and the favourite also has to cover a
 number set for it.
 
-For completeness, the other side of the same 965 games: away ATS **−3.69%**
-(|z| 1.20), away moneyline **−6.69%** (|z| 0.97).  Both sides of a spread bet
-sum to about −9.0% at −110; there is no free side.
+The other side of these same 965 games loses too; it is in the consolidated
+table below, where the arithmetic of the vig is the point.
 
 ## The mirror loses too
 
@@ -81,13 +80,44 @@ sum to about −9.0% at −110; there is no free side.
 |---|---|---|---|---|
 | M, away ATS | 948 | **−5.06%** | 3.12% | 1.63 |
 | M, away moneyline | 948 | **−4.12%** | 2.34% | 1.76 |
-| M, home ATS (the other side) | 948 | −3.86% | 3.12% | 1.24 |
-| M, home moneyline | 948 | −0.76% | 5.70% | 0.13 |
 
 Cold home team against a hot road team: the road team covers 49.7% of the time
 and wins 67.8% at a mean price of 71.0%.  It loses 5% on the spread and 4% on
 the moneyline.  Reversing the story does not reverse the result — the market
 prices both ends of the form spectrum.
+
+## Every side of the trade
+
+Both configurations were priced on both sides, at both prices.  All eight
+cells lose:
+
+| configuration | side | price | n | rate | break-even | ROI | \|z\| |
+|---|---|---|---|---|---|---|---|
+| hot home / cold road | home | ATS | 965 | 49.58% | 52.38% | **−5.28%** | 1.71 |
+| | away | ATS | 965 | 50.42% | 52.38% | −3.69% | 1.20 |
+| | home | ML | 965 | 79.48% | 82.73% | **−4.12%** | 2.43 |
+| | away | ML | 965 | 20.52% | 21.39% | −6.69% | 0.97 |
+| cold home / hot road | home | ATS | 948 | 50.32% | 52.38% | −3.86% | 1.24 |
+| | away | ATS | 948 | 49.68% | 52.38% | **−5.06%** | 1.63 |
+| | home | ML | 948 | 32.17% | 33.05% | −0.76% | 0.13 |
+| | away | ML | 948 | 67.83% | 71.00% | **−4.12%** | 1.76 |
+
+**These are not eight independent results.**  Betting the other side of the
+same game is the complement of the same price.  At −110 a coin-flip game
+returns −4.55% on each side, −9.09% combined; the exact cell's two spread legs
+sum to **−8.97%** and the mirror's to **−8.92%**, which is the vig and nothing
+else.  The mirror image of a losing bet is another losing bet.
+
+The informative quantity is the *difference* between the sides.  On the spread
+the hot home team is the worse side by 1.6 points (−5.28% against −3.69%), the
+same direction as the ladder's |z| 4.36 cover-rate result.  On the moneyline
+the ordering reverses, but that comparison is driven by how the price is
+distributed across games rather than by one number, so it is not a second
+signal.
+
+The least negative cell is the mirror's home moneyline at **−0.76%** (|z| 0.13,
+SE 5.70%, n 948).  That is a flat cell inside a losing sample, not a break-even
+spot: it sits 1.4 standard errors from a 5% loss.
 
 ## The gap ladder: a real, small mispricing that the vig eats
 

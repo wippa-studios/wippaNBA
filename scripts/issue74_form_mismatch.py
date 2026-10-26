@@ -533,8 +533,10 @@ def main() -> int:
          "| bet | n | ROI | SE | |z| | win rate | mean price / line |",
          "|---|---|---|---|---|---|---|",
     ]
-    for name in ("exact_home_ml", "exact_away_ats", "exact_away_ml"):
-        r = payload["pooled"][name]
+    for name in ("exact_home_ml", "exact_away_ats", "exact_away_ml",
+                 "mirror_away_ats", "mirror_away_ml",
+                 "mirror_home_ats", "mirror_home_ml"):
+        r = payload["pooled"].get(name) or payload["mirror"][name]
         if r.get("mean_price") is not None:
             market = f"price {r['mean_price']:.2%}"
         elif r.get("mean_line") is not None:
@@ -544,7 +546,36 @@ def main() -> int:
         L.append(f"| {name.replace('_', ' ')} | {r['n_bets']:,} | "
                  f"{r['roi']:+.2%} | {r['se']:.2%} | {abs(r['z']):.2f} | "
                  f"{r['win_rate']:.1%} | {market} |")
-    L += ["", "## Form-gap ladder (descriptive)", "",
+    exact_sum = (payload["pooled"]["exact_home_ats"]["roi"]
+                 + payload["pooled"]["exact_away_ats"]["roi"])
+    mirror_sum = (payload["mirror"]["mirror_home_ats"]["roi"]
+                  + payload["mirror"]["mirror_away_ats"]["roi"])
+    L += ["", "## Every side of both configurations (descriptive)", "",
+          "| configuration | side | price | n | rate | break-even | ROI | |z| |",
+          "|---|---|---|---|---|---|---|---|"]
+    for cfg, side, price, key in (
+            ("hot home / cold road", "home", "ATS", "exact_home_ats"),
+            ("hot home / cold road", "away", "ATS", "exact_away_ats"),
+            ("hot home / cold road", "home", "ML", "exact_home_ml"),
+            ("hot home / cold road", "away", "ML", "exact_away_ml"),
+            ("cold home / hot road", "home", "ATS", "mirror_home_ats"),
+            ("cold home / hot road", "away", "ATS", "mirror_away_ats"),
+            ("cold home / hot road", "home", "ML", "mirror_home_ml"),
+            ("cold home / hot road", "away", "ML", "mirror_away_ml")):
+        r = payload["pooled"].get(key) or payload["mirror"][key]
+        L.append(f"| {cfg} | {side} | {price} | {r['n_bets']:,} | "
+                 f"{r['win_rate']:.2%} | {r['break_even_win_rate']:.2%} | "
+                 f"{r['roi']:+.2%} | {abs(r['z']):.2f} |")
+    L += ["",
+          f"The two sides of the exact spread sum to {exact_sum:+.2%}; the "
+          f"mirror's two spread sides sum to {mirror_sum:+.2%}. At -110 a "
+          f"coin-flip game returns -4.55% on each side, -9.09% combined, so a "
+          f"pair of legs summing to about -9% is the vig, not a second finding. "
+          f"Betting the other side of the same games is the complement of the "
+          f"same price and cannot be independent evidence; the informative "
+          f"number is the difference between the sides, which the ladder below "
+          f"measures directly.", "",
+          "## Form-gap ladder (descriptive)", "",
           "| gap | bets | home ATS ROI | |z| | home ML ROI | |z| |",
           "|---|---|---|---|---|---|"]
     for k, v in payload["gap_ladder"].items():

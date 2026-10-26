@@ -1,6 +1,6 @@
 # Issue #74 - form-mismatch spots, priced
 
-Pre-registered as `I74-prereg-form-mismatch-spots`. Generated 2026-10-26T05:51:14.562149+00:00.
+Pre-registered as `I74-prereg-form-mismatch-spots`. Generated 2026-10-26T06:15:28.169146+00:00.
 
 The spot: a home team **5-5 or better over its last 10**, hosting a team **2-8 or worse**, both with at least 10 prior games. The question is not whether the home team wins; it is whether it beats the price.
 
@@ -21,6 +21,25 @@ Pooled priced games: **12,385** across 2015-16..2025-26; the cell holds **965**.
 | exact home ml | 965 | -4.12% | 1.70% | 2.43 | 79.5% | price 82.73% |
 | exact away ats | 965 | -3.69% | 3.08% | 1.20 | 50.4% | line +10.1 |
 | exact away ml | 965 | -6.69% | 6.92% | 0.97 | 20.5% | price 21.39% |
+| mirror away ats | 948 | -5.06% | 3.12% | 1.63 | 49.7% | line -6.0 |
+| mirror away ml | 948 | -4.12% | 2.34% | 1.76 | 67.8% | price 71.00% |
+| mirror home ats | 948 | -3.86% | 3.12% | 1.24 | 50.3% | line -6.0 |
+| mirror home ml | 948 | -0.76% | 5.70% | 0.13 | 32.2% | price 33.05% |
+
+## Every side of both configurations (descriptive)
+
+| configuration | side | price | n | rate | break-even | ROI | |z| |
+|---|---|---|---|---|---|---|---|
+| hot home / cold road | home | ATS | 965 | 49.58% | 52.38% | -5.28% | 1.71 |
+| hot home / cold road | away | ATS | 965 | 50.42% | 52.38% | -3.69% | 1.20 |
+| hot home / cold road | home | ML | 965 | 79.48% | 82.73% | -4.12% | 2.43 |
+| hot home / cold road | away | ML | 965 | 20.52% | 21.39% | -6.69% | 0.97 |
+| cold home / hot road | home | ATS | 948 | 50.32% | 52.38% | -3.86% | 1.24 |
+| cold home / hot road | away | ATS | 948 | 49.68% | 52.38% | -5.06% | 1.63 |
+| cold home / hot road | home | ML | 948 | 32.17% | 33.05% | -0.76% | 0.13 |
+| cold home / hot road | away | ML | 948 | 67.83% | 71.00% | -4.12% | 1.76 |
+
+The two sides of the exact spread sum to -8.97%; the mirror's two spread sides sum to -8.92%. At -110 a coin-flip game returns -4.55% on each side, -9.09% combined, so a pair of legs summing to about -9% is the vig, not a second finding. Betting the other side of the same games is the complement of the same price and cannot be independent evidence; the informative number is the difference between the sides, which the ladder below measures directly.
 
 ## Form-gap ladder (descriptive)
 

@@ -130,7 +130,10 @@ on the home spread at a flat −110, pooled over every priced season (965 of
 
 The home team wins **79.5%** of the exact cell and the close asks **82.7%**.
 That is the result: the win-rate mismatch is real and the price has it. The
-reverse spot loses as well, so "fade the public" does not pay either.
+reverse spot loses as well — and so does every other side: all eight cells
+(both configurations × both sides × both prices) are negative, and the two
+sides of the exact spread sum to −8.97%, which is the vig rather than a second
+finding.
 
 The gap ≥ 2 cell is the interesting one. Over 3,741 games the hot home team
 covers **48.8%** — |z| 4.36 in the negative direction, a real mispricing of
