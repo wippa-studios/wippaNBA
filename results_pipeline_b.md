@@ -258,6 +258,21 @@ fair. The information route is closed with the data this repo holds; what
 remains open needs player props, live prices, alternate lines, or a
 multi-season opening-line archive.
 
+### Thirteen fan-style rules, pre-registered and settled at best prices
+
+The user contributed 13 form/schedule rules (last-10 spots, B2B fades, rest
+edges, road-trip returns, head-to-head dogs) *before* any number was computed
+— a genuine pre-registration (#91, family 5). All 13 settled at best-of-books
+moneyline prices: **no candidate**. No arm cleared \|z\| 3.0; the two biggest
+discovery surpluses are fatigue-flavoured and fail the holdout (road
+favourite on its 4th game in 6 nights: +9.4% discovery, **−4.6% holdout**;
+fade of a road-B2B team off a 2OT game: +17.0% on 91 discovery bets, −43.9%
+on 9 holdout bets). Two arms are same-sign on both splits and underpowered —
+home off a 20-point loss (+1.9%/+3.9%) and the home dog with 3 of the last 4
+head-to-head wins (+2.5%/+10.8%) — watchlist material only, exactly like the
+family-1 pair. Rare-event cells (2OT fades: 9 holdout bets) can never clear
+a bar, which is itself a finding.
+
 ### A number in the committed output that looked good, and was a bug
 
 An earlier revision reported **+11.76%** ROI for the model and **+13.54%** for model +
