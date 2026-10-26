@@ -1,0 +1,164 @@
+{
+  "ats_single_book_close": {
+    "elo_agrees_with_market": {
+      "favourite_both_splits": {
+        "n": 4118,
+        "roi": -0.0084,
+        "z": -0.56
+      },
+      "n": 4118,
+      "underdog_both_splits": {
+        "n": 4118,
+        "roi": -0.0825,
+        "z": -5.55
+      }
+    },
+    "elo_disagrees_with_market": {
+      "favourite_both_splits": {
+        "n": 1622,
+        "roi": 0.0275,
+        "z": 1.16
+      },
+      "n": 1622,
+      "underdog_both_splits": {
+        "n": 1622,
+        "roi": -0.1184,
+        "z": -5.01
+      }
+    },
+    "|gap| < 100": {
+      "favourite": {
+        "both": {
+          "n": 5740,
+          "roi": 0.0018,
+          "z": 0.14
+        },
+        "discovery": {
+          "n": 5249,
+          "roi": 0.0075,
+          "z": 0.57
+        },
+        "holdout": {
+          "n": 491,
+          "roi": -0.0591,
+          "z": -1.37
+        }
+      },
+      "underdog": {
+        "both": {
+          "n": 5740,
+          "roi": -0.0927,
+          "z": -7.36
+        },
+        "discovery": {
+          "n": 5249,
+          "roi": -0.0984,
+          "z": -7.48
+        },
+        "holdout": {
+          "n": 491,
+          "roi": -0.0318,
+          "z": -0.74
+        }
+      }
+    },
+    "|gap| < 50": {
+      "favourite": {
+        "both": {
+          "n": 2890,
+          "roi": 0.0107,
+          "z": 0.6
+        },
+        "discovery": {
+          "n": 2654,
+          "roi": 0.0114,
+          "z": 0.61
+        },
+        "holdout": {
+          "n": 236,
+          "roi": 0.0031,
+          "z": 0.05
+        }
+      },
+      "underdog": {
+        "both": {
+          "n": 2890,
+          "roi": -0.1016,
+          "z": -5.73
+        },
+        "discovery": {
+          "n": 2654,
+          "roi": -0.1023,
+          "z": -5.53
+        },
+        "holdout": {
+          "n": 236,
+          "roi": -0.094,
+          "z": -1.51
+        }
+      }
+    }
+  },
+  "elo_definition": "baselines.elo_rating_pass(k=10, HFA=70, reversion=0.75, margin-weighted); gap = home + 70 - away",
+  "exploratory": true,
+  "generated": "2026-10-26T18:13:39.063417+00:00",
+  "hypothesis": "in near-Elo-parity games (|adjusted gap| < 100) the underdog is underpriced",
+  "ml_best_of_books": {
+    "elo_underdog": {
+      "|gap| < 100": {
+        "both_splits": {
+          "n": 5930,
+          "roi": 0.0272,
+          "z": 1.55
+        },
+        "elo_side_is_market_underdog_share": 0.7105
+      }
+    },
+    "market_underdog": {
+      "|gap| < 100": {
+        "discovery": {
+          "n": 5450,
+          "roi": 0.022,
+          "z": 1.09
+        },
+        "discovery_coherent": {
+          "n": 4715,
+          "roi": -0.0223,
+          "z": -1.18
+        },
+        "holdout": {
+          "n": 480,
+          "roi": 0.0043,
+          "z": 0.07
+        },
+        "holdout_coherent": {
+          "n": 353,
+          "roi": 0.0308,
+          "z": 0.43
+        }
+      },
+      "|gap| < 50": {
+        "discovery": {
+          "n": 2774,
+          "roi": 0.0129,
+          "z": 0.48
+        },
+        "discovery_coherent": {
+          "n": 2379,
+          "roi": -0.0215,
+          "z": -0.83
+        },
+        "holdout": {
+          "n": 231,
+          "roi": -0.0629,
+          "z": -0.77
+        },
+        "holdout_coherent": {
+          "n": 164,
+          "roi": 0.0303,
+          "z": 0.3
+        }
+      }
+    }
+  }
+}
