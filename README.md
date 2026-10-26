@@ -57,7 +57,7 @@ A single reproducible feature layer over NBA's own data, and the tooling that ke
 - **13,199 games, one shared design:** `scripts/download_nba_data.py` builds 310 CSVs (10+ seasons) and `src/DataProviders/nba_data.py` assembles **26 causal feature columns** used by every model. No model has a second loader.
 - **Causality is tested, not asserted:** deleting 5,199 future games changes no historical feature by more than `0.000e+00`; a reusable leakage gate separates confirmed future-dated leaks from same-date dependencies.
 - **Append-only evidence:** the injury-report store holds **2,046 snapshots across 1,037 report dates / 237,436 designation events** (official pre-tip injury reports, point-in-time semantics).
-- **1,464 tests, 0 failing, 104 subtests** across 40 files; CI on Python 3.10 & 3.11 and both sides of the scikit-learn 1.7 `multi_class` removal.
+- **1,504 tests, 0 failing, 104 subtests** across 61 files; CI on Python 3.10 & 3.11 and both sides of the scikit-learn 1.7 `multi_class` removal.
 
 **Start here:** [Models, features and retraining](models_and_training.md) · [the availability block](docs/availability_block.md) · [the injury-report pipeline](docs/injury_pipeline.md) · [the feature search](docs/feature_search.md) · [reproducing every number](reproducing.md).
 
