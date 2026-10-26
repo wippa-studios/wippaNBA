@@ -111,6 +111,43 @@ orders games correctly — decile home-win rate rises monotonically from 0.535 t
 price already does is a real feature and not a betting edge. See
 [the player-Elo block](results_pipeline_a.md#the-player-elo-block-a-strong-result-that-was-a-leak).
 
+### Folk spots are priced too: the hot home team against the cold road team
+
+The thread's rule, tested at the price rather than as a win-rate story: a home
+team **5-5 or better over its last 10 games**, hosting a team **2-8 or worse**.
+The window is the team's last up-to-10 games strictly before tip, crossing
+season boundaries; both teams need at least 10 prior games. Pre-registered as
+`I74-prereg-form-mismatch-spots`; the single promotion gate was the exact cell
+on the home spread at a flat −110, pooled over every priced season (965 of
+12,385 games), at |z| > 3.
+
+| bet | n | ROI | SE | \|z\| |
+|---|---|---|---|---|
+| exact cell, home ATS −110 | 965 | **−5.28%** | 3.09% | 1.71 |
+| exact cell, home moneyline | 965 | **−4.12%** | 1.70% | 2.43 |
+| mirror (cold home, hot road), away ATS | 948 | **−5.06%** | 3.12% | 1.63 |
+| gap ≥ 2, home ATS | 3,741 | **−6.69%** | 1.53% | 4.36 |
+
+The home team wins **79.5%** of the exact cell and the close asks **82.7%**.
+That is the result: the win-rate mismatch is real and the price has it. The
+reverse spot loses as well — and so does every other side: all eight cells
+(both configurations × both sides × both prices) are negative, and the two
+sides of the exact spread sum to −8.97%, which is the vig rather than a second
+finding.
+
+The gap ≥ 2 cell is the interesting one. Over 3,741 games the hot home team
+covers **48.8%** — |z| 4.36 in the negative direction, a real mispricing of
+about a third of a spread point. It is still not harvestable: the away side
+covers 51.2% and −110 needs 52.4%, so ~1.2 points of mispriced cover
+probability sit inside a ~2.4-point vig, and the away side returns about −2.3%.
+
+The 2025-26 slice (47 priced games, odds end 2026-01-07) is +1.55% ATS at
+|z| 0.11 and cannot decide anything; the within-season form definition keeps
+833 games at −5.51%. A model diagnostic — canonical 26 plus a cell indicator on
+the 2025-26 holdout — gives +0.000737 nats at |z| 2.15, a hint that the spot
+carries a trace of information, already priced. Full write-up:
+[docs/form_mismatch.md](docs/form_mismatch.md).
+
 ### A number in the committed output that looked good, and was a bug
 
 An earlier revision reported **+11.76%** ROI for the model and **+13.54%** for model +

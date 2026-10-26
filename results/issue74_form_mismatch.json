@@ -1,0 +1,851 @@
+{
+  "config": {
+    "bar": "ROI > 0 and |z| > 3, 2,000 bootstrap resamples, seed 42",
+    "form": "wins in the most recent up-to-10 games strictly before tonight, no season reset (nd.recent_form_features); both teams need >= 10 prior games",
+    "power": "n=965, per-bet sd ~0.95 -> SE ~3.1%, so |z|>3 needs ROI ~9%+. A null rules out a large edge, not a 2-3% one.",
+    "prices": {
+      "ats": "flat -110; push returns the stake (0 P&L, stake counted)",
+      "ml": "closing moneyline, raw implied probability, vig included"
+    },
+    "primary": "exact cell, home ATS, pooled 2015-16..2025-26",
+    "rules": {
+      "exact": "home_form10 >= 5 and away_form10 <= 2 -> home",
+      "gap": "gap = home_form10 - away_form10; home for gap >= 2/4/6/8",
+      "mirror": "home_form10 <= 2 and away_form10 >= 5 -> away"
+    }
+  },
+  "gap_ladder": {
+    "gap_ge2": {
+      "home_ats": {
+        "break_even_win_rate": 0.5238095238095238,
+        "ci": [
+          -0.09637858132244662,
+          -0.036620009234283525
+        ],
+        "label": "gap_ge2 home ATS",
+        "mean_line": 7.686046511627907,
+        "mean_price": null,
+        "n_bets": 3741,
+        "n_pushes": 62,
+        "price": "ATS -110",
+        "roi": -0.06689995382858258,
+        "se": 0.01533426517189014,
+        "win_rate": 0.4881761348192444,
+        "z": -4.362775332150873
+      },
+      "home_ml": {
+        "break_even_win_rate": 0.7584448447623219,
+        "ci": [
+          -0.07578220765167275,
+          -0.03342046087665069
+        ],
+        "label": "gap_ge2 home ML",
+        "mean_line": null,
+        "mean_price": 0.7584448447623219,
+        "n_bets": 3741,
+        "n_pushes": 0,
+        "price": "ML",
+        "roi": -0.05416415335493628,
+        "se": 0.01079729958539329,
+        "win_rate": 0.7171879176690724,
+        "z": -5.016453690718202
+      }
+    },
+    "gap_ge4": {
+      "home_ats": {
+        "break_even_win_rate": 0.5238095238095238,
+        "ci": [
+          -0.1040976567292357,
+          -0.009935897435897489
+        ],
+        "label": "gap_ge4 home ATS",
+        "mean_line": 9.97199730094467,
+        "mean_price": null,
+        "n_bets": 1482,
+        "n_pushes": 18,
+        "price": "ATS -110",
+        "roi": -0.05778432094221571,
+        "se": 0.02459644035565971,
+        "win_rate": 0.4931693989071038,
+        "z": -2.3492960813298893
+      },
+      "home_ml": {
+        "break_even_win_rate": 0.8236284877428647,
+        "ci": [
+          -0.0756957872027319,
+          -0.02158706413299496
+        ],
+        "label": "gap_ge4 home ML",
+        "mean_line": null,
+        "mean_price": 0.8236284877428647,
+        "n_bets": 1482,
+        "n_pushes": 0,
+        "price": "ML",
+        "roi": -0.04874522827380748,
+        "se": 0.01377067060110783,
+        "win_rate": 0.7834008097165992,
+        "z": -3.539786092181015
+      }
+    },
+    "gap_ge6": {
+      "home_ats": {
+        "break_even_win_rate": 0.5238095238095238,
+        "ci": [
+          -0.14206864564007424,
+          0.055665253114232635
+        ],
+        "label": "gap_ge6 home ATS",
+        "mean_line": 12.013119533527696,
+        "mean_price": null,
+        "n_bets": 343,
+        "n_pushes": 8,
+        "price": "ATS -110",
+        "roi": -0.04717731248343498,
+        "se": 0.05079934866039691,
+        "win_rate": 0.49850746268656715,
+        "z": -0.9286991610625578
+      },
+      "home_ml": {
+        "break_even_win_rate": 0.8721302430904428,
+        "ci": [
+          -0.056642553691531546,
+          0.029623278120825103
+        ],
+        "label": "gap_ge6 home ML",
+        "mean_line": null,
+        "mean_price": 0.8721302430904428,
+        "n_bets": 343,
+        "n_pushes": 0,
+        "price": "ML",
+        "roi": -0.013566335606249676,
+        "se": 0.022017044677524824,
+        "win_rate": 0.8629737609329446,
+        "z": -0.6161742325071584
+      }
+    },
+    "gap_ge8": {
+      "home_ats": {
+        "break_even_win_rate": 0.5238095238095238,
+        "ci": [
+          -0.42857142857142855,
+          0.11904761904761899
+        ],
+        "label": "gap_ge8 home ATS",
+        "mean_line": 13.023809523809524,
+        "mean_price": null,
+        "n_bets": 42,
+        "n_pushes": 3,
+        "price": "ATS -110",
+        "roi": -0.1558441558441559,
+        "se": 0.14030580736930975,
+        "win_rate": 0.4358974358974359,
+        "z": -1.110746296010018
+      },
+      "home_ml": {
+        "break_even_win_rate": 0.8894447980948748,
+        "ci": [
+          -0.08583793240205731,
+          0.11581987599700486
+        ],
+        "label": "gap_ge8 home ML",
+        "mean_line": null,
+        "mean_price": 0.8894447980948748,
+        "n_bets": 42,
+        "n_pushes": 0,
+        "price": "ML",
+        "roi": 0.02293304302933651,
+        "se": 0.05204367183576251,
+        "win_rate": 0.9047619047619048,
+        "z": 0.4406499814561078
+      }
+    }
+  },
+  "generated_utc": "2026-10-26T06:15:28.169146+00:00",
+  "issue": 74,
+  "mirror": {
+    "mirror_away_ats": {
+      "break_even_win_rate": 0.5238095238095238,
+      "ci": [
+        -0.11191503644035293,
+        0.012008534714230763
+      ],
+      "label": "mirror_away_ats",
+      "mean_line": -5.97837552742616,
+      "mean_price": null,
+      "n_bets": 948,
+      "n_pushes": 18,
+      "price": "ATS -110",
+      "roi": -0.05063291139240509,
+      "se": 0.031152482701068386,
+      "win_rate": 0.4967741935483871,
+      "z": -1.6253250785263613
+    },
+    "mirror_away_ml": {
+      "break_even_win_rate": 0.709977807201564,
+      "ci": [
+        -0.08503275440342536,
+        0.004012059081015866
+      ],
+      "label": "mirror_away_ml",
+      "mean_line": null,
+      "mean_price": 0.709977807201564,
+      "n_bets": 948,
+      "n_pushes": 0,
+      "price": "ML",
+      "roi": -0.04122584596029189,
+      "se": 0.023377310877874515,
+      "win_rate": 0.6782700421940928,
+      "z": -1.7634982131032935
+    },
+    "mirror_home_ats": {
+      "break_even_win_rate": 0.5238095238095238,
+      "ci": [
+        -0.10137610280015345,
+        0.02244677790563859
+      ],
+      "label": "mirror_home_ats",
+      "mean_line": -5.97837552742616,
+      "mean_price": null,
+      "n_bets": 948,
+      "n_pushes": 18,
+      "price": "ATS -110",
+      "roi": -0.03855005753739934,
+      "se": 0.031159406624473217,
+      "win_rate": 0.5032258064516129,
+      "z": -1.2371884356463116
+    },
+    "mirror_home_ml": {
+      "break_even_win_rate": 0.33046333159203145,
+      "ci": [
+        -0.11515973751722551,
+        0.1048855961820015
+      ],
+      "label": "mirror_home_ml",
+      "mean_line": null,
+      "mean_price": 0.33046333159203145,
+      "n_bets": 948,
+      "n_pushes": 0,
+      "price": "ML",
+      "roi": -0.007642653679155428,
+      "se": 0.05699004980444116,
+      "win_rate": 0.3217299578059072,
+      "z": -0.13410505352041027
+    }
+  },
+  "model_diagnostic": {
+    "delta": {
+      "abs_z": 2.1499036929901085,
+      "bootstrap_seed": 42,
+      "ci_hi": 0.001399279017714322,
+      "ci_lo": 5.599201260715337e-05,
+      "delta_candidate_minus_reference": 0.0007367323310595308,
+      "n_boot": 2000,
+      "p_positive": 0.9835,
+      "se": 0.00034268155055581855,
+      "z": 2.1499036929901085
+    },
+    "indicator_coef": 0.032025419741356156,
+    "log_loss_candidate": 0.5930035841550697,
+    "log_loss_reference": 0.5937403164861292,
+    "n_test": 1225,
+    "n_test_in_cell": 131,
+    "n_train": 11974,
+    "positive_control_availability_on_minus_off": {
+      "abs_z": 4.932708473912023,
+      "bootstrap_seed": 42,
+      "ci_hi": 0.012908035705048906,
+      "ci_lo": 0.005559737879449628,
+      "delta_candidate_minus_reference": 0.009246856307861484,
+      "n_boot": 2000,
+      "p_positive": 1.0,
+      "se": 0.0018746002032688554,
+      "z": 4.932708473912023
+    }
+  },
+  "per_season": {
+    "2015-16": {
+      "home_ats": {
+        "break_even_win_rate": 0.5238095238095238,
+        "ci": [
+          -0.2933884297520661,
+          0.10743801652892557
+        ],
+        "label": "home ATS",
+        "mean_line": 10.982954545454545,
+        "mean_price": null,
+        "n_bets": 88,
+        "n_pushes": 2,
+        "price": "ATS -110",
+        "roi": -0.08780991735537194,
+        "se": 0.10181264589052762,
+        "win_rate": 0.47674418604651164,
+        "z": -0.8624657240495264
+      },
+      "home_ml": {
+        "break_even_win_rate": 0.8732310311322063,
+        "ci": [
+          -0.13658674914749294,
+          0.04619953624726285
+        ],
+        "label": "home ML",
+        "mean_line": null,
+        "mean_price": 0.8732310311322063,
+        "n_bets": 88,
+        "n_pushes": 0,
+        "price": "ML",
+        "roi": -0.0425646338050874,
+        "se": 0.047000170796346843,
+        "win_rate": 0.8409090909090909,
+        "z": -0.9056272154737743
+      },
+      "n_bets": 88
+    },
+    "2016-17": {
+      "home_ats": {
+        "break_even_win_rate": 0.5238095238095238,
+        "ci": [
+          -0.43592552026286974,
+          -0.021905805038335197
+        ],
+        "label": "home ATS",
+        "mean_line": 10.114457831325302,
+        "mean_price": null,
+        "n_bets": 83,
+        "n_pushes": 1,
+        "price": "ATS -110",
+        "roi": -0.22891566265060245,
+        "se": 0.10268711841049945,
+        "win_rate": 0.4024390243902439,
+        "z": -2.229253933638443
+      },
+      "home_ml": {
+        "break_even_win_rate": 0.8327387585833429,
+        "ci": [
+          -0.29572603647524137,
+          -0.049232708568185055
+        ],
+        "label": "home ML",
+        "mean_line": null,
+        "mean_price": 0.8327387585833429,
+        "n_bets": 83,
+        "n_pushes": 0,
+        "price": "ML",
+        "roi": -0.17139722127979923,
+        "se": 0.0627115883855625,
+        "win_rate": 0.6987951807228916,
+        "z": -2.7331028553449683
+      },
+      "n_bets": 83
+    },
+    "2017-18": {
+      "home_ats": {
+        "break_even_win_rate": 0.5238095238095238,
+        "ci": [
+          -0.1853211009174312,
+          0.16597164303586318
+        ],
+        "label": "home ATS",
+        "mean_line": 9.229357798165138,
+        "mean_price": null,
+        "n_bets": 109,
+        "n_pushes": 3,
+        "price": "ATS -110",
+        "roi": -0.009174311926605545,
+        "se": 0.09006522065213284,
+        "win_rate": 0.5188679245283019,
+        "z": -0.10186298173898148
+      },
+      "home_ml": {
+        "break_even_win_rate": 0.8208096681180256,
+        "ci": [
+          -0.09206805260533844,
+          0.08985107764334997
+        ],
+        "label": "home ML",
+        "mean_line": null,
+        "mean_price": 0.8208096681180256,
+        "n_bets": 109,
+        "n_pushes": 0,
+        "price": "ML",
+        "roi": 0.0003033014368623551,
+        "se": 0.04617304878375614,
+        "win_rate": 0.8256880733944955,
+        "z": 0.006568798137693212
+      },
+      "n_bets": 109
+    },
+    "2018-19": {
+      "home_ats": {
+        "break_even_win_rate": 0.5238095238095238,
+        "ci": [
+          -0.19617224880382778,
+          0.23205741626794255
+        ],
+        "label": "home ATS",
+        "mean_line": 10.368421052631579,
+        "mean_price": null,
+        "n_bets": 76,
+        "n_pushes": 1,
+        "price": "ATS -110",
+        "roi": 0.017942583732057364,
+        "se": 0.10800644882769175,
+        "win_rate": 0.5333333333333333,
+        "z": 0.16612511499829136
+      },
+      "home_ml": {
+        "break_even_win_rate": 0.8484655890385236,
+        "ci": [
+          -0.15184158066729753,
+          0.08094427278950139
+        ],
+        "label": "home ML",
+        "mean_line": null,
+        "mean_price": 0.8484655890385236,
+        "n_bets": 76,
+        "n_pushes": 0,
+        "price": "ML",
+        "roi": -0.03497171089727741,
+        "se": 0.05944149902497478,
+        "win_rate": 0.8157894736842105,
+        "z": -0.5883383069223034
+      },
+      "n_bets": 76
+    },
+    "2019-20": {
+      "home_ats": {
+        "break_even_win_rate": 0.5238095238095238,
+        "ci": [
+          -0.20696770334928233,
+          0.23086124401913874
+        ],
+        "label": "home ATS",
+        "mean_line": 9.664473684210526,
+        "mean_price": null,
+        "n_bets": 76,
+        "n_pushes": 1,
+        "price": "ATS -110",
+        "roi": 0.01794258373205735,
+        "se": 0.110007021314857,
+        "win_rate": 0.5333333333333333,
+        "z": 0.1631039866146627
+      },
+      "home_ml": {
+        "break_even_win_rate": 0.8285124045903635,
+        "ci": [
+          -0.13943321312601112,
+          0.0899428196094898
+        ],
+        "label": "home ML",
+        "mean_line": null,
+        "mean_price": 0.8285124045903635,
+        "n_bets": 76,
+        "n_pushes": 0,
+        "price": "ML",
+        "roi": -0.02016401608370365,
+        "se": 0.05848015253708723,
+        "win_rate": 0.8157894736842105,
+        "z": -0.34480101724967177
+      },
+      "n_bets": 76
+    },
+    "2020-21": {
+      "home_ats": {
+        "break_even_win_rate": 0.5238095238095238,
+        "ci": [
+          -0.25757575757575757,
+          0.16666666666666663
+        ],
+        "label": "home ATS",
+        "mean_line": 8.631944444444445,
+        "mean_price": null,
+        "n_bets": 72,
+        "n_pushes": 0,
+        "price": "ATS -110",
+        "roi": -0.04545454545454551,
+        "se": 0.11220295283774516,
+        "win_rate": 0.5,
+        "z": -0.40511006444078684
+      },
+      "home_ml": {
+        "break_even_win_rate": 0.7773480128355863,
+        "ci": [
+          -0.08604026407142351,
+          0.19542238307421447
+        ],
+        "label": "home ML",
+        "mean_line": null,
+        "mean_price": 0.7773480128355863,
+        "n_bets": 72,
+        "n_pushes": 0,
+        "price": "ML",
+        "roi": 0.0547092471761802,
+        "se": 0.07202211564965309,
+        "win_rate": 0.8055555555555556,
+        "z": 0.7596173297978329
+      },
+      "n_bets": 72
+    },
+    "2021-22": {
+      "home_ats": {
+        "break_even_win_rate": 0.5238095238095238,
+        "ci": [
+          -0.30822510822510824,
+          0.04590909090909078
+        ],
+        "label": "home ATS",
+        "mean_line": 9.666666666666666,
+        "mean_price": null,
+        "n_bets": 105,
+        "n_pushes": 2,
+        "price": "ATS -110",
+        "roi": -0.12640692640692644,
+        "se": 0.0924555617503142,
+        "win_rate": 0.4563106796116505,
+        "z": -1.367218196654317
+      },
+      "home_ml": {
+        "break_even_win_rate": 0.8185486168694996,
+        "ci": [
+          -0.23550716501159638,
+          -0.027947254720584146
+        ],
+        "label": "home ML",
+        "mean_line": null,
+        "mean_price": 0.8185486168694996,
+        "n_bets": 105,
+        "n_pushes": 0,
+        "price": "ML",
+        "roi": -0.12982176350526423,
+        "se": 0.05402341576477857,
+        "win_rate": 0.7238095238095238,
+        "z": -2.4030647019899027
+      },
+      "n_bets": 105
+    },
+    "2022-23": {
+      "home_ats": {
+        "break_even_win_rate": 0.5238095238095238,
+        "ci": [
+          -0.2272727272727273,
+          0.18181818181818174
+        ],
+        "label": "home ATS",
+        "mean_line": 9.863095238095237,
+        "mean_price": null,
+        "n_bets": 84,
+        "n_pushes": 0,
+        "price": "ATS -110",
+        "roi": -0.022727272727272742,
+        "se": 0.10348888275345815,
+        "win_rate": 0.5119047619047619,
+        "z": -0.2196107651622444
+      },
+      "home_ml": {
+        "break_even_win_rate": 0.8086267965132847,
+        "ci": [
+          -0.1714686046508031,
+          0.055473192828398916
+        ],
+        "label": "home ML",
+        "mean_line": null,
+        "mean_price": 0.8086267965132847,
+        "n_bets": 84,
+        "n_pushes": 0,
+        "price": "ML",
+        "roi": -0.05441351943939702,
+        "se": 0.05886057162767181,
+        "win_rate": 0.7619047619047619,
+        "z": -0.9244476894243392
+      },
+      "n_bets": 84
+    },
+    "2023-24": {
+      "home_ats": {
+        "break_even_win_rate": 0.5238095238095238,
+        "ci": [
+          -0.2656884377758164,
+          0.08563548102383038
+        ],
+        "label": "home ATS",
+        "mean_line": 11.66504854368932,
+        "mean_price": null,
+        "n_bets": 103,
+        "n_pushes": 2,
+        "price": "ATS -110",
+        "roi": -0.09090909090909098,
+        "se": 0.09165433053537211,
+        "win_rate": 0.4752475247524752,
+        "z": -0.991869018933115
+      },
+      "home_ml": {
+        "break_even_win_rate": 0.8570779139416914,
+        "ci": [
+          -0.11729671582060114,
+          0.05419989305237308
+        ],
+        "label": "home ML",
+        "mean_line": null,
+        "mean_price": 0.8570779139416914,
+        "n_bets": 103,
+        "n_pushes": 0,
+        "price": "ML",
+        "roi": -0.0286801115798311,
+        "se": 0.04413203913610417,
+        "win_rate": 0.8349514563106796,
+        "z": -0.6498705281072785
+      },
+      "n_bets": 103
+    },
+    "2024-25": {
+      "home_ats": {
+        "break_even_win_rate": 0.5238095238095238,
+        "ci": [
+          -0.16171758569299552,
+          0.1818181818181818
+        ],
+        "label": "home ATS",
+        "mean_line": 10.39344262295082,
+        "mean_price": null,
+        "n_bets": 122,
+        "n_pushes": 1,
+        "price": "ATS -110",
+        "roi": 0.009687034277198166,
+        "se": 0.08619320843775652,
+        "win_rate": 0.5289256198347108,
+        "z": 0.11238744273214463
+      },
+      "home_ml": {
+        "break_even_win_rate": 0.8073087154580553,
+        "ci": [
+          -0.11728502614141692,
+          0.08253050370004128
+        ],
+        "label": "home ML",
+        "mean_line": null,
+        "mean_price": 0.8073087154580553,
+        "n_bets": 122,
+        "n_pushes": 0,
+        "price": "ML",
+        "roi": -0.01627197675983723,
+        "se": 0.050488122011964315,
+        "win_rate": 0.7950819672131147,
+        "z": -0.3222931674103705
+      },
+      "n_bets": 122
+    },
+    "2025-26": {
+      "home_ats": {
+        "break_even_win_rate": 0.5238095238095238,
+        "ci": [
+          -0.26885880077369445,
+          0.25918762088974845
+        ],
+        "label": "home ATS",
+        "mean_line": 11.042553191489361,
+        "mean_price": null,
+        "n_bets": 47,
+        "n_pushes": 0,
+        "price": "ATS -110",
+        "roi": 0.015473887814313272,
+        "se": 0.14164852045761853,
+        "win_rate": 0.5319148936170213,
+        "z": 0.10924143622765961
+      },
+      "home_ml": {
+        "break_even_win_rate": 0.8260244970937448,
+        "ci": [
+          -0.11130901486267522,
+          0.1596016189851938
+        ],
+        "label": "home ML",
+        "mean_line": null,
+        "mean_price": 0.8260244970937448,
+        "n_bets": 47,
+        "n_pushes": 0,
+        "price": "ML",
+        "roi": 0.03403112912537602,
+        "se": 0.0691499614399281,
+        "win_rate": 0.851063829787234,
+        "z": 0.4921351858589179
+      },
+      "n_bets": 47
+    }
+  },
+  "pooled": {
+    "exact_away_ats": {
+      "break_even_win_rate": 0.5238095238095238,
+      "ci": [
+        -0.1000541686292982,
+        0.023271314178049875
+      ],
+      "label": "exact_away_ats",
+      "mean_line": 10.143005181347151,
+      "mean_price": null,
+      "n_bets": 965,
+      "n_pushes": 13,
+      "price": "ATS -110",
+      "roi": -0.03692887423457376,
+      "se": 0.030836042328618786,
+      "win_rate": 0.5042016806722689,
+      "z": -1.1975879991674627
+    },
+    "exact_away_ml": {
+      "break_even_win_rate": 0.2139178615775706,
+      "ci": [
+        -0.20683950366214843,
+        0.07010656748152855
+      ],
+      "label": "exact_away_ml",
+      "mean_line": null,
+      "mean_price": 0.2139178615775706,
+      "n_bets": 965,
+      "n_pushes": 0,
+      "price": "ML",
+      "roi": -0.06685048624736296,
+      "se": 0.0691624790368267,
+      "win_rate": 0.20518134715025907,
+      "z": -0.9665715743324835
+    },
+    "exact_home_ats": {
+      "break_even_win_rate": 0.5238095238095238,
+      "ci": [
+        -0.11295807819123885,
+        0.010463966085727668
+      ],
+      "label": "exact_home_ats",
+      "mean_line": 10.143005181347151,
+      "mean_price": null,
+      "n_bets": 965,
+      "n_pushes": 13,
+      "price": "ATS -110",
+      "roi": -0.05275553462081964,
+      "se": 0.03085400386821097,
+      "win_rate": 0.4957983193277311,
+      "z": -1.7098440398905221
+    },
+    "exact_home_ml": {
+      "break_even_win_rate": 0.8272698253166533,
+      "ci": [
+        -0.07402870445242489,
+        -0.007889550180439494
+      ],
+      "label": "exact_home_ml",
+      "mean_line": null,
+      "mean_price": 0.8272698253166533,
+      "n_bets": 965,
+      "n_pushes": 0,
+      "price": "ML",
+      "roi": -0.04117268096146609,
+      "se": 0.016978129396905284,
+      "win_rate": 0.794818652849741,
+      "z": -2.425042241047527
+    }
+  },
+  "population": {
+    "cell_games_all_seasons": 1055,
+    "cell_games_pooled": 965,
+    "dropped_no_spread": 1,
+    "odds_end_2025_26": "2026-01-07",
+    "priced_games_2025_26": 514,
+    "priced_games_pooled": 12385
+  },
+  "primary_home_ats": {
+    "break_even_win_rate": 0.5238095238095238,
+    "ci": [
+      -0.11295807819123885,
+      0.010463966085727668
+    ],
+    "label": "exact cell, home ATS",
+    "mean_line": 10.143005181347151,
+    "mean_price": null,
+    "n_bets": 965,
+    "n_pushes": 13,
+    "price": "ATS -110",
+    "roi": -0.05275553462081964,
+    "se": 0.03085400386821097,
+    "win_rate": 0.4957983193277311,
+    "z": -1.7098440398905221
+  },
+  "protocol_ref": "I74-prereg-form-mismatch-spots",
+  "runtime_seconds": 8.7,
+  "season_2025_26": {
+    "home_ats": {
+      "break_even_win_rate": 0.5238095238095238,
+      "ci": [
+        -0.26885880077369445,
+        0.25918762088974845
+      ],
+      "label": "home ATS",
+      "mean_line": 11.042553191489361,
+      "mean_price": null,
+      "n_bets": 47,
+      "n_pushes": 0,
+      "price": "ATS -110",
+      "roi": 0.015473887814313272,
+      "se": 0.14164852045761853,
+      "win_rate": 0.5319148936170213,
+      "z": 0.10924143622765961
+    },
+    "home_ml": {
+      "break_even_win_rate": 0.8260244970937448,
+      "ci": [
+        -0.11130901486267522,
+        0.1596016189851938
+      ],
+      "label": "home ML",
+      "mean_line": null,
+      "mean_price": 0.8260244970937448,
+      "n_bets": 47,
+      "n_pushes": 0,
+      "price": "ML",
+      "roi": 0.03403112912537602,
+      "se": 0.0691499614399281,
+      "win_rate": 0.851063829787234,
+      "z": 0.4921351858589179
+    },
+    "n_bets": 47,
+    "odds_end": "2026-01-07"
+  },
+  "title": "form-mismatch spots, priced",
+  "verdicts": {
+    "model_diagnostic": "The cell indicator is null in the model diagnostic: +0.000737 nats (CI +0.000056 to +0.001399), |z| 2.15. Positive, below the bar, not promoted.",
+    "primary_betting": "The exact cell LOSES at the price: ROI -5.28% (CI -11.30% to +1.05%), |z| 1.71, over 965 bets. The market has the spot."
+  },
+  "within_season_form": {
+    "home_ats": {
+      "break_even_win_rate": 0.5238095238095238,
+      "ci": [
+        -0.12169049437957004,
+        0.009933973589435726
+      ],
+      "label": "home ATS",
+      "mean_line": 10.336134453781513,
+      "mean_price": null,
+      "n_bets": 833,
+      "n_pushes": 12,
+      "price": "ATS -110",
+      "roi": -0.05511295427261817,
+      "se": 0.033351630590298,
+      "win_rate": 0.4945188794153471,
+      "z": -1.6524815517910705
+    },
+    "home_ml": {
+      "break_even_win_rate": 0.8316300275546448,
+      "ci": [
+        -0.072672804007465,
+        -0.004597350822760876
+      ],
+      "label": "home ML",
+      "mean_line": null,
+      "mean_price": 0.8316300275546448,
+      "n_bets": 833,
+      "n_pushes": 0,
+      "price": "ML",
+      "roi": -0.037896763771424154,
+      "se": 0.01763637736630648,
+      "win_rate": 0.8007202881152461,
+      "z": -2.148783901836
+    },
+    "n_bets": 833
+  }
+}
