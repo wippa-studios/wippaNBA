@@ -139,7 +139,7 @@ python scripts/closing_line.py             # does any of this beat the closing l
 |---|---|
 | [Models, features and retraining](models_and_training.md) | Model modules, `load_design`, retraining commands, the feature-order contract |
 | [The availability block](docs/availability_block.md) | The mechanism that survived: expected minutes over the prior game's squad (the membership convention is load-bearing), plus the pre-tip injury multiplier |
-| [The injury-report pipeline](docs/injury_pipeline.md) | Point-in-time availability as append-only evidence |
+| [The injury-report pipeline](docs/injury_pipeline.md) | Point-in-time availability as append-only evidence, the three pre-2020 grammars, and the backfill policy |
 | [Late scratches](docs/late_scratch.md) | What a designation is worth by time to tip: Questionable is a coin flip, Available is not the safest state |
 | [The feature search](docs/feature_search.md) | Four pre-registered candidates and the fold-count artifact |
 | [Modelling exploration](docs/modeling_exploration.md) | Nine further candidate blocks, all scored, all null |

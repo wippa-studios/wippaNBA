@@ -245,6 +245,10 @@ row above or below by the normal run rule.
 2019-01-15 report that produced 0 rows / 94 rejections now produces **91 rows /
 0 rejections**.  A 120-PDF sample of the modern store parses cell-for-cell
 identically before and after the change, so no stored row needs a re-parse.
+The audit is reproducible and its artifact is committed:
+`python scripts/issue73_pre2020_parser_audit.py` →
+`results/issue73_pre2020_parser_audit.{json,md}` (12 samples including the
+2018-12-14 403 control; **1,140 rows, 0 unparsed**).
 
 **Backfill policy for the newly usable window:**
 
