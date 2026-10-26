@@ -119,6 +119,14 @@ market-anchored stack used for the availability block).
    J. Prediction Markets](https://ircommons.uwf.edu/esploro/outputs/journalArticle/Early-season-NBA-overunder-bias/99380090347306600) —
    a *totals*-market result, week-1 unders at 58.2%, n≈60–65).  Smallest test:
    a `games_into_season` split of the existing market comparison; ~10 lines.
+   **Status (issue #59): measured FLAT — claim closed.**  Splitting the
+   5,788-game market comparison by min(home_n, away_n) ≤ 15, the market's log
+   loss is directionally worse early (+0.0185 nats early minus late: 0.60813
+   vs 0.58984) but **|z| 1.77, CI [−0.0029, +0.0384]** — below the bar and
+   crossing zero; the closest cutoff (≤ 20 games) is |z| 2.99, still under.
+   The bet-rule split runs the *opposite* way (early −6.1% vs late −10.9% on
+   the exact recorded breakeven rule), so there is no early-season edge to
+   target.  [results/issue59_early_season.json](../results/issue59_early_season.json).
 
 Runner-up (not promoted): **momentum streaks** —
 [Byrnes & Farinella (2016)](https://thesportjournal.org/article/the-effect-of-momentum-on-the-nba-point-spread-market/)
