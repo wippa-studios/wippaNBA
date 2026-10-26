@@ -1,0 +1,234 @@
+{
+  "bet_rule_all_reproduction": {
+    "away_bets": 2392,
+    "bets": 4822,
+    "home_bets": 2430,
+    "roi": -0.08713654536166468,
+    "z": -1.6498042521350675
+  },
+  "early_definition": "min(home_n, away_n) <= 15 (both teams fewer than EARLY_N games into the season)",
+  "generated_utc": "2026-10-26T00:32:31.226731+00:00",
+  "issue": 59,
+  "n_games_with_line": 5788,
+  "primary": {
+    "bet_rule_early": {
+      "away_bets": 1046,
+      "bets": 2022,
+      "home_bets": 976,
+      "roi": -0.060454949814736786,
+      "se": 0.06868924267771953,
+      "z": -0.8801225265851756
+    },
+    "bet_rule_late": {
+      "away_bets": 1346,
+      "bets": 2800,
+      "home_bets": 1454,
+      "roi": -0.10896818989163484,
+      "se": 0.07600535502451586,
+      "z": -1.4336909531767423
+    },
+    "label": "season_depth <= 15",
+    "market_gap_early_minus_late": {
+      "bootstrap_seed": 42,
+      "ci": [
+        -0.0028522823683491626,
+        0.03838632496130026
+      ],
+      "gap_early_minus_late": 0.018520795021097793,
+      "n_boot": 2000,
+      "p_positive": 0.958,
+      "se": 0.010466950535349668,
+      "z": 1.7694547192659558
+    },
+    "market_ll_early": 0.6081297809003808,
+    "market_ll_late": 0.5898449868076078,
+    "market_minus_model_early": -0.017103630382724,
+    "market_minus_model_late": -0.026828784567603958,
+    "mkt_minus_model_gap_early_minus_late": 0.009725154184879958,
+    "model_gap_early_minus_late": {
+      "bootstrap_seed": 42,
+      "ci": [
+        -0.010509413575215931,
+        0.029229673053521376
+      ],
+      "gap_early_minus_late": 0.008867410551632112,
+      "n_boot": 2000,
+      "p_positive": 0.801,
+      "se": 0.010228961363379627,
+      "z": 0.8668925648089787
+    },
+    "model_ll_early": 0.6252334112831048,
+    "model_ll_late": 0.6166737713752117,
+    "n_early": 2473,
+    "n_late": 3315
+  },
+  "protocol_ref": "I59-prereg-early-season",
+  "reproduction": {
+    "market_drift": -2.591666575346707e-06,
+    "market_log_loss": 0.5976574083334246,
+    "model_drift": -9.008601944415773e-06,
+    "model_plus_availability_log_loss": 0.6203309913980556,
+    "recorded_market_log_loss": 0.59766,
+    "recorded_model_plus_availability_log_loss": 0.62034
+  },
+  "runtime_seconds": 11.6,
+  "sensitivity": {
+    "cutoff_10": {
+      "bet_rule_early": {
+        "away_bets": 732,
+        "bets": 1396,
+        "home_bets": 664,
+        "roi": -0.089478842114579,
+        "se": 0.07962984436928036,
+        "z": -1.1236847544197661
+      },
+      "bet_rule_late": {
+        "away_bets": 1660,
+        "bets": 3426,
+        "home_bets": 1766,
+        "roi": -0.08605916515784799,
+        "se": 0.0659494465285394,
+        "z": -1.304926268344135
+      },
+      "label": "season_depth <= 10",
+      "market_gap_early_minus_late": {
+        "bootstrap_seed": 42,
+        "ci": [
+          -0.01368439058125652,
+          0.028878882997823124
+        ],
+        "gap_early_minus_late": 0.007303197531449467,
+        "n_boot": 2000,
+        "p_positive": 0.7355,
+        "se": 0.01124689124414823,
+        "z": 0.6493525519995873
+      },
+      "market_ll_early": 0.6026683237099231,
+      "market_ll_late": 0.5955422357002983,
+      "market_minus_model_early": -0.015912329960790395,
+      "market_minus_model_late": -0.025527596045563983,
+      "mkt_minus_model_gap_early_minus_late": 0.009615266084773588,
+      "model_gap_early_minus_late": {
+        "bootstrap_seed": 42,
+        "ci": [
+          -0.023328161666480877,
+          0.01964680011160704
+        ],
+        "gap_early_minus_late": -0.0021981728417508955,
+        "n_boot": 2000,
+        "p_positive": 0.4185,
+        "se": 0.011061185147165312,
+        "z": -0.19872850987529386
+      },
+      "model_ll_early": 0.6185806536707135,
+      "model_ll_late": 0.6210698317458623,
+      "n_early": 1718,
+      "n_late": 4070
+    },
+    "cutoff_20": {
+      "bet_rule_early": {
+        "away_bets": 1327,
+        "bets": 2593,
+        "home_bets": 1266,
+        "roi": -0.020893064930058002,
+        "se": 0.06387808085997929,
+        "z": -0.3270772172359966
+      },
+      "bet_rule_late": {
+        "away_bets": 1065,
+        "bets": 2229,
+        "home_bets": 1164,
+        "roi": -0.17434384273066308,
+        "se": 0.08475776389920534,
+        "z": -2.0569660490099086
+      },
+      "label": "season_depth <= 20",
+      "market_gap_early_minus_late": {
+        "bootstrap_seed": 42,
+        "ci": [
+          0.011627116560548706,
+          0.05287575073999603
+        ],
+        "gap_early_minus_late": 0.03201669090809834,
+        "n_boot": 2000,
+        "p_positive": 1.0,
+        "se": 0.01069854479968698,
+        "z": 2.992621100117755
+      },
+      "market_ll_early": 0.612193839350094,
+      "market_ll_late": 0.5802269462176919,
+      "market_minus_model_early": -0.015411710114868193,
+      "market_minus_model_late": -0.03138120883569895,
+      "mkt_minus_model_gap_early_minus_late": 0.015969498720830755,
+      "model_gap_early_minus_late": {
+        "bootstrap_seed": 42,
+        "ci": [
+          -0.0027025959017423244,
+          0.035025561383159674
+        ],
+        "gap_early_minus_late": 0.016098108328309785,
+        "n_boot": 2000,
+        "p_positive": 0.944,
+        "se": 0.009986018188261279,
+        "z": 1.6120647914734787
+      },
+      "model_ll_early": 0.6276055494649622,
+      "model_ll_late": 0.6116081550533908,
+      "n_early": 3156,
+      "n_late": 2632
+    },
+    "early_calendar_12": {
+      "bet_rule_early": {
+        "away_bets": 325,
+        "bets": 639,
+        "home_bets": 314,
+        "roi": 0.028702365806344835,
+        "se": 0.11172940902397833,
+        "z": 0.256891771442065
+      },
+      "bet_rule_late": {
+        "away_bets": 2067,
+        "bets": 4183,
+        "home_bets": 2116,
+        "roi": -0.10790912204055841,
+        "se": 0.058132574205932895,
+        "z": -1.856259137231625
+      },
+      "label": "first ~3 calendar weeks",
+      "market_gap_early_minus_late": {
+        "bootstrap_seed": 42,
+        "ci": [
+          -0.007887211692243747,
+          0.048764007673894764
+        ],
+        "gap_early_minus_late": 0.021383962482069526,
+        "n_boot": 2000,
+        "p_positive": 0.9175,
+        "se": 0.014601512342467317,
+        "z": 1.4645032638075441
+      },
+      "market_ll_early": 0.6163734913145943,
+      "market_ll_late": 0.5947725564601556,
+      "market_minus_model_early": -0.014160789388623307,
+      "market_minus_model_late": -0.023985724542508025,
+      "mkt_minus_model_gap_early_minus_late": 0.009824935153884717,
+      "model_gap_early_minus_late": {
+        "bootstrap_seed": 42,
+        "ci": [
+          -0.018653354896576456,
+          0.04228449325967831
+        ],
+        "gap_early_minus_late": 0.011272094549887668,
+        "n_boot": 2000,
+        "p_positive": 0.7675,
+        "se": 0.015393525059817705,
+        "z": 0.7322620716233242
+      },
+      "model_ll_early": 0.6305342807032176,
+      "model_ll_late": 0.6187582810026636,
+      "n_early": 773,
+      "n_late": 5015
+    }
+  },
+  "verdict": "FLAT: the market log loss is +0.01852 nats worse early (|z| 1.77, CI [-0.0028522823683491626, 0.03838632496130026]), below the |z| > 3 bar. The claim is not supported; any early-season effect is noise on this sample."
+}
