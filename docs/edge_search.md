@@ -102,9 +102,9 @@ nowhere near 3.24 — and its holdout is +3.19% with a 95% interval of
 Fourteen arms are negative with \|z\| > 3, and none is positive. That asymmetry is
 the market working: both sides of a spread lose the vig, so the family mean is
 **−4.10%** and the median **−4.09%**. The large negative cells are bucket-level
-deviations from that mean, not edges, and the holdout does not reproduce their
-size (home 10.5-12.5 goes from −12.47% to −12.29% but with a 9.0% standard
-error; away 2.5-4.5 from −10.45% to −6.51%).
+deviations from that mean, not edges; the holdout keeps most of their signs but
+cannot resolve their size (home 10.5-12.5 goes from −12.47% to −12.29% with a
+9.0% standard error; away 2.5-4.5 from −10.45% to −6.51%).
 
 ### The two sides of the spread pay the vig
 
@@ -128,7 +128,8 @@ holdout can only confirm an edge larger than roughly 8% at \|z\| 3. A 9% bucket
 (111 games) has a 9.0% standard error. The discovery side is better powered —
 11,871 games, 0.9% standard error overall and 1.5–3.2% per bucket — and even
 there no positive cell reaches 1.2σ. This family can rule out a structural edge
-of 5%+ in these cells; it cannot rule out a 1–2% one.
+of about 5% in its largest cells and 10% in its smallest; it cannot rule out a
+1–2% one.
 
 ## Decision
 
