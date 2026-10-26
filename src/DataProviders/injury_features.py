@@ -428,6 +428,60 @@ def select_pre_tip(events: pd.DataFrame, snapshots: pd.DataFrame,
                "status_label_ts", "match_method", "ambiguous", "player"]], cov
 
 
+def earliest_pre_tip_designation(events: pd.DataFrame, snapshots: pd.DataFrame,
+                                 games: pd.DataFrame,
+                                 buffer_minutes: float = DEFAULT_BUFFER_MINUTES
+                                 ) -> pd.DataFrame:
+    """The EARLIEST same-day pre-tip designation per ``(GAME_ID, PLAYER_ID)``.
+
+    Issue #69's trajectory arm needs the status at the FIRST usable slot of the
+    day, while ``select_pre_tip`` (the authoritative final-status picker) takes
+    the LAST.  This helper mirrors the same slot walk: a player's EARLY label
+    is the earliest same-day snapshot that is still at least ``buffer_minutes``
+    before tip, and the designation is the one in that snapshot (most severe at
+    a label, highest ``id`` on a tie).  Games with no early label (single-slot
+    days) are simply absent from the result -- the trajectory aggregates in the
+    arm are computed over players with BOTH labels only.
+
+    Returns columns ``GAME_ID, PLAYER_ID, weight_early, status_early, team_abbr``.
+    """
+    g = games.copy()
+    g["GAME_DATE"] = pd.to_datetime(g["GAME_DATE"]).dt.normalize()
+    g["game_date"] = g["GAME_DATE"]
+    g["matchup"] = g["away"] + "@" + g["home"]
+    tips = _tip_table(events)
+    cov = g[["GAME_ID", "game_date", "matchup", "home", "away"]].merge(
+        tips, on=["game_date", "matchup"], how="left")
+    snaps = snapshots[["report_date", "label_ts", "report_time_label"]].copy()
+    snaps["label_minutes"] = (snaps["label_ts"].dt.hour * 60
+                              + snaps["label_ts"].dt.minute)
+    earliest = []
+    for row in cov.itertuples(index=False):
+        if pd.isna(row.tip_minutes):
+            earliest.append(pd.NaT)
+            continue
+        cutoff = row.tip_minutes - buffer_minutes
+        cand = snaps[(snaps["report_date"] == row.game_date)
+                     & (snaps["label_minutes"] <= cutoff)]
+        earliest.append(cand["label_ts"].min() if len(cand) else pd.NaT)
+    cov["earliest_label"] = earliest
+    cov = cov[cov["earliest_label"].notna()]
+
+    ev = events.dropna(subset=["PLAYER_ID", "weight"]).copy()
+    ev["PLAYER_ID"] = ev["PLAYER_ID"].astype("int64")
+    ev = ev.merge(cov[["GAME_ID", "game_date", "home", "away",
+                       "earliest_label"]],
+                  on="game_date", how="inner")
+    playing = (ev["team_abbr"] == ev["home"]) | (ev["team_abbr"] == ev["away"])
+    ev = ev[playing & (ev["label_ts"] <= ev["earliest_label"])].copy()
+    ev["severity"] = -ev["weight"]
+    ev = ev.sort_values(["GAME_ID", "PLAYER_ID", "label_ts", "severity", "id"])
+    ev = ev.groupby(["GAME_ID", "PLAYER_ID"], as_index=False).head(1)
+    return ev.rename(columns={"weight": "weight_early",
+                              "status": "status_early"})[
+        ["GAME_ID", "PLAYER_ID", "weight_early", "status_early", "team_abbr"]]
+
+
 def availability_weights(designations: pd.DataFrame) -> pd.DataFrame:
     """The ``(GAME_ID, PLAYER_ID, weight)`` frame ``availability_features`` takes."""
     w = designations[["GAME_ID", "PLAYER_ID", "weight"]].copy()

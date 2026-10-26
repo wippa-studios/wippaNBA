@@ -1,0 +1,89 @@
+{
+  "delta_trajectory": {
+    "abs_z": 0.6410197493084778,
+    "bootstrap_seed": 42,
+    "ci_hi": 0.002767881155302095,
+    "ci_lo": -0.001419209291370921,
+    "delta_candidate_minus_reference": 0.0006847084100672918,
+    "n_boot": 2000,
+    "p_positive": 0.7225,
+    "se": 0.0010681549372011465,
+    "z": 0.6410197493084778
+  },
+  "generated_utc": "2026-10-26T02:53:45.911532+00:00",
+  "issue": 69,
+  "metrics": {
+    "baseline_final_status": {
+      "accuracy": 0.6775510204081633,
+      "auc": 0.7469991961891814,
+      "brier": 0.2017746505495044,
+      "log_loss": 0.5889770635143595,
+      "n": 1225
+    },
+    "candidate_plus_trajectory": {
+      "accuracy": 0.6857142857142857,
+      "auc": 0.7480646501265058,
+      "brier": 0.20141651169284805,
+      "log_loss": 0.5882923551042922,
+      "n": 1225
+    }
+  },
+  "n_paired_players": 70691,
+  "n_test_2025_26": 1225,
+  "positive_control_final_vs_raw": {
+    "abs_z": 3.32681908508009,
+    "bootstrap_seed": 42,
+    "ci_hi": 0.0075406836139654005,
+    "ci_lo": 0.001928232735929808,
+    "delta_candidate_minus_reference": 0.004763252971769716,
+    "n_boot": 2000,
+    "p_positive": 0.999,
+    "se": 0.001431773970857524,
+    "z": 3.32681908508009
+  },
+  "protocol_ref": "I69-prereg-status-trajectory",
+  "runtime_seconds": 42.1,
+  "sensitivity": {
+    "direction_only": {
+      "abs_z": 0.5904469380086387,
+      "bootstrap_seed": 42,
+      "ci_hi": 0.0026839837432221566,
+      "ci_lo": -0.0014934342030188895,
+      "delta_candidate_minus_reference": 0.0006292318724069323,
+      "n_boot": 2000,
+      "p_positive": 0.7075,
+      "se": 0.0010656874172793598,
+      "z": 0.5904469380086387
+    },
+    "replication_2024_25": {
+      "abs_z": 0.14866251969240502,
+      "bootstrap_seed": 42,
+      "ci_hi": 0.002338545425586222,
+      "ci_lo": -0.002692440412675942,
+      "delta_candidate_minus_reference": -0.0001907991757126304,
+      "n_boot": 2000,
+      "p_positive": 0.419,
+      "se": 0.0012834383280157606,
+      "z": -0.14866251969240502
+    },
+    "top1_downgrade_only": {
+      "abs_z": 0.9251983879981748,
+      "bootstrap_seed": 42,
+      "ci_hi": 0.002814575846182024,
+      "ci_lo": -0.000991790618130925,
+      "delta_candidate_minus_reference": 0.0008983951023877612,
+      "n_boot": 2000,
+      "p_positive": 0.813,
+      "se": 0.0009710296883802326,
+      "z": 0.9251983879981748
+    }
+  },
+  "trajectory_block_columns": [
+    "mean_delta",
+    "n_downgrade",
+    "n_upgrade",
+    "sum_abs_delta",
+    "max_downgrade"
+  ],
+  "verdict": "NULL on 2025-26: trajectory +0.000685 nats (CI [-0.001419, +0.002768], |z| 0.64); the intraday change is inside the price (or irrelevant). Positive control (final-injury vs raw) +0.004763 |z| 3.33."
+}
