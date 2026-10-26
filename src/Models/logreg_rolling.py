@@ -250,6 +250,12 @@ def feature_groups(with_rebounds: bool = True) -> dict[str, list[str]]:
         # of each side's entering win streak. Opt-in; never part of "full".
         "momentum": [f"{s}_streak_ge{k}"
                      for s in ("home", "away") for k in MOMENTUM_BRACKETS],
+        # Recent-form win-count ladders (issue #60 follow-on): full cumulative
+        # >=k ladders for the 5- and 10-game windows. Opt-in; never in "full".
+        "form5": [f"{s}_form5_ge{k}" for s in ("home", "away")
+                  for k in range(1, 6)],
+        "form10": [f"{s}_form10_ge{k}" for s in ("home", "away")
+                   for k in range(1, 11)],
     }
 
 
@@ -272,6 +278,12 @@ DEFAULT_MODELS: dict[str, list[str]] = {
     # A candidate, never the canonical.
     "full_momentum": ["rating", "matchup", "schedule", "home", "availability",
                       "momentum"],
+    # Issue #60 follow-on arms: canonical 26 PLUS the 5- or 10-game
+    # recent-form ladders. Candidates, never the canonical.
+    "full_form5": ["rating", "matchup", "schedule", "home", "availability",
+                   "form5"],
+    "full_form10": ["rating", "matchup", "schedule", "home", "availability",
+                    "form10"],
     "full_sched_diff": ["rating", "matchup", "schedule_diff", "home"],
     "net+home": ["net_diff", HOME_COLUMN],
 }
@@ -666,6 +678,23 @@ def momentum_loss_brackets(enter: pd.DataFrame,
         s = enter[col].to_numpy(dtype=int)
         for k in brackets:
             out[f"{side}_loss_streak_ge{k}"] = (s >= k).astype(float)
+    return out
+
+
+def form_brackets(counts: pd.DataFrame, window: int) -> pd.DataFrame:
+    """The full cumulative bracket ladder for one recent-form window.
+
+    ``home_form{window}_geK`` = 1 iff that side's entering win count over the
+    last ``window`` games is >= K, for K = 1..window (and the away analogue).
+    A cumulative ladder has the same span as the one-hot level set -- both
+    sides' ladders let the model express "4-from-5 vs 1-from-5" as a contrast
+    of coefficients -- while staying monotone and identifiable.
+    """
+    out = pd.DataFrame(index=counts.index)
+    for side in ("home", "away"):
+        s = counts[f"{side}_form{window}_enter"].to_numpy(dtype=int)
+        for k in range(1, window + 1):
+            out[f"{side}_form{window}_ge{k}"] = (s >= k).astype(float)
     return out
 
 
