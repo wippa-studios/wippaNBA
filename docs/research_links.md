@@ -104,6 +104,17 @@ market-anchored stack used for the availability block).
    **margin > spread** under margin = Normal(spread, σ_game) with a per-game
    "implied volatility".  Smallest test: calibrated P(cover) from the repo's
    OOF margin predictions against posted and alternate (±7.5) lines.
+   **Status (issue #57): measured SIGNIFICANTLY NEGATIVE at the posted line —
+   and the alternate-line sweep is diagnostic, not gold.**  c44's C2 already
+   measured cover probability *quality* (Skellam Δ +0.00415, |z| 14.53); this
+   arm prices the cover *rule*.  Betting the model's cover pick at a vig-less
+   −110 returns **−6.00% (|z| 4.79)**: the closing spread is efficient against
+   exactly this model — its favourite covers only ~49% of the time.  The
+   ±3.5 / ±7.5 alternates show +10.8% to +37.5% with huge |z|, but that is the
+   same games re-scored against lines the market never offered (σ ≈ 13.5 makes
+   P(cover) swing with the line); a bettor cannot take them.  The volatility
+   gate finds nothing (−6.8% low-σ vs −6.0% base).
+   [results/issue57_cover_lines.json](../results/issue57_cover_lines.json).
 3. **Variance-conditioned staking.**
    From the MDPI paper above: gate/size bets by **predictive uncertainty**, not
    only by edge over the posted price.  Smallest test: take the existing
