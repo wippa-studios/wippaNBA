@@ -453,10 +453,97 @@ def family_bestprice_ml(j: pd.DataFrame) -> tuple[list[dict], dict]:
     return arms, meta
 
 
+def load_model_bestprice_frame() -> tuple[pd.DataFrame, dict]:
+    """Model probabilities joined to the best-of-books frame (family 4).
+
+    The probabilities are the canonical out-of-fold values from
+    `closing_line.model_probs` — the same walk-forward pass behind the repo's
+    recorded 0.6157 log loss — recomputed here (deterministic seed, ~10 s) so
+    the family is self-contained.
+    """
+    j, st = load_bestprice_frame()
+    games = nd.build_games().reset_index(drop=True)
+    splits = nd.walk_forward_split(games, n_splits=cl.N_SPLITS)
+    p_base, y = cl.model_probs(games, splits, with_availability=False)
+    p_avail, _ = cl.model_probs(games, splits, with_availability=True)
+    probs = pd.DataFrame({"GAME_ID": games["GAME_ID"], "y_m": y,
+                          "p_model": p_base, "p_model_avail": p_avail})
+    j = j.merge(probs, on="GAME_ID", how="inner")
+    if not (j["y"] == j["y_m"]).all():
+        raise ValueError("the scored outcomes disagree with the game logs")
+    j = j.dropna(subset=["p_model"]).reset_index(drop=True)
+    implied_home = (1.0 / j["O1"]) / (1.0 / j["O1"] + 1.0 / j["O2"])
+    j["imp_home"] = implied_home
+    j["bet_home"] = j["p_model"] > j["imp_home"]
+    j["bet_home_avail"] = j["p_model_avail"] > j["imp_home"]
+    j["coherent"] = (1.0 / j["O1"] + 1.0 / j["O2"]) >= 1.0
+
+    st = dict(st)
+    st.update({
+        "scored_and_priced": int(len(j)),
+        "discovery": int((j["split"] == "discovery").sum()),
+        "holdout": int((j["split"] == "holdout").sum()),
+        "price_source": f"Data/OddsData.sqlite::{BESTPRICE_TABLE}",
+        "model": "closing_line.model_probs (walk-forward, out-of-fold)",
+    })
+    return j, st
+
+
 FAMILIES = {
     "price_structure": family_price_structure,
     "bestprice_ml": family_bestprice_ml,
 }
+
+
+def family_model_bestprice(j: pd.DataFrame) -> tuple[list[dict], dict]:
+    """The repo's model, settled at the best bookable price (#88).
+
+    Family 3 closed the price route: coherent best-of-books moneylines are
+    fair. This family tests the information route with the one predictor that
+    ever measured a real edge here — the availability block — against the
+    same prices, under the same holdout rule.
+    """
+    ones = np.ones(len(j), dtype=bool)
+    arms = [
+        arm(j, ones, "ml_dec", j["bet_home"].to_numpy(),
+            "base model, all rows"),
+        arm(j, ones & j["coherent"].to_numpy(), "ml_dec",
+            j["bet_home"].to_numpy(), "base model, coherent rows only"),
+        arm(j, ones, "ml_dec", j["bet_home_avail"].to_numpy(),
+            "model + availability, all rows"),
+        arm(j, ones & j["coherent"].to_numpy(), "ml_dec",
+            j["bet_home_avail"].to_numpy(),
+            "model + availability, coherent rows only"),
+    ]
+    assert len(arms) == 4, len(arms)
+
+    meta = {
+        "family": "model_bestprice",
+        "question": ("Does the repo's model cross zero at the best "
+                     "bookable price?"),
+        "arms": len(arms),
+        "bar_z": bar_z(len(arms)),
+        "population": int(len(j)),
+        "discovery": int((j["split"] == "discovery").sum()),
+        "holdout": int((j["split"] == "holdout").sum()),
+        "holdout_source": f"{BESTPRICE_TABLE} x closing_line.model_probs",
+        "references": {},
+    }
+    # Descriptive: which side the model backs, and the availability delta.
+    bet_home = j["bet_home"].to_numpy()
+    is_fav = np.where(bet_home, j["fav_home"], ~j["fav_home"]).astype(bool)
+    meta["references"]["model-backed side is the favourite"] = stats(
+        j, ones, "ml_dec", bet_home) | {"backed_side_share_fav": float(is_fav.mean())}
+    delta = (j["p_model_avail"] - j["p_model"]).to_numpy(dtype=float)
+    meta["references"]["availability delta (pp), mean"] = {
+        "mean_pp": float(delta.mean() * 100),
+        "p5_pp": float(np.quantile(delta, 0.05) * 100),
+        "p95_pp": float(np.quantile(delta, 0.95) * 100),
+    }
+    return arms, meta
+
+
+FAMILIES["model_bestprice"] = family_model_bestprice
 
 
 # --------------------------------------------------------------------------- #
@@ -484,10 +571,21 @@ def prereg_record(family: str) -> dict:
         m = 14
         exp_type = ("search loop family 3: bestprice_ml (profit objective at "
                     "best-of-books moneyline prices)")
+    elif family == "model_bestprice":
+        arms = [
+            "base model vs best-price implied: bet the model's side, all rows",
+            "base model, coherent rows only (1/O1+1/O2 >= 1)",
+            "model + availability block, all rows",
+            "model + availability block, coherent rows only",
+        ]
+        m = 4
+        exp_type = ("search loop family 4: model_bestprice (the repo's model "
+                    "settled at best-of-books prices)")
     else:
         raise SystemExit(f"unknown family {family}")
     return {
-        "name": f"{'E01' if family == 'price_structure' else 'E03'}-prereg-{family}",
+        "name": ({"price_structure": "E01", "bestprice_ml": "E03",
+                  "model_bestprice": "E04"}[family] + f"-prereg-{family}"),
         "experiment_type": exp_type,
         "declared_utc": datetime.now(timezone.utc).isoformat(),
         "split": {"discovery": "2015-16..2024-25", "holdout": HOLDOUT},
@@ -535,7 +633,8 @@ def write_outputs(family: str, arms: list[dict], meta: dict,
     (OUT_DIR / f"{family}.md").write_text("\n".join(_markdown(payload)) + "\n")
 
     rec = {
-        "name": f"{'E01' if family == 'price_structure' else 'E03'}-run-{family}",
+        "name": ({"price_structure": "E01", "bestprice_ml": "E03",
+                  "model_bestprice": "E04"}[family] + f"-run-{family}"),
         "experiment_type": f"search loop family 1: {family}",
         "declared_utc": payload["generated_utc"],
         "meta": meta,
@@ -609,7 +708,8 @@ def main() -> int:
         return 0
 
     frame_loaders = {"price_structure": priced_frame,
-                     "bestprice_ml": load_bestprice_frame}
+                     "bestprice_ml": load_bestprice_frame,
+                     "model_bestprice": load_model_bestprice_frame}
     j, frame_stats = frame_loaders[args.family]()
     arms, meta = FAMILIES[args.family](j)
     payload = write_outputs(args.family, arms, meta, frame_stats)
@@ -621,8 +721,11 @@ def main() -> int:
             print(f"  {a['label']}: disc {_pct(d['roi'])} |z| {_z(d['z'])}; "
                   f"hold {_pct(h['roi'])} |z| {_z(h['z'])} -> {a['verdict']}")
     for label, r in (meta.get("references") or {}).items():
-        print(f"  reference {label}: n {r['n']:,} roi {_pct(r['roi'])} "
-              f"|z| {_z(r['z'])}")
+        if "roi" in r:
+            print(f"  reference {label}: n {r['n']:,} roi {_pct(r['roi'])} "
+                  f"|z| {_z(r['z'])}")
+        else:
+            print(f"  reference {label}: {r}")
     print(f"wrote {OUT_DIR / (args.family + '.json')}")
     return 0
 
