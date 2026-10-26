@@ -233,6 +233,31 @@ the same bets. That is the honest ceiling of line-shopping. What remains
 between −1% and zero is information, and no pre-registered structural cell in
 this repo has found it.
 
+### The model at best-of-books prices: the information route closes too
+
+Family 4 asked the last cheap question with existing data: does the repo's own
+model — the one predictor here with a measured edge (availability, +0.00390
+nats at \|z\| 4.78) — cross zero when settled at the **best bookable price**
+instead of one book's close? Pre-registered rule, no free parameters: bet the
+side whose model probability beats the best-price implied probability
+(6,530 scored-and-priced games; bar \|z\| > 3.0).
+
+| arm | n disc | ROI disc | \|z\| | n hold | ROI hold |
+|---|---|---|---|---|---|
+| base model, all rows | 5,326 | +6.02% | 2.29 | 1,204 | −3.45% |
+| base model, coherent rows | 4,481 | −2.33% | 1.08 | 923 | −4.00% |
+| model + availability, all rows | 5,326 | +6.77% | 2.61 | 1,204 | −0.21% |
+| model + availability, coherent rows | 4,481 | −1.46% | 0.68 | 923 | −2.01% |
+
+No arm cleared the bar, the holdout is negative in every arm, and the
+discovery surplus has the same incoherent-row signature family 3 exposed: on
+coherent prices the model's bets pay the vig. The mechanism is one number —
+the model backs the **underdog 68.2%** of the time (its probabilities are
+flatter than the market's), and coherent best-price longshots are exactly
+fair. The information route is closed with the data this repo holds; what
+remains open needs player props, live prices, alternate lines, or a
+multi-season opening-line archive.
+
 ### A number in the committed output that looked good, and was a bug
 
 An earlier revision reported **+11.76%** ROI for the model and **+13.54%** for model +

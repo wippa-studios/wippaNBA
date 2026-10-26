@@ -211,6 +211,44 @@ available prices moves ROI by roughly +2 to +4 points — which is why
 single-book cells sit at −3% to −5% while the same bets at best prices sit at
 −1% to +4%. The remaining distance to profit is information, not price.
 
+## Family 4: `model_bestprice` — the repo's model at the best bookable price
+
+Family 3 closed the price route. The one route left with existing data is
+information: the repo's own model, settled at best-of-books prices. The model
+carries the project's one measured prediction edge (availability,
++0.00390 nats at \|z\| 4.78) and availability is the kind of news soft books
+update late. Against that: the model sits **0.022 nats behind the market** on
+log loss, and the same bet rule at single-book close returned **−8.23%**.
+
+**Pre-registered rule (#88), no free parameters:** one bet per game, on the
+side whose model probability exceeds the best-price implied probability;
+settlement at the posted decimal odds. Population 6,530 games scored by the
+walk-forward model AND priced (discovery 5,326, holdout 1,204). Four arms,
+bar \|z\| > 3.0.
+
+| arm | n disc | ROI disc | \|z\| | n hold | ROI hold |
+|---|---|---|---|---|---|
+| base model, all rows | 5,326 | +6.02% | 2.29 | 1,204 | −3.45% |
+| base model, coherent rows | 4,481 | −2.33% | 1.08 | 923 | −4.00% |
+| model + availability, all rows | 5,326 | +6.77% | 2.61 | 1,204 | −0.21% |
+| model + availability, coherent rows | 4,481 | −1.46% | 0.68 | 923 | −2.01% |
+
+**Family closed: no candidate.** No arm cleared the bar (max \|z\| 2.61), the
+holdout is negative everywhere, and the discovery surplus shows the exact
+incoherent-row signature of family 3: it lives in the snapshot rows and
+vanishes on coherent prices, where the model's bets simply pay the vig. The
+mechanism is visible in one number — the model backs the **underdog 68.2%**
+of the time (its probabilities are flatter than the market's), so the
+disagreement bets are mostly longshot bets, and longshots at coherent best
+prices are exactly fair (family 3).
+
+With families 1, 3 and 4 the map is closed for the data this repo holds:
+the close is structurally null, best-of-books prices are fair once snapshot
+artifacts are removed, and the model adds no information the price lacks.
+The routes that remain open need data that does not exist here — player
+props, live/in-play, alternate and second-half lines, or a multi-season
+opening-line archive.
+
 ## Adding a family
 
 1. Write `family_<name>(j)` in `scripts/edge_search.py`; return `(arms, meta)`

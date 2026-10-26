@@ -1,0 +1,273 @@
+{
+  "arms": [
+    {
+      "discovery": {
+        "break_even": NaN,
+        "ci": [
+          0.009460852422080352,
+          0.11140386781824994
+        ],
+        "kind": "ml_dec",
+        "n": 5326,
+        "n_pushes": 0,
+        "n_rows": 5326,
+        "roi": 0.060153961697333835,
+        "se": 0.02624961326056207,
+        "win_rate": 0.40743522343221933,
+        "z": 2.291613255411664
+      },
+      "holdout": {
+        "break_even": NaN,
+        "ci": [
+          -0.11940261627906977,
+          0.05382786544850496
+        ],
+        "kind": "ml_dec",
+        "n": 1204,
+        "n_pushes": 0,
+        "n_rows": 1204,
+        "roi": -0.03446843853820598,
+        "se": 0.04401563679794433,
+        "win_rate": 0.39700996677740863,
+        "z": -0.783095305344208
+      },
+      "kind": "ml_dec",
+      "label": "base model, all rows",
+      "pooled": {
+        "break_even": NaN,
+        "ci": [
+          1.2557427258801352e-05,
+          0.08878748085758037
+        ],
+        "kind": "ml_dec",
+        "n": 6530,
+        "n_pushes": 0,
+        "n_rows": 6530,
+        "roi": 0.042707503828483914,
+        "se": 0.02268774573146007,
+        "win_rate": 0.40551301684532925,
+        "z": 1.882404022593719
+      },
+      "verdict": "no evidence"
+    },
+    {
+      "discovery": {
+        "break_even": NaN,
+        "ci": [
+          -0.06496518634233431,
+          0.02029346128096402
+        ],
+        "kind": "ml_dec",
+        "n": 4481,
+        "n_pushes": 0,
+        "n_rows": 4481,
+        "roi": -0.023343003793796033,
+        "se": 0.021598024398944534,
+        "win_rate": 0.403704530238786,
+        "z": -1.0807934727093267
+      },
+      "holdout": {
+        "break_even": NaN,
+        "ci": [
+          -0.1347651679306609,
+          0.05231067172264349
+        ],
+        "kind": "ml_dec",
+        "n": 923,
+        "n_pushes": 0,
+        "n_rows": 923,
+        "roi": -0.03995666305525461,
+        "se": 0.047971278577021256,
+        "win_rate": 0.4008667388949079,
+        "z": -0.8329288741199878
+      },
+      "kind": "ml_dec",
+      "label": "base model, coherent rows only",
+      "pooled": {
+        "break_even": NaN,
+        "ci": [
+          -0.06381990192450038,
+          0.01403159696521094
+        ],
+        "kind": "ml_dec",
+        "n": 5404,
+        "n_pushes": 0,
+        "n_rows": 5404,
+        "roi": -0.026180606957809032,
+        "se": 0.02001133220343801,
+        "win_rate": 0.40321983715766097,
+        "z": -1.3082890580024014
+      },
+      "verdict": "no evidence"
+    },
+    {
+      "discovery": {
+        "break_even": NaN,
+        "ci": [
+          0.01779576605332332,
+          0.11796723619977467
+        ],
+        "kind": "ml_dec",
+        "n": 5326,
+        "n_pushes": 0,
+        "n_rows": 5326,
+        "roi": 0.06773375891851295,
+        "se": 0.025911163257115268,
+        "win_rate": 0.416447615471273,
+        "z": 2.6140763440990282
+      },
+      "holdout": {
+        "break_even": NaN,
+        "ci": [
+          -0.0899624169435216,
+          0.08489514119601317
+        ],
+        "kind": "ml_dec",
+        "n": 1204,
+        "n_pushes": 0,
+        "n_rows": 1204,
+        "roi": -0.0021345514950166056,
+        "se": 0.04416579613730636,
+        "win_rate": 0.41362126245847175,
+        "z": -0.04833042040905436
+      },
+      "kind": "ml_dec",
+      "label": "model + availability, all rows",
+      "pooled": {
+        "break_even": NaN,
+        "ci": [
+          0.01314513782542113,
+          0.1009072741194487
+        ],
+        "kind": "ml_dec",
+        "n": 6530,
+        "n_pushes": 0,
+        "n_rows": 6530,
+        "roi": 0.05485145482388974,
+        "se": 0.022444032249019506,
+        "win_rate": 0.4159264931087289,
+        "z": 2.443921583042904
+      },
+      "verdict": "no evidence"
+    },
+    {
+      "discovery": {
+        "break_even": NaN,
+        "ci": [
+          -0.056168433385405045,
+          0.029179424235661656
+        ],
+        "kind": "ml_dec",
+        "n": 4481,
+        "n_pushes": 0,
+        "n_rows": 4481,
+        "roi": -0.014630662798482482,
+        "se": 0.021420221282410095,
+        "win_rate": 0.41397009596072304,
+        "z": -0.683030422776114
+      },
+      "holdout": {
+        "break_even": NaN,
+        "ci": [
+          -0.11225162513542795,
+          0.07560807150595876
+        ],
+        "kind": "ml_dec",
+        "n": 923,
+        "n_pushes": 0,
+        "n_rows": 923,
+        "roi": -0.020075839653304457,
+        "se": 0.047458449483469195,
+        "win_rate": 0.4160346695557963,
+        "z": -0.4230192910178683
+      },
+      "kind": "ml_dec",
+      "label": "model + availability, coherent rows only",
+      "pooled": {
+        "break_even": NaN,
+        "ci": [
+          -0.053885501480384915,
+          0.02515668948926719
+        ],
+        "kind": "ml_dec",
+        "n": 5404,
+        "n_pushes": 0,
+        "n_rows": 5404,
+        "roi": -0.015560695780903036,
+        "se": 0.0200100189025952,
+        "win_rate": 0.4143227239082161,
+        "z": -0.777645231453774
+      },
+      "verdict": "no evidence"
+    }
+  ],
+  "family": "model_bestprice",
+  "frame": {
+    "discovery": 5326,
+    "dropped_missing_odds": 28,
+    "dropped_scrape_duplicates": 0,
+    "games_in": 13199,
+    "holdout": 1204,
+    "model": "closing_line.model_probs (walk-forward, out-of-fold)",
+    "price_source": "Data/OddsData.sqlite::odds_ml_bestbooks",
+    "priced_games": 13106,
+    "scored_and_priced": 6530
+  },
+  "generated_utc": "2026-10-26T11:13:16.327157+00:00",
+  "meta": {
+    "arms": 4,
+    "bar_z": 3.0,
+    "discovery": 5326,
+    "family": "model_bestprice",
+    "holdout": 1204,
+    "holdout_source": "odds_ml_bestbooks x closing_line.model_probs",
+    "population": 6530,
+    "question": "Does the repo's model cross zero at the best bookable price?",
+    "references": {
+      "availability delta (pp), mean": {
+        "mean_pp": -0.10352033291626304,
+        "p5_pp": -5.0009842917659375,
+        "p95_pp": 4.6886471442696935
+      },
+      "model-backed side is the favourite": {
+        "backed_side_share_fav": 0.31807044410413476,
+        "break_even": NaN,
+        "ci": [
+          1.2557427258801352e-05,
+          0.08878748085758037
+        ],
+        "kind": "ml_dec",
+        "n": 6530,
+        "n_pushes": 0,
+        "n_rows": 6530,
+        "roi": 0.042707503828483914,
+        "se": 0.02268774573146007,
+        "win_rate": 0.40551301684532925,
+        "z": 1.882404022593719
+      }
+    }
+  },
+  "references": {
+    "availability delta (pp), mean": {
+      "mean_pp": -0.10352033291626304,
+      "p5_pp": -5.0009842917659375,
+      "p95_pp": 4.6886471442696935
+    },
+    "model-backed side is the favourite": {
+      "backed_side_share_fav": 0.31807044410413476,
+      "break_even": NaN,
+      "ci": [
+        1.2557427258801352e-05,
+        0.08878748085758037
+      ],
+      "kind": "ml_dec",
+      "n": 6530,
+      "n_pushes": 0,
+      "n_rows": 6530,
+      "roi": 0.042707503828483914,
+      "se": 0.02268774573146007,
+      "win_rate": 0.40551301684532925,
+      "z": 1.882404022593719
+    }
+  }
+}
