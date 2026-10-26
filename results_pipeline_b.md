@@ -178,6 +178,30 @@ has a hint (+2.99pp, |z| 1.24), the cold-side condition has nothing (+0.41pp,
 |z| 0.18), and all four cells lose. Full write-up:
 [docs/layered_elo_form.md](docs/layered_elo_form.md).
 
+### A pre-registered search finds no positive structural cell
+
+The search loop registers a whole family of arms before computing any of them,
+reports every cell, and raises the bar with the family size: 42 arms need
+**\|z\| > 3.24**, not 1.96. Family 1 (`price_structure`) covers moneyline
+favourite/underdog by de-vigged probability, home/away ATS by \|line\|, over/under
+by closing total, and dog-vs-favourite ATS. The holdout is a new full-season
+2025-26 close backfilled from ESPN (1,224 of 1,225 regular-season games), because
+the shipped 2025-26 table is an early snapshot that stops on 2026-01-07.
+
+| arm | n disc | ROI disc | \|z\| | n hold | ROI hold |
+|---|---|---|---|---|---|
+| away ATS, \|line\| 10.5-12.5 (best positive) | 919 | **+3.52%** | 1.12 | 111 | +3.19% |
+| back the underdog ATS | 11,640 | −5.63% | **6.45** | 1,224 | −2.99% |
+| ML favourite, de-vigged 0.80+ | 2,240 | −5.26% | **6.21** | 267 | −4.20% |
+| under, total 220-230 | 3,797 | −7.27% | **4.79** | 458 | −3.71% |
+
+No positive cell clears the bar. Fourteen arms are negative at \|z\| > 3, which is
+the market working rather than a finding: over 11,640 discovery games the dog
+returns −5.63% and the favourite −3.30%, a paired gap of just −2.33pp (|z| 1.33),
+and the two sides sum to **−8.94%** — the hold. The best positive cell's holdout
+interval is −14.0% to +20.4% over 111 games, so it is a point estimate, not
+evidence. Full protocol and table: [docs/edge_search.md](docs/edge_search.md).
+
 ### A number in the committed output that looked good, and was a bug
 
 An earlier revision reported **+11.76%** ROI for the model and **+13.54%** for model +
