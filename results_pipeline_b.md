@@ -202,6 +202,37 @@ and the two sides sum to **−8.94%** — the hold. The best positive cell's hol
 interval is −14.0% to +20.4% over 111 games, so it is a point estimate, not
 evidence. Full protocol and table: [docs/edge_search.md](docs/edge_search.md).
 
+### Best-of-books prices close the "just shop better" route
+
+The profit objective changed the settlement price: not one book's close, but
+the **highest pre-game moneyline across books** — OddsPortal publishes exactly
+that, and we backfilled it for every game from 2015-16 to 2025-26 (14,305 rows,
+98.6% of the regular season priced, overround ~1% per side instead of ~4.5%).
+Registered as family 3 (`bestprice_ml`, 14 arms, bar |z| > 3.0).
+
+| bet | n disc | ROI disc | \|z\| | n hold | ROI hold |
+|---|---|---|---|---|---|
+| ML underdog, de-vigged 0.80+ (best price) | 2,313 | **+20.41%** | **3.29** | 289 | −3.94% |
+| back the underdog, no bucket (reference) | 11,902 | **+4.10%** | 2.39 | 1,204 | −1.62% |
+| back the favourite, no bucket (reference) | 11,902 | −1.62% | 2.48 | 1,204 | −1.76% |
+
+One discovery cell cleared the bar and the aggregate underdog reference carried
+a **95% interval of [+0.45%, +6.73%]** — entirely positive. Both are snapshot
+artifacts: the best-of-both-sides price lets each side come from a different
+book at a different moment, and on the 13.7% of rows where the two snapshots
+are incoherent (1/O1 + 1/O2 < 1) the "best price" is a stale quote. On
+**coherent rows only**, the underdog aggregate collapses from +4.10% to
+**−0.14%**, and the dog win rate (32.28%) lands on the implied break-even
+(32.10%) to within two tenths of a point. The holdout is negative. Full
+diagnostics in the ledger (`E03-diagnostics-bestprice_ml`) and
+[docs/edge_search.md](docs/edge_search.md).
+
+The useful residue is the measured size of price improvement: best-of-books
+settlement is worth **+2 to +4 points of ROI** over a single book's close on
+the same bets. That is the honest ceiling of line-shopping. What remains
+between −1% and zero is information, and no pre-registered structural cell in
+this repo has found it.
+
 ### A number in the committed output that looked good, and was a bug
 
 An earlier revision reported **+11.76%** ROI for the model and **+13.54%** for model +

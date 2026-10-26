@@ -100,6 +100,21 @@ class TestSettlement(unittest.TestCase):
         self.assertEqual(scalar["roi"], array["roi"])
         self.assertEqual(scalar["n"], array["n"])
 
+    def test_decimal_moneyline_settles_at_the_posted_odds(self):
+        j = frame([5.0, -5.0], [2.0, 2.0], O1=[2.5, 1.8], O2=[1.6, 2.2])
+        home, won = es.settle_ml_decimal(j, True)
+        away, _won = es.settle_ml_decimal(j, False)
+        # home wins game 1 at 2.5 (+1.50) and loses game 2 (-1); the away side
+        # of game 2 wins at 2.2 (+1.20).
+        np.testing.assert_allclose(home, [1.5, -1.0])
+        np.testing.assert_allclose(away, [-1.0, 1.2])
+        np.testing.assert_array_equal(won, [True, False])
+
+    def test_decimal_moneyline_refuses_degenerate_odds(self):
+        j = frame([5.0], [2.0], O1=[1.0], O2=[2.0])
+        with self.assertRaises(ValueError):
+            es.settle_ml_decimal(j, True)
+
 
 class TestStatistics(unittest.TestCase):
     def test_bootstrap_is_deterministic(self):
@@ -249,6 +264,51 @@ class TestHoldoutData(unittest.TestCase):
         row = held[(held["Date"].astype(str).str[:10] == "2026-01-01")
                    & (held["Home"] == "Los Angeles Clippers")]
         self.assertEqual(float(row["Spread"].iloc[0]), 13.5)
+
+
+class TestBestPriceFrame(unittest.TestCase):
+    """The best-of-books moneyline frame behind the profit family (#86)."""
+
+    def test_bestprice_family_registers_14_arms(self):
+        rng = np.random.default_rng(11)
+        n = 400
+        o1 = np.round(np.exp(rng.normal(0.15, 0.55, n)) + 1.0, 2)
+        o2 = np.round(np.exp(rng.normal(0.15, 0.55, n)) + 1.0, 2)
+        j = pd.DataFrame({
+            "O1": o1, "O2": o2,
+            "p_fav_devig": (1 / o1) / (1 / o1 + 1 / o2),
+            "fav_home": o1 <= o2,
+            "y": (rng.random(n) < (1 / o1) / (1 / o1 + 1 / o2)).astype(int),
+            "split": np.where(np.arange(n) % 4 == 0, "holdout", "discovery"),
+        })
+        arms, meta = es.family_bestprice_ml(j)
+        self.assertEqual(len(arms), 14)
+        self.assertEqual(meta["arms"], 14)
+        self.assertEqual(len(meta["references"]), 2)
+        self.assertAlmostEqual(meta["bar_z"], es.bar_z(14))
+        self.assertEqual(es.bar_z(14), 3.0)  # Bonferroni floor holds
+
+    def test_the_preregistration_declares_the_same_count(self):
+        rec = es.prereg_record("bestprice_ml")
+        self.assertEqual(rec["n_arms"], 14)
+        self.assertEqual(rec["bar_z"], es.bar_z(14))
+        self.assertEqual(rec["name"], "E03-prereg-bestprice_ml")
+        self.assertTrue(rec["holdout_source"].startswith(es.BESTPRICE_TABLE))
+
+    def test_devigged_favourite_probability_sums_to_one(self):
+        j, _st = es.load_bestprice_frame()
+        p = j["p_fav_devig"].to_numpy()
+        self.assertTrue(np.all((p > 0.3) & (p < 1.0)))
+        # the frame's favourite side must agree with the lower odds
+        self.assertTrue((j["fav_home"] == (j["O1"] <= j["O2"])).all())
+
+    def test_the_bestprice_table_covers_the_regular_season(self):
+        j, st = es.load_bestprice_frame()
+        # ~12.6k of 13.2k regular-season games priced, both splits populated
+        self.assertGreater(st["priced_games"], 12000)
+        self.assertGreater(st["discovery"], 11000)
+        self.assertGreater(st["holdout"], 1100)
+        self.assertTrue(st["price_source"].endswith(es.BESTPRICE_TABLE))
 
 
 if __name__ == "__main__":

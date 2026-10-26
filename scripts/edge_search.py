@@ -68,6 +68,7 @@ OUT_DIR = ROOT / "results" / "edge_search"
 LEDGER = ROOT / "results" / "experiments.jsonl"
 HOLDOUT = "2025-26"
 ESPN_TABLE = "odds_2025-26_espn"
+BESTPRICE_TABLE = "odds_ml_bestbooks"
 QUOTE_COLS = ["Date", "Home", "Away", "ML_Home", "ML_Away", "OU", "Spread"]
 N_BOOT = 2000
 SEED = 42
@@ -188,6 +189,80 @@ def settle_total(j: pd.DataFrame, side_over) -> tuple[np.ndarray, np.ndarray, np
 
 
 # --------------------------------------------------------------------------- #
+# Best-of-books moneyline frame (the profit objective)
+# --------------------------------------------------------------------------- #
+def load_bestprice_frame() -> tuple[pd.DataFrame, dict]:
+    """One row per game with the best bookable decimal moneyline.
+
+    Source: `odds_ml_bestbooks` (OddsPortal season archives - the highest
+    pre-game decimal odds across tracked bookmakers, one per side), joined to
+    `build_games()` Regular Season on date + both teams via the repo's
+    tricode map. The scrape's own score columns are NOT used for outcomes:
+    `build_games()` remains the canonical result, which is also what makes the
+    one known scoring correction (MIL-CHA 2022-01-08) harmless.
+    """
+    import sqlite3
+
+    g = nd.build_games().reset_index(drop=True)
+    g["Date"] = pd.to_datetime(g["GAME_DATE"]).dt.strftime("%Y-%m-%d")
+    mapping = cl.tricode_to_full_name()
+    mapping.pop("_alias", None)
+
+    con = sqlite3.connect(f"file:{cl.ODDS_DB}?mode=ro", uri=True)
+    try:
+        o = pd.read_sql(
+            f"SELECT Season, Date, Stage, Home, Away, O1, O2, OddsPortal_URL "
+            f"FROM '{BESTPRICE_TABLE}'", con)
+    finally:
+        con.close()
+
+    o = o.rename(columns={"Season": "SEASON"})
+    dup = o.duplicated(subset=["Date", "Home", "Away"])
+    o = o.loc[~dup].reset_index(drop=True)
+
+    merged = g.merge(o, on=["Date", "SEASON"], suffixes=("", "_o"))
+    merged = merged[
+        ((merged["home"].map(mapping) == merged["Home"])
+         & (merged["away"].map(mapping) == merged["Away"]))]
+    merged = merged.reset_index(drop=True)
+
+    for c in ("O1", "O2", "margin", "total", "y"):
+        merged[c] = pd.to_numeric(merged[c], errors="coerce")
+    missing_odds = merged["O1"].isna() | merged["O2"].isna()
+    merged = merged.loc[~missing_odds].reset_index(drop=True)
+
+    merged["p_fav_devig"] = (1.0 / merged["O1"]).where(
+        merged["O1"] <= merged["O2"], 1.0 / merged["O2"]) / (
+        1.0 / merged["O1"] + 1.0 / merged["O2"])
+    merged["fav_home"] = merged["O1"] <= merged["O2"]
+    merged["split"] = np.where(merged["SEASON"] < HOLDOUT, "discovery",
+                               np.where(merged["SEASON"] == HOLDOUT,
+                                        "holdout", "other"))
+
+    stats = {
+        "games_in": int(len(g)),
+        "priced_games": int(len(merged)),
+        "dropped_scrape_duplicates": int(dup.sum()),
+        "dropped_missing_odds": int(missing_odds.sum()),
+        "discovery": int((merged["split"] == "discovery").sum()),
+        "holdout": int((merged["split"] == "holdout").sum()),
+        "price_source": f"Data/OddsData.sqlite::{BESTPRICE_TABLE}",
+    }
+    return merged, stats
+
+
+def settle_ml_decimal(j: pd.DataFrame, side_home) -> tuple[np.ndarray, np.ndarray]:
+    """Decimal-odds moneyline: profit = O-1 on a win, -1 on a loss. No pushes."""
+    home = _side_mask(j, side_home)
+    odds = np.where(home, j["O1"].to_numpy(dtype=float),
+                    j["O2"].to_numpy(dtype=float))
+    if np.any(~np.isfinite(odds)) or np.any(odds <= 1.0):
+        raise ValueError("non-finite or <=1.0 decimal odds reached settlement")
+    won = np.where(home, j["y"].to_numpy() == 1, j["y"].to_numpy() == 0)
+    return np.where(won, odds - 1.0, -1.0), won
+
+
+# --------------------------------------------------------------------------- #
 # Statistics
 # --------------------------------------------------------------------------- #
 def boot(profit: np.ndarray, n_boot: int = N_BOOT, seed: int = SEED) -> dict:
@@ -218,6 +293,12 @@ def stats(j: pd.DataFrame, mask: np.ndarray, kind: str, side) -> dict:
         out["break_even"] = ATS_BREAK_EVEN
     elif kind == "ml":
         p, won = settle_ml(sub, side_masked)
+        out = boot(p)
+        out["n_pushes"] = 0
+        out["win_rate"] = float(won.mean()) if len(won) else float("nan")
+        out["break_even"] = float("nan")
+    elif kind == "ml_dec":
+        p, won = settle_ml_decimal(sub, side_masked)
         out = boot(p)
         out["n_pushes"] = 0
         out["win_rate"] = float(won.mean()) if len(won) else float("nan")
@@ -328,8 +409,53 @@ def family_price_structure(j: pd.DataFrame) -> tuple[list[dict], dict]:
     return arms, meta
 
 
+def family_bestprice_ml(j: pd.DataFrame) -> tuple[list[dict], dict]:
+    """Does any moneyline cell cross zero at the best bookable price?
+
+    The profit-objective family (#86). Family 1 measured the same structural
+    sides at one book's close, where the market holds ~4.5%; here the identical
+    bets are settled at the best-of-books decimal odds, whose overround is
+    1.006-1.020. The question is whether the price improvement alone flips any
+    cell positive, or whether the close's structure survives.
+    """
+    arms = []
+    p_fav = j["p_fav_devig"].to_numpy(dtype=float)
+    fav_home = j["fav_home"].to_numpy(dtype=bool)
+    buckets = [(0.50, 0.55), (0.55, 0.60), (0.60, 0.65), (0.65, 0.70),
+               (0.70, 0.75), (0.75, 0.80), (0.80, 1.01)]
+    for lo, hi in buckets:
+        m = (p_fav >= lo) & (p_fav < hi)
+        arms.append(arm(j, m, "ml_dec", fav_home,
+                        f"ML favourite {lo:.2f}-{hi:.2f} (best price)"))
+        arms.append(arm(j, m, "ml_dec", ~fav_home,
+                        f"ML underdog {lo:.2f}-{hi:.2f} (best price)"))
+    assert len(arms) == 14, len(arms)
+
+    meta = {
+        "family": "bestprice_ml",
+        "question": ("Does any moneyline cell cross zero at the best "
+                     "bookable price?"),
+        "arms": len(arms),
+        "bar_z": bar_z(len(arms)),
+        "population": int(len(j)),
+        "discovery": int((j["split"] == "discovery").sum()),
+        "holdout": int((j["split"] == "holdout").sum()),
+        "holdout_source": f"{BESTPRICE_TABLE} (OddsPortal best-of-books)",
+        "references": {},
+    }
+    # Descriptive references (not arms, not part of the multiplicity count):
+    # the no-bucket structural bets, what family 1 measured at the close.
+    ones = np.ones(len(j), dtype=bool)
+    meta["references"]["back the favourite (best price)"] = stats(
+        j, ones, "ml_dec", fav_home)
+    meta["references"]["back the underdog (best price)"] = stats(
+        j, ones, "ml_dec", ~fav_home)
+    return arms, meta
+
+
 FAMILIES = {
     "price_structure": family_price_structure,
+    "bestprice_ml": family_bestprice_ml,
 }
 
 
@@ -348,20 +474,36 @@ def prereg_record(family: str) -> dict:
             "pick'em excluded)",
         ]
         m = 42
+        exp_type = "search loop family 1: price_structure"
+    elif family == "bestprice_ml":
+        arms = [
+            "ML favourite at best-of-books by de-vigged favourite probability: "
+            "0.50-0.55, 0.55-0.60, 0.60-0.65, 0.65-0.70, 0.70-0.75, 0.75-0.80, 0.80+",
+            "ML underdog at best-of-books, same buckets",
+        ]
+        m = 14
+        exp_type = ("search loop family 3: bestprice_ml (profit objective at "
+                    "best-of-books moneyline prices)")
     else:
         raise SystemExit(f"unknown family {family}")
     return {
-        "name": f"E01-prereg-{family}",
-        "experiment_type": f"search loop family 1: {family}",
+        "name": f"{'E01' if family == 'price_structure' else 'E03'}-prereg-{family}",
+        "experiment_type": exp_type,
         "declared_utc": datetime.now(timezone.utc).isoformat(),
         "split": {"discovery": "2015-16..2024-25", "holdout": HOLDOUT},
-        "holdout_source": f"{ESPN_TABLE} (ESPN core odds close), old "
-                          f"odds_{HOLDOUT} table left untouched",
+        "holdout_source": (
+            f"{ESPN_TABLE} (ESPN core odds close), old odds_{HOLDOUT} table "
+            "left untouched" if family == "price_structure"
+            else f"{BESTPRICE_TABLE} (OddsPortal best-of-books decimal odds)"),
         "arms": arms,
         "n_arms": m,
         "bar_z": bar_z(m),
-        "settlement": "ATS and totals at flat -110, side-aware, pushes at 0; "
-                      "moneyline at the posted price, vig included",
+        "settlement": ("ATS and totals at flat -110, side-aware, pushes at 0; "
+                       "moneyline at the posted price, vig included"
+                       if family == "price_structure" else
+                       "decimal odds as listed: profit = O-1 on a win, -1 on "
+                       "a loss; no pushes; de-vig p_fav = (1/O_fav)/((1/O_fav)"
+                       "+(1/O_dog)); negative-overround rows kept and counted"),
         "decision": "candidate if discovery ROI > 0 and |z| > bar; promotion "
                     "also requires holdout ROI > 0. Every cell is reported.",
         "status": "registered",
@@ -385,13 +527,15 @@ def write_outputs(family: str, arms: list[dict], meta: dict,
         "frame": frame_stats or {},
         "arms": arms,
     }
+    if meta.get("references"):
+        payload["references"] = meta["references"]
     OUT_DIR.mkdir(parents=True, exist_ok=True)
     (OUT_DIR / f"{family}.json").write_text(
         json.dumps(payload, indent=2, sort_keys=True) + "\n")
     (OUT_DIR / f"{family}.md").write_text("\n".join(_markdown(payload)) + "\n")
 
     rec = {
-        "name": f"E01-run-{family}",
+        "name": f"{'E01' if family == 'price_structure' else 'E03'}-run-{family}",
         "experiment_type": f"search loop family 1: {family}",
         "declared_utc": payload["generated_utc"],
         "meta": meta,
@@ -464,7 +608,9 @@ def main() -> int:
         print(f"registered {rec['name']} with bar |z| > {rec['bar_z']:.2f}")
         return 0
 
-    j, frame_stats = priced_frame()
+    frame_loaders = {"price_structure": priced_frame,
+                     "bestprice_ml": load_bestprice_frame}
+    j, frame_stats = frame_loaders[args.family]()
     arms, meta = FAMILIES[args.family](j)
     payload = write_outputs(args.family, arms, meta, frame_stats)
     print(f"{args.family}: {meta['arms']} arms, discovery {meta['discovery']:,}, "
@@ -474,6 +620,9 @@ def main() -> int:
             d, h = a["discovery"], a["holdout"]
             print(f"  {a['label']}: disc {_pct(d['roi'])} |z| {_z(d['z'])}; "
                   f"hold {_pct(h['roi'])} |z| {_z(h['z'])} -> {a['verdict']}")
+    for label, r in (meta.get("references") or {}).items():
+        print(f"  reference {label}: n {r['n']:,} roi {_pct(r['roi'])} "
+              f"|z| {_z(r['z'])}")
     print(f"wrote {OUT_DIR / (args.family + '.json')}")
     return 0
 
