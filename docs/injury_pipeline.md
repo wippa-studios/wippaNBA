@@ -426,6 +426,20 @@ stay attached:
   unchanged; nothing in the betting stack silently switched to the
   injury-adjusted block.
 
+### What they are worth late (#72): descriptive, no promotion
+
+Issue #72 asked the consumer's question — how much to distrust a designation as
+the clock runs down — and answered it as a census, not a model.  On the common
+four-cutoff panel a Questionable scratches **50.2% / 51.0% / 50.0% / 50.1%** at
+6h/3h/1h/30m; a Probable improves from **12.8% to 9.9%**; and `Available`
+scratches **19.8%** at 30m against **9.9%** for Probable, the reverse of the
+ordinal weights.  Later reports mostly reclassify players (15.5% of 3h
+Questionables flip to Out by 30m) rather than steadily raising the hazard on
+the ones who remain Questionable.  The 6h column is 91% yesterday's report.
+Nothing is promoted, `STATUS_WEIGHTS` is unchanged, and a recalibration would
+need its own pre-registered forward test.  See
+[Late scratches](late_scratch.md).
+
 ## What this is for
 
 Point-in-time designations are the input the availability feature reads (see

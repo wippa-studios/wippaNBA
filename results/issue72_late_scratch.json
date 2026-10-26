@@ -1,0 +1,2064 @@
+{
+  "caveats": [
+    "Label-upload lag: the label is the report's nominal ET time; the store records no separate upload time, so the 15-minute buffer is the only protection.",
+    "The 6h column is overwhelmingly yesterday's report, not a same-day report six hours old; its actual-age distribution is reported beside it.",
+    "2019-20 is Jan-Mar 2020 only; 2015-16 through 2018-19 have no injury store coverage.",
+    "A small number of continuation rows carry a stale date or matchup; exact joining drops them and the team+date sensitivity join bounds the player-game cost.",
+    "The analysis panel excludes 99 exact-join games (1.3%) whose only events fall outside the 15-minute gate; these are mostly matinees with no previous-day listing.",
+    "Out and Doubtful are near-terminal (99.8% and 98.2% scratch at 30m); the residual is small and can reflect stale listings, roster moves or a late appearance.",
+    "40.6% of analysis-panel events are previous-day listings; the store-wide share is 30.0%. The difference is the exclusion of post-tip same-day rows, not a change in the store.",
+    "Wilson bands are descriptive stability intervals, not sampling claims about a superpopulation."
+  ],
+  "cutoffs_hours": [
+    6.0,
+    3.0,
+    1.0,
+    0.5
+  ],
+  "data": {
+    "events": 240241,
+    "events_dropped_by_pretip_buffer": 55375,
+    "exact_join_events": 216931,
+    "exact_join_events_before_team_filter": 225093,
+    "exact_join_events_with_player": 159244,
+    "exact_join_events_with_player_prebuffer": 214619,
+    "exact_key_match_events": 225093,
+    "exact_player_games": 77551,
+    "games": 7624,
+    "games_after_pretip_buffer": 7624,
+    "games_exact_join_prebuffer": 7723,
+    "games_lost_by_exact_join": 3,
+    "games_with_any_event_on_schedule_date": 7726,
+    "games_with_only_outside_buffer_events": 99,
+    "games_without_minutes_rows": 0,
+    "label_slots_by_season": {
+      "2019-20": [
+        "13:00",
+        "17:00",
+        "20:00"
+      ],
+      "2020-21": [
+        "11:00",
+        "14:00",
+        "17:00"
+      ],
+      "2021-22": [
+        "17:00",
+        "20:00"
+      ],
+      "2022-23": [
+        "17:00",
+        "20:00"
+      ],
+      "2023-24": [
+        "17:00",
+        "20:00"
+      ],
+      "2024-25": [
+        "17:00",
+        "20:00"
+      ],
+      "2025-26": [
+        "17:00",
+        "20:00"
+      ]
+    },
+    "missing_tip_time_events": 0,
+    "out_of_scope_2026_events": 2805,
+    "outside_pretip_buffer_share": 0.25801536676622294,
+    "player_games_lost_by_exact_join": 22,
+    "player_games_lost_share": 0.00028360383122993824,
+    "previous_day_events": 64650,
+    "previous_day_share": 0.4059807590866846,
+    "resolved_share": 0.9869672537160601,
+    "snapshots": 2046,
+    "team_date_sensitivity_events": 220865,
+    "team_date_sensitivity_player_games": 77573,
+    "team_not_in_matchup_events": 8162,
+    "unresolved_all_events": 3131,
+    "unresolved_players": 2312,
+    "zero_minute_rows": 166
+  },
+  "decision_rule": "none -- descriptive census; nothing promoted",
+  "generated_utc": "2026-10-26T04:57:05.905197+00:00",
+  "issue": 72,
+  "prereg": "I72-prereg-descriptive-late-scratch",
+  "runtime_seconds": 64.0,
+  "tables": {
+    "available_panel": {
+      "1h": {
+        "games": 7623,
+        "rows": [
+          {
+            "age_iqr_hours": [
+              2.0,
+              3.0
+            ],
+            "median_age_hours": 2.5,
+            "n": 56209,
+            "previous_day_share": 0.05209130210464517,
+            "rate": 0.9984699959081286,
+            "scratches": 56123,
+            "status": "Out",
+            "wilson_95": [
+              0.9981110282694291,
+              0.9987608324123124
+            ]
+          },
+          {
+            "age_iqr_hours": [
+              2.0,
+              3.0
+            ],
+            "median_age_hours": 3.0,
+            "n": 1389,
+            "previous_day_share": 0.08207343412526998,
+            "rate": 0.9812814974802015,
+            "scratches": 1363,
+            "status": "Doubtful",
+            "wilson_95": [
+              0.9727136860951571,
+              0.9871944613926835
+            ]
+          },
+          {
+            "age_iqr_hours": [
+              2.0,
+              3.0
+            ],
+            "median_age_hours": 2.5,
+            "n": 9171,
+            "previous_day_share": 0.07741794787918438,
+            "rate": 0.5011449133137063,
+            "scratches": 4596,
+            "status": "Questionable",
+            "wilson_95": [
+              0.4909132557015143,
+              0.5113756121520735
+            ]
+          },
+          {
+            "age_iqr_hours": [
+              2.0,
+              3.0
+            ],
+            "median_age_hours": 2.5,
+            "n": 3582,
+            "previous_day_share": 0.08375209380234507,
+            "rate": 0.09184812953657175,
+            "scratches": 329,
+            "status": "Probable",
+            "wilson_95": [
+              0.08282217049224061,
+              0.10174861478728761
+            ]
+          },
+          {
+            "age_iqr_hours": [
+              1.0,
+              2.5
+            ],
+            "median_age_hours": 2.0,
+            "n": 4944,
+            "previous_day_share": 0.01820388349514563,
+            "rate": 0.20691747572815533,
+            "scratches": 1023,
+            "status": "Available",
+            "wilson_95": [
+              0.19585502434003765,
+              0.21843503700711625
+            ]
+          }
+        ],
+        "statuses": 75295
+      },
+      "30m": {
+        "games": 7624,
+        "rows": [
+          {
+            "age_iqr_hours": [
+              2.0,
+              3.0
+            ],
+            "median_age_hours": 2.5,
+            "n": 56597,
+            "previous_day_share": 0.05086842058766366,
+            "rate": 0.9985158223934131,
+            "scratches": 56513,
+            "status": "Out",
+            "wilson_95": [
+              0.9981630372548643,
+              0.9988009372172043
+            ]
+          },
+          {
+            "age_iqr_hours": [
+              2.0,
+              3.0
+            ],
+            "median_age_hours": 2.5,
+            "n": 1294,
+            "previous_day_share": 0.08732612055641421,
+            "rate": 0.9806800618238022,
+            "scratches": 1269,
+            "status": "Doubtful",
+            "wilson_95": [
+              0.9716344982238958,
+              0.986880007706566
+            ]
+          },
+          {
+            "age_iqr_hours": [
+              2.0,
+              3.0
+            ],
+            "median_age_hours": 2.5,
+            "n": 8706,
+            "previous_day_share": 0.07914082242131863,
+            "rate": 0.5002297266253158,
+            "scratches": 4355,
+            "status": "Questionable",
+            "wilson_95": [
+              0.4897288612181803,
+              0.5107303893840348
+            ]
+          },
+          {
+            "age_iqr_hours": [
+              2.0,
+              3.0
+            ],
+            "median_age_hours": 2.5,
+            "n": 3363,
+            "previous_day_share": 0.08682723758548914,
+            "rate": 0.09485578352661314,
+            "scratches": 319,
+            "status": "Probable",
+            "wilson_95": [
+              0.08540953948209874,
+              0.10522657479188434
+            ]
+          },
+          {
+            "age_iqr_hours": [
+              1.0,
+              2.5
+            ],
+            "median_age_hours": 2.0,
+            "n": 5426,
+            "previous_day_share": 0.016586804275709546,
+            "rate": 0.19572429045337264,
+            "scratches": 1062,
+            "status": "Available",
+            "wilson_95": [
+              0.1853840925095603,
+              0.206495037076835
+            ]
+          }
+        ],
+        "statuses": 75386
+      },
+      "3h": {
+        "games": 6734,
+        "rows": [
+          {
+            "age_iqr_hours": [
+              3.0,
+              23.0
+            ],
+            "median_age_hours": 5.0,
+            "n": 45920,
+            "previous_day_share": 0.35376742160278746,
+            "rate": 0.994969512195122,
+            "scratches": 45689,
+            "status": "Out",
+            "wilson_95": [
+              0.99427972035488,
+              0.9955764941130317
+            ]
+          },
+          {
+            "age_iqr_hours": [
+              3.0,
+              23.0
+            ],
+            "median_age_hours": 5.0,
+            "n": 1515,
+            "previous_day_share": 0.3821782178217822,
+            "rate": 0.9696369636963696,
+            "scratches": 1469,
+            "status": "Doubtful",
+            "wilson_95": [
+              0.9597384123077809,
+              0.9771598132873042
+            ]
+          },
+          {
+            "age_iqr_hours": [
+              3.5,
+              23.0
+            ],
+            "median_age_hours": 5.0,
+            "n": 9907,
+            "previous_day_share": 0.40930655092358936,
+            "rate": 0.5073180579388311,
+            "scratches": 5026,
+            "status": "Questionable",
+            "wilson_95": [
+              0.497472293422032,
+              0.5171581492640867
+            ]
+          },
+          {
+            "age_iqr_hours": [
+              3.5,
+              22.0
+            ],
+            "median_age_hours": 5.0,
+            "n": 3786,
+            "previous_day_share": 0.3497094558901215,
+            "rate": 0.10538827258320127,
+            "scratches": 399,
+            "status": "Probable",
+            "wilson_95": [
+              0.096004143456291,
+              0.11557240370071946
+            ]
+          },
+          {
+            "age_iqr_hours": [
+              3.0,
+              5.5
+            ],
+            "median_age_hours": 4.0,
+            "n": 1986,
+            "previous_day_share": 0.2109768378650554,
+            "rate": 0.22356495468277945,
+            "scratches": 444,
+            "status": "Available",
+            "wilson_95": [
+              0.20578453586497855,
+              0.24241274777810137
+            ]
+          }
+        ],
+        "statuses": 63114
+      },
+      "6h": {
+        "games": 5115,
+        "rows": [
+          {
+            "age_iqr_hours": [
+              23.0,
+              24.5
+            ],
+            "median_age_hours": 23.5,
+            "n": 32481,
+            "previous_day_share": 0.9103783750500293,
+            "rate": 0.989563129214002,
+            "scratches": 32142,
+            "status": "Out",
+            "wilson_95": [
+              0.9883985654407994,
+              0.9906119032450014
+            ]
+          },
+          {
+            "age_iqr_hours": [
+              23.0,
+              24.5
+            ],
+            "median_age_hours": 23.5,
+            "n": 1138,
+            "previous_day_share": 0.9358523725834798,
+            "rate": 0.9499121265377856,
+            "scratches": 1081,
+            "status": "Doubtful",
+            "wilson_95": [
+              0.9356561636055913,
+              0.9611407301141679
+            ]
+          },
+          {
+            "age_iqr_hours": [
+              23.0,
+              24.5
+            ],
+            "median_age_hours": 23.5,
+            "n": 7679,
+            "previous_day_share": 0.9442635759864566,
+            "rate": 0.5022789425706472,
+            "scratches": 3857,
+            "status": "Questionable",
+            "wilson_95": [
+              0.4910973184608425,
+              0.5134582876315699
+            ]
+          },
+          {
+            "age_iqr_hours": [
+              22.0,
+              25.0
+            ],
+            "median_age_hours": 23.5,
+            "n": 2745,
+            "previous_day_share": 0.892896174863388,
+            "rate": 0.12786885245901639,
+            "scratches": 351,
+            "status": "Probable",
+            "wilson_95": [
+              0.11589406937646982,
+              0.14088376751307666
+            ]
+          },
+          {
+            "age_iqr_hours": [
+              21.0,
+              24.0
+            ],
+            "median_age_hours": 23.5,
+            "n": 808,
+            "previous_day_share": 0.8279702970297029,
+            "rate": 0.17698019801980197,
+            "scratches": 143,
+            "status": "Available",
+            "wilson_95": [
+              0.15221071374817352,
+              0.204806714282122
+            ]
+          }
+        ],
+        "statuses": 44851
+      }
+    },
+    "by_era": [
+      {
+        "era": "early_2019_2021",
+        "probable_1h": {
+          "median_age_hours": 2.5,
+          "n": 479,
+          "rate": 0.11482254697286012,
+          "scratches": 55,
+          "wilson_95": [
+            0.08928553997517386,
+            0.14648867666233215
+          ]
+        },
+        "probable_30m": {
+          "median_age_hours": 2.5,
+          "n": 460,
+          "rate": 0.11304347826086956,
+          "scratches": 52,
+          "wilson_95": [
+            0.0872538825962787,
+            0.1452427283157223
+          ]
+        },
+        "probable_3h": {
+          "median_age_hours": 6.0,
+          "n": 560,
+          "rate": 0.13035714285714287,
+          "scratches": 73,
+          "wilson_95": [
+            0.10497001976405754,
+            0.16078121249691787
+          ]
+        },
+        "probable_6h": {
+          "median_age_hours": 9.0,
+          "n": 538,
+          "rate": 0.1449814126394052,
+          "scratches": 78,
+          "wilson_95": [
+            0.11774595022855455,
+            0.17725096399877682
+          ]
+        },
+        "questionable_1h": {
+          "median_age_hours": 2.5,
+          "n": 769,
+          "rate": 0.4967490247074122,
+          "scratches": 382,
+          "wilson_95": [
+            0.46151416385665506,
+            0.5320162051089908
+          ]
+        },
+        "questionable_30m": {
+          "median_age_hours": 2.5,
+          "n": 747,
+          "rate": 0.49531459170013387,
+          "scratches": 370,
+          "wilson_95": [
+            0.4595756465724999,
+            0.5311014815994076
+          ]
+        },
+        "questionable_3h": {
+          "median_age_hours": 6.0,
+          "n": 954,
+          "rate": 0.5052410901467506,
+          "scratches": 482,
+          "wilson_95": [
+            0.4735568217322474,
+            0.5368833178482428
+          ]
+        },
+        "questionable_6h": {
+          "median_age_hours": 20.0,
+          "n": 926,
+          "rate": 0.4956803455723542,
+          "scratches": 459,
+          "wilson_95": [
+            0.4635611834625346,
+            0.5278352006097632
+          ]
+        }
+      },
+      {
+        "era": "modern_2021_on",
+        "probable_1h": {
+          "median_age_hours": 2.5,
+          "n": 1938,
+          "rate": 0.0913312693498452,
+          "scratches": 177,
+          "wilson_95": [
+            0.07930094814713973,
+            0.1049785523023305
+          ]
+        },
+        "probable_30m": {
+          "median_age_hours": 2.5,
+          "n": 1807,
+          "rate": 0.09518539014941893,
+          "scratches": 172,
+          "wilson_95": [
+            0.0824999132711716,
+            0.10958845050399241
+          ]
+        },
+        "probable_3h": {
+          "median_age_hours": 5.5,
+          "n": 2323,
+          "rate": 0.10718897976754198,
+          "scratches": 249,
+          "wilson_95": [
+            0.09525101416627552,
+            0.12042400213049348
+          ]
+        },
+        "probable_6h": {
+          "median_age_hours": 23.5,
+          "n": 2207,
+          "rate": 0.12369732668781151,
+          "scratches": 273,
+          "wilson_95": [
+            0.1106115104159292,
+            0.13809088418348486
+          ]
+        },
+        "questionable_1h": {
+          "median_age_hours": 2.5,
+          "n": 5341,
+          "rate": 0.5010297697060475,
+          "scratches": 2676,
+          "wilson_95": [
+            0.4876243098995784,
+            0.5144337492204524
+          ]
+        },
+        "questionable_30m": {
+          "median_age_hours": 2.5,
+          "n": 5033,
+          "rate": 0.5016888535664613,
+          "scratches": 2525,
+          "wilson_95": [
+            0.48787913068151145,
+            0.5154960002735695
+          ]
+        },
+        "questionable_3h": {
+          "median_age_hours": 19.5,
+          "n": 6802,
+          "rate": 0.5105851220229344,
+          "scratches": 3473,
+          "wilson_95": [
+            0.49870266369240407,
+            0.5224556306763629
+          ]
+        },
+        "questionable_6h": {
+          "median_age_hours": 23.5,
+          "n": 6753,
+          "rate": 0.503183770176218,
+          "scratches": 3398,
+          "wilson_95": [
+            0.491260061897114,
+            0.5151038581924142
+          ]
+        }
+      }
+    ],
+    "by_season": [
+      {
+        "probable_1h": {
+          "median_age_hours": 2.5,
+          "n": 239,
+          "rate": 0.1087866108786611,
+          "scratches": 26,
+          "wilson_95": [
+            0.07532663788754648,
+            0.15462407895833166
+          ]
+        },
+        "probable_30m": {
+          "median_age_hours": 2.5,
+          "n": 221,
+          "rate": 0.10407239819004525,
+          "scratches": 23,
+          "wilson_95": [
+            0.07035424158360923,
+            0.1513200393323779
+          ]
+        },
+        "probable_3h": {
+          "median_age_hours": 5.0,
+          "n": 291,
+          "rate": 0.1134020618556701,
+          "scratches": 33,
+          "wilson_95": [
+            0.0818964481329156,
+            0.15498192995213075
+          ]
+        },
+        "questionable_1h": {
+          "median_age_hours": 2.5,
+          "n": 290,
+          "rate": 0.4689655172413793,
+          "scratches": 136,
+          "wilson_95": [
+            0.4123098788008102,
+            0.5264326273657777
+          ]
+        },
+        "questionable_30m": {
+          "median_age_hours": 2.5,
+          "n": 270,
+          "rate": 0.46296296296296297,
+          "scratches": 125,
+          "wilson_95": [
+            0.40442186338490344,
+            0.5225432142366121
+          ]
+        },
+        "questionable_3h": {
+          "median_age_hours": 5.5,
+          "n": 427,
+          "rate": 0.5058548009367682,
+          "scratches": 216,
+          "wilson_95": [
+            0.4585921889880479,
+            0.55301300419664
+          ]
+        },
+        "season": "2019-20",
+        "season_year": 2019
+      },
+      {
+        "probable_1h": {
+          "median_age_hours": 2.5,
+          "n": 240,
+          "rate": 0.12083333333333333,
+          "scratches": 29,
+          "wilson_95": [
+            0.08546293107499936,
+            0.1681508903566185
+          ]
+        },
+        "probable_30m": {
+          "median_age_hours": 2.5,
+          "n": 239,
+          "rate": 0.12133891213389121,
+          "scratches": 29,
+          "wilson_95": [
+            0.08582636476924285,
+            0.16883181570724884
+          ]
+        },
+        "probable_3h": {
+          "median_age_hours": 24.0,
+          "n": 269,
+          "rate": 0.14869888475836432,
+          "scratches": 40,
+          "wilson_95": [
+            0.1111385593539718,
+            0.1961518245171094
+          ]
+        },
+        "questionable_1h": {
+          "median_age_hours": 2.5,
+          "n": 479,
+          "rate": 0.5135699373695198,
+          "scratches": 246,
+          "wilson_95": [
+            0.46887941152857315,
+            0.5580445320587234
+          ]
+        },
+        "questionable_30m": {
+          "median_age_hours": 2.5,
+          "n": 477,
+          "rate": 0.5136268343815513,
+          "scratches": 245,
+          "wilson_95": [
+            0.4688429200590094,
+            0.558193010276469
+          ]
+        },
+        "questionable_3h": {
+          "median_age_hours": 25.0,
+          "n": 527,
+          "rate": 0.5047438330170778,
+          "scratches": 266,
+          "wilson_95": [
+            0.46217668116183613,
+            0.5472423244322998
+          ]
+        },
+        "season": "2020-21",
+        "season_year": 2020
+      },
+      {
+        "probable_1h": {
+          "median_age_hours": 2.5,
+          "n": 319,
+          "rate": 0.06896551724137931,
+          "scratches": 22,
+          "wilson_95": [
+            0.04598129664152807,
+            0.10220778431953768
+          ]
+        },
+        "probable_30m": {
+          "median_age_hours": 2.5,
+          "n": 299,
+          "rate": 0.07023411371237458,
+          "scratches": 21,
+          "wilson_95": [
+            0.046392784650872945,
+            0.10497875743581529
+          ]
+        },
+        "probable_3h": {
+          "median_age_hours": 5.5,
+          "n": 354,
+          "rate": 0.07909604519774012,
+          "scratches": 28,
+          "wilson_95": [
+            0.05528818879636273,
+            0.11194111042429804
+          ]
+        },
+        "questionable_1h": {
+          "median_age_hours": 2.5,
+          "n": 1058,
+          "rate": 0.4716446124763705,
+          "scratches": 499,
+          "wilson_95": [
+            0.4417210762860974,
+            0.5017733206182996
+          ]
+        },
+        "questionable_30m": {
+          "median_age_hours": 2.5,
+          "n": 995,
+          "rate": 0.46934673366834173,
+          "scratches": 467,
+          "wilson_95": [
+            0.43851444405063,
+            0.5004148115991148
+          ]
+        },
+        "questionable_3h": {
+          "median_age_hours": 17.5,
+          "n": 1254,
+          "rate": 0.48883572567783096,
+          "scratches": 613,
+          "wilson_95": [
+            0.4612446411734208,
+            0.5164950042636518
+          ]
+        },
+        "season": "2021-22",
+        "season_year": 2021
+      },
+      {
+        "probable_1h": {
+          "median_age_hours": 2.5,
+          "n": 434,
+          "rate": 0.11059907834101383,
+          "scratches": 48,
+          "wilson_95": [
+            0.08443966806413328,
+            0.1435916565062136
+          ]
+        },
+        "probable_30m": {
+          "median_age_hours": 2.5,
+          "n": 404,
+          "rate": 0.11138613861386139,
+          "scratches": 45,
+          "wilson_95": [
+            0.08429408377040447,
+            0.14579916811954496
+          ]
+        },
+        "probable_3h": {
+          "median_age_hours": 5.5,
+          "n": 519,
+          "rate": 0.11368015414258188,
+          "scratches": 59,
+          "wilson_95": [
+            0.089162246472048,
+            0.1438750634895159
+          ]
+        },
+        "questionable_1h": {
+          "median_age_hours": 2.5,
+          "n": 1082,
+          "rate": 0.5166358595194085,
+          "scratches": 559,
+          "wilson_95": [
+            0.4868532827585761,
+            0.5463007242347091
+          ]
+        },
+        "questionable_30m": {
+          "median_age_hours": 2.5,
+          "n": 1028,
+          "rate": 0.5184824902723736,
+          "scratches": 533,
+          "wilson_95": [
+            0.4879260430190098,
+            0.5489013149785744
+          ]
+        },
+        "questionable_3h": {
+          "median_age_hours": 19.5,
+          "n": 1341,
+          "rate": 0.5249813571961223,
+          "scratches": 704,
+          "wilson_95": [
+            0.4982199507185166,
+            0.5516000429521135
+          ]
+        },
+        "season": "2022-23",
+        "season_year": 2022
+      },
+      {
+        "probable_1h": {
+          "median_age_hours": 2.5,
+          "n": 347,
+          "rate": 0.08645533141210375,
+          "scratches": 30,
+          "wilson_95": [
+            0.061229211736435904,
+            0.12073780699794455
+          ]
+        },
+        "probable_30m": {
+          "median_age_hours": 2.5,
+          "n": 317,
+          "rate": 0.0946372239747634,
+          "scratches": 30,
+          "wilson_95": [
+            0.0670954675264221,
+            0.1318862106599477
+          ]
+        },
+        "probable_3h": {
+          "median_age_hours": 17.0,
+          "n": 465,
+          "rate": 0.10752688172043011,
+          "scratches": 50,
+          "wilson_95": [
+            0.08251757261025493,
+            0.13896789284332256
+          ]
+        },
+        "questionable_1h": {
+          "median_age_hours": 2.5,
+          "n": 1069,
+          "rate": 0.5154349859681946,
+          "scratches": 551,
+          "wilson_95": [
+            0.4854741537008795,
+            0.5452852799377863
+          ]
+        },
+        "questionable_30m": {
+          "median_age_hours": 2.5,
+          "n": 975,
+          "rate": 0.517948717948718,
+          "scratches": 505,
+          "wilson_95": [
+            0.486574915104678,
+            0.5491816363128345
+          ]
+        },
+        "questionable_3h": {
+          "median_age_hours": 19.5,
+          "n": 1413,
+          "rate": 0.5180467091295117,
+          "scratches": 732,
+          "wilson_95": [
+            0.49197922554063483,
+            0.5440163296435155
+          ]
+        },
+        "season": "2023-24",
+        "season_year": 2023
+      },
+      {
+        "probable_1h": {
+          "median_age_hours": 2.5,
+          "n": 455,
+          "rate": 0.1054945054945055,
+          "scratches": 48,
+          "wilson_95": [
+            0.08049598544140318,
+            0.13709893184595695
+          ]
+        },
+        "probable_30m": {
+          "median_age_hours": 2.5,
+          "n": 422,
+          "rate": 0.11137440758293839,
+          "scratches": 47,
+          "wilson_95": [
+            0.0847950609072095,
+            0.14496548855531366
+          ]
+        },
+        "probable_3h": {
+          "median_age_hours": 5.5,
+          "n": 580,
+          "rate": 0.11724137931034483,
+          "scratches": 68,
+          "wilson_95": [
+            0.09354286874019514,
+            0.14597689141392886
+          ]
+        },
+        "questionable_1h": {
+          "median_age_hours": 2.5,
+          "n": 1118,
+          "rate": 0.5214669051878354,
+          "scratches": 583,
+          "wilson_95": [
+            0.4921612256846864,
+            0.5506255634662954
+          ]
+        },
+        "questionable_30m": {
+          "median_age_hours": 2.5,
+          "n": 1079,
+          "rate": 0.5282669138090825,
+          "scratches": 570,
+          "wilson_95": [
+            0.4984327946514169,
+            0.5579004677574158
+          ]
+        },
+        "questionable_3h": {
+          "median_age_hours": 19.0,
+          "n": 1435,
+          "rate": 0.5254355400696864,
+          "scratches": 754,
+          "wilson_95": [
+            0.49956532965536526,
+            0.5511699284856282
+          ]
+        },
+        "season": "2024-25",
+        "season_year": 2024
+      },
+      {
+        "probable_1h": {
+          "median_age_hours": 2.5,
+          "n": 383,
+          "rate": 0.07571801566579635,
+          "scratches": 29,
+          "wilson_95": [
+            0.053234056898308645,
+            0.10662879135792852
+          ]
+        },
+        "probable_30m": {
+          "median_age_hours": 2.5,
+          "n": 365,
+          "rate": 0.07945205479452055,
+          "scratches": 29,
+          "wilson_95": [
+            0.0558866118277285,
+            0.11177777310065265
+          ]
+        },
+        "probable_3h": {
+          "median_age_hours": 19.0,
+          "n": 405,
+          "rate": 0.10864197530864197,
+          "scratches": 44,
+          "wilson_95": [
+            0.08193096769679081,
+            0.14270762093998196
+          ]
+        },
+        "questionable_1h": {
+          "median_age_hours": 2.5,
+          "n": 1014,
+          "rate": 0.47731755424063116,
+          "scratches": 484,
+          "wilson_95": [
+            0.44671716067803774,
+            0.508089166750513
+          ]
+        },
+        "questionable_30m": {
+          "median_age_hours": 2.5,
+          "n": 956,
+          "rate": 0.4707112970711297,
+          "scratches": 450,
+          "wilson_95": [
+            0.4392506449492094,
+            0.5024063951290701
+          ]
+        },
+        "questionable_3h": {
+          "median_age_hours": 19.5,
+          "n": 1359,
+          "rate": 0.493009565857248,
+          "scratches": 670,
+          "wilson_95": [
+            0.46648559533004835,
+            0.519572945882665
+          ]
+        },
+        "season": "2025-26",
+        "season_year": 2025
+      }
+    ],
+    "calibration": {
+      "1h": {
+        "Available": {
+          "median_age_hours": 2.0,
+          "n": 3610,
+          "rate": 0.2083102493074792,
+          "scratches": 752,
+          "wilson_95": [
+            0.1953761934740692,
+            0.2218644514949853
+          ]
+        },
+        "Probable": {
+          "median_age_hours": 2.5,
+          "n": 2417,
+          "rate": 0.09598676044683492,
+          "scratches": 232,
+          "wilson_95": [
+            0.08487584576248797,
+            0.10837992115757819
+          ]
+        }
+      },
+      "30m": {
+        "Available": {
+          "median_age_hours": 2.0,
+          "n": 3956,
+          "rate": 0.19792719919110213,
+          "scratches": 783,
+          "wilson_95": [
+            0.185806649087622,
+            0.21063385499718779
+          ]
+        },
+        "Probable": {
+          "median_age_hours": 2.5,
+          "n": 2267,
+          "rate": 0.09880899867666519,
+          "scratches": 224,
+          "wilson_95": [
+            0.08719542032617188,
+            0.11177997276157141
+          ]
+        }
+      },
+      "3h": {
+        "Available": {
+          "median_age_hours": 4.0,
+          "n": 1491,
+          "rate": 0.22199865861837692,
+          "scratches": 331,
+          "wilson_95": [
+            0.20163296002489428,
+            0.2437932309507917
+          ]
+        },
+        "Probable": {
+          "median_age_hours": 5.5,
+          "n": 2883,
+          "rate": 0.11168921262573708,
+          "scratches": 322,
+          "wilson_95": [
+            0.10070400062121114,
+            0.12370789644996867
+          ]
+        }
+      }
+    },
+    "common_panel": {
+      "1h": [
+        {
+          "age_iqr_hours": [
+            2.0,
+            3.0
+          ],
+          "median_age_hours": 2.5,
+          "n": 37888,
+          "previous_day_share": 0.0772804054054054,
+          "rate": 0.9983372043918919,
+          "scratches": 37825,
+          "status": "Out",
+          "wilson_95": [
+            0.9978733388774644,
+            0.998700023764271
+          ]
+        },
+        {
+          "age_iqr_hours": [
+            2.0,
+            3.0
+          ],
+          "median_age_hours": 2.5,
+          "n": 926,
+          "previous_day_share": 0.12311015118790497,
+          "rate": 0.9816414686825053,
+          "scratches": 909,
+          "status": "Doubtful",
+          "wilson_95": [
+            0.9707963833864347,
+            0.9885067925523486
+          ]
+        },
+        {
+          "age_iqr_hours": [
+            2.0,
+            3.0
+          ],
+          "median_age_hours": 2.5,
+          "n": 6110,
+          "previous_day_share": 0.11620294599018004,
+          "rate": 0.5004909983633388,
+          "scratches": 3058,
+          "status": "Questionable",
+          "wilson_95": [
+            0.4879572934596833,
+            0.5130240862345502
+          ]
+        },
+        {
+          "age_iqr_hours": [
+            2.0,
+            3.0
+          ],
+          "median_age_hours": 2.5,
+          "n": 2417,
+          "previous_day_share": 0.12412081092263136,
+          "rate": 0.09598676044683492,
+          "scratches": 232,
+          "status": "Probable",
+          "wilson_95": [
+            0.08487584576248797,
+            0.10837992115757819
+          ]
+        },
+        {
+          "age_iqr_hours": [
+            1.0,
+            2.5
+          ],
+          "median_age_hours": 2.0,
+          "n": 3610,
+          "previous_day_share": 0.024930747922437674,
+          "rate": 0.2083102493074792,
+          "scratches": 752,
+          "status": "Available",
+          "wilson_95": [
+            0.1953761934740692,
+            0.2218644514949853
+          ]
+        }
+      ],
+      "30m": [
+        {
+          "age_iqr_hours": [
+            2.0,
+            3.0
+          ],
+          "median_age_hours": 2.0,
+          "n": 38139,
+          "previous_day_share": 0.07548703426938305,
+          "rate": 0.9983743674453971,
+          "scratches": 38077,
+          "status": "Out",
+          "wilson_95": [
+            0.9979167657395951,
+            0.9987315804601804
+          ]
+        },
+        {
+          "age_iqr_hours": [
+            2.0,
+            3.0
+          ],
+          "median_age_hours": 2.5,
+          "n": 868,
+          "previous_day_share": 0.13018433179723501,
+          "rate": 0.9815668202764977,
+          "scratches": 852,
+          "status": "Doubtful",
+          "wilson_95": [
+            0.9702673295035261,
+            0.9886224504748552
+          ]
+        },
+        {
+          "age_iqr_hours": [
+            2.0,
+            3.0
+          ],
+          "median_age_hours": 2.5,
+          "n": 5780,
+          "previous_day_share": 0.11920415224913494,
+          "rate": 0.5008650519031141,
+          "scratches": 2895,
+          "status": "Questionable",
+          "wilson_95": [
+            0.48797850392968256,
+            0.5137504507498508
+          ]
+        },
+        {
+          "age_iqr_hours": [
+            2.0,
+            3.0
+          ],
+          "median_age_hours": 2.5,
+          "n": 2267,
+          "previous_day_share": 0.12880458756065286,
+          "rate": 0.09880899867666519,
+          "scratches": 224,
+          "status": "Probable",
+          "wilson_95": [
+            0.08719542032617188,
+            0.11177997276157141
+          ]
+        },
+        {
+          "age_iqr_hours": [
+            1.0,
+            2.5
+          ],
+          "median_age_hours": 2.0,
+          "n": 3956,
+          "previous_day_share": 0.02275025278058645,
+          "rate": 0.19792719919110213,
+          "scratches": 783,
+          "status": "Available",
+          "wilson_95": [
+            0.185806649087622,
+            0.21063385499718779
+          ]
+        }
+      ],
+      "3h": [
+        {
+          "age_iqr_hours": [
+            3.5,
+            23.0
+          ],
+          "median_age_hours": 6.0,
+          "n": 34705,
+          "previous_day_share": 0.4680881717331797,
+          "rate": 0.9939489987033568,
+          "scratches": 34495,
+          "status": "Out",
+          "wilson_95": [
+            0.9930766083103671,
+            0.9947120478227144
+          ]
+        },
+        {
+          "age_iqr_hours": [
+            3.5,
+            23.0
+          ],
+          "median_age_hours": 17.0,
+          "n": 1139,
+          "previous_day_share": 0.5083406496927129,
+          "rate": 0.9640035118525022,
+          "scratches": 1098,
+          "status": "Doubtful",
+          "wilson_95": [
+            0.9515315304515735,
+            0.9733560480194936
+          ]
+        },
+        {
+          "age_iqr_hours": [
+            4.0,
+            23.0
+          ],
+          "median_age_hours": 19.0,
+          "n": 7756,
+          "previous_day_share": 0.5228210417741104,
+          "rate": 0.509927797833935,
+          "scratches": 3955,
+          "status": "Questionable",
+          "wilson_95": [
+            0.4988000846070344,
+            0.5210456813168474
+          ]
+        },
+        {
+          "age_iqr_hours": [
+            4.0,
+            23.0
+          ],
+          "median_age_hours": 5.5,
+          "n": 2883,
+          "previous_day_share": 0.45924384321886924,
+          "rate": 0.11168921262573708,
+          "scratches": 322,
+          "status": "Probable",
+          "wilson_95": [
+            0.10070400062121114,
+            0.12370789644996867
+          ]
+        },
+        {
+          "age_iqr_hours": [
+            3.0,
+            19.5
+          ],
+          "median_age_hours": 4.0,
+          "n": 1491,
+          "previous_day_share": 0.28101945003353457,
+          "rate": 0.22199865861837692,
+          "scratches": 331,
+          "status": "Available",
+          "wilson_95": [
+            0.20163296002489428,
+            0.2437932309507917
+          ]
+        }
+      ],
+      "6h": [
+        {
+          "age_iqr_hours": [
+            23.0,
+            24.5
+          ],
+          "median_age_hours": 23.5,
+          "n": 32481,
+          "previous_day_share": 0.9103783750500293,
+          "rate": 0.989563129214002,
+          "scratches": 32142,
+          "status": "Out",
+          "wilson_95": [
+            0.9883985654407994,
+            0.9906119032450014
+          ]
+        },
+        {
+          "age_iqr_hours": [
+            23.0,
+            24.5
+          ],
+          "median_age_hours": 23.5,
+          "n": 1138,
+          "previous_day_share": 0.9358523725834798,
+          "rate": 0.9499121265377856,
+          "scratches": 1081,
+          "status": "Doubtful",
+          "wilson_95": [
+            0.9356561636055913,
+            0.9611407301141679
+          ]
+        },
+        {
+          "age_iqr_hours": [
+            23.0,
+            24.5
+          ],
+          "median_age_hours": 23.5,
+          "n": 7679,
+          "previous_day_share": 0.9442635759864566,
+          "rate": 0.5022789425706472,
+          "scratches": 3857,
+          "status": "Questionable",
+          "wilson_95": [
+            0.4910973184608425,
+            0.5134582876315699
+          ]
+        },
+        {
+          "age_iqr_hours": [
+            22.0,
+            25.0
+          ],
+          "median_age_hours": 23.5,
+          "n": 2745,
+          "previous_day_share": 0.892896174863388,
+          "rate": 0.12786885245901639,
+          "scratches": 351,
+          "status": "Probable",
+          "wilson_95": [
+            0.11589406937646982,
+            0.14088376751307666
+          ]
+        },
+        {
+          "age_iqr_hours": [
+            21.0,
+            24.0
+          ],
+          "median_age_hours": 23.5,
+          "n": 808,
+          "previous_day_share": 0.8279702970297029,
+          "rate": 0.17698019801980197,
+          "scratches": 143,
+          "status": "Available",
+          "wilson_95": [
+            0.15221071374817352,
+            0.204806714282122
+          ]
+        }
+      ]
+    },
+    "common_panel_games": 5115,
+    "coverage_by_cutoff": [
+      {
+        "age_bucket_share": {
+          "1-3h": 0.0,
+          "12-18h": 0.02055695525183385,
+          "18-24h": 0.6276114244944372,
+          "3-6h": 0.023589217631713896,
+          "6-12h": 0.06213908274063008,
+          "<1h": 0.0,
+          ">24h": 0.266103319881385
+        },
+        "cutoff": "6h",
+        "games": 5115,
+        "games_by_season": {
+          "2019-20": 433,
+          "2020-21": 468,
+          "2021-22": 887,
+          "2022-23": 898,
+          "2023-24": 791,
+          "2024-25": 822,
+          "2025-26": 816
+        },
+        "median_age_hours": 23.5,
+        "p90_age_hours": 26.0,
+        "previous_day_share": 0.914271699627656,
+        "statuses": 44851
+      },
+      {
+        "age_bucket_share": {
+          "1-3h": 0.26594733339671073,
+          "12-18h": 0.014608486231264062,
+          "18-24h": 0.3191684887663593,
+          "3-6h": 0.3640396742402637,
+          "6-12h": 0.011582216307000032,
+          "<1h": 0.0,
+          ">24h": 0.024653801058402255
+        },
+        "cutoff": "3h",
+        "games": 6734,
+        "games_by_season": {
+          "2019-20": 466,
+          "2020-21": 954,
+          "2021-22": 1097,
+          "2022-23": 1084,
+          "2023-24": 1030,
+          "2024-25": 1044,
+          "2025-26": 1059
+        },
+        "median_age_hours": 5.0,
+        "p90_age_hours": 23.5,
+        "previous_day_share": 0.3584307760560256,
+        "statuses": 63114
+      },
+      {
+        "age_bucket_share": {
+          "1-3h": 0.7584036124576665,
+          "12-18h": 0.011873298359784847,
+          "18-24h": 0.04276512384620493,
+          "3-6h": 0.08000531243774488,
+          "6-12h": 3.984328308652633e-05,
+          "<1h": 0.1065409389733714,
+          ">24h": 0.0003718706421409124
+        },
+        "cutoff": "1h",
+        "games": 7623,
+        "games_by_season": {
+          "2019-20": 468,
+          "2020-21": 1096,
+          "2021-22": 1219,
+          "2022-23": 1216,
+          "2023-24": 1204,
+          "2024-25": 1202,
+          "2025-26": 1218
+        },
+        "median_age_hours": 2.5,
+        "p90_age_hours": 3.5,
+        "previous_day_share": 0.055010292848130686,
+        "statuses": 75295
+      },
+      {
+        "age_bucket_share": {
+          "1-3h": 0.7574881277690818,
+          "12-18h": 0.011858965855729181,
+          "18-24h": 0.04166556124479346,
+          "3-6h": 0.03696972912742419,
+          "6-12h": 3.979518743533282e-05,
+          "<1h": 0.1516063990661396,
+          ">24h": 0.00037142174939643963
+        },
+        "cutoff": "30m",
+        "games": 7624,
+        "games_by_season": {
+          "2019-20": 468,
+          "2020-21": 1096,
+          "2021-22": 1219,
+          "2022-23": 1217,
+          "2023-24": 1204,
+          "2024-25": 1202,
+          "2025-26": 1218
+        },
+        "median_age_hours": 2.5,
+        "p90_age_hours": 3.0,
+        "previous_day_share": 0.053895948849919086,
+        "statuses": 75386
+      }
+    ],
+    "cutoff_redundancy": {
+      "cutoffs": [
+        "1h",
+        "30m"
+      ],
+      "median_label_gap_hours": 0.0,
+      "nonzero_label_gap_share": 0.044003061765225414,
+      "pairs": 50951,
+      "same_label_share": 0.9559969382347746,
+      "same_status_share": 0.9892445683107299
+    },
+    "final_sensitivity": {
+      "note": "30m is used as the last slot in the pre-registered table; this compares it with the strict 15-minute final status.",
+      "share_30m_status_equals_final": 0.9999583107516572,
+      "transition_rows": 47974
+    },
+    "six_hour": {
+      "by_era": {
+        "early_2019_2021": {
+          "median_age_hours": 9.0,
+          "statuses": [
+            {
+              "age_iqr_hours": [
+                6.5,
+                26.0
+              ],
+              "median_age_hours": 9.0,
+              "n": 5035,
+              "previous_day_share": 0.440317775571003,
+              "rate": 0.9918570009930486,
+              "scratches": 4994,
+              "status": "Out",
+              "wilson_95": [
+                0.9889723757912652,
+                0.9939916451456103
+              ]
+            },
+            {
+              "age_iqr_hours": [
+                7.0,
+                26.0
+              ],
+              "median_age_hours": 19.5,
+              "n": 149,
+              "previous_day_share": 0.5302013422818792,
+              "rate": 0.959731543624161,
+              "scratches": 143,
+              "status": "Doubtful",
+              "wilson_95": [
+                0.9149364899637255,
+                0.9814163354450637
+              ]
+            },
+            {
+              "age_iqr_hours": [
+                7.0,
+                26.0
+              ],
+              "median_age_hours": 20.0,
+              "n": 926,
+              "previous_day_share": 0.5475161987041036,
+              "rate": 0.4956803455723542,
+              "scratches": 459,
+              "status": "Questionable",
+              "wilson_95": [
+                0.4635611834625346,
+                0.5278352006097632
+              ]
+            },
+            {
+              "age_iqr_hours": [
+                7.0,
+                26.0
+              ],
+              "median_age_hours": 9.0,
+              "n": 538,
+              "previous_day_share": 0.46096654275092935,
+              "rate": 0.1449814126394052,
+              "scratches": 78,
+              "status": "Probable",
+              "wilson_95": [
+                0.11774595022855455,
+                0.17725096399877682
+              ]
+            },
+            {
+              "age_iqr_hours": [
+                6.5,
+                7.5
+              ],
+              "median_age_hours": 6.5,
+              "n": 143,
+              "previous_day_share": 0.11188811188811189,
+              "rate": 0.16783216783216784,
+              "scratches": 24,
+              "status": "Available",
+              "wilson_95": [
+                0.11545375287326685,
+                0.23759061602492004
+              ]
+            }
+          ]
+        },
+        "modern_2021_on": {
+          "median_age_hours": 23.5,
+          "statuses": [
+            {
+              "age_iqr_hours": [
+                23.0,
+                24.5
+              ],
+              "median_age_hours": 23.5,
+              "n": 27446,
+              "previous_day_share": 0.9966115280915252,
+              "rate": 0.989142315820156,
+              "scratches": 27148,
+              "status": "Out",
+              "wilson_95": [
+                0.9878459686187637,
+                0.9903017522773745
+              ]
+            },
+            {
+              "age_iqr_hours": [
+                23.0,
+                24.0
+              ],
+              "median_age_hours": 23.5,
+              "n": 989,
+              "previous_day_share": 0.9969666329625885,
+              "rate": 0.948432760364004,
+              "scratches": 938,
+              "status": "Doubtful",
+              "wilson_95": [
+                0.932832197841893,
+                0.9605630829360277
+              ]
+            },
+            {
+              "age_iqr_hours": [
+                23.0,
+                24.5
+              ],
+              "median_age_hours": 23.5,
+              "n": 6753,
+              "previous_day_share": 0.9986672589960017,
+              "rate": 0.503183770176218,
+              "scratches": 3398,
+              "status": "Questionable",
+              "wilson_95": [
+                0.491260061897114,
+                0.5151038581924142
+              ]
+            },
+            {
+              "age_iqr_hours": [
+                23.0,
+                24.5
+              ],
+              "median_age_hours": 23.5,
+              "n": 2207,
+              "previous_day_share": 0.9981875849569551,
+              "rate": 0.12369732668781151,
+              "scratches": 273,
+              "status": "Probable",
+              "wilson_95": [
+                0.1106115104159292,
+                0.13809088418348486
+              ]
+            },
+            {
+              "age_iqr_hours": [
+                23.0,
+                24.0
+              ],
+              "median_age_hours": 23.5,
+              "n": 665,
+              "previous_day_share": 0.9819548872180451,
+              "rate": 0.17894736842105263,
+              "scratches": 119,
+              "status": "Available",
+              "wilson_95": [
+                0.15168315510984764,
+                0.20989961725359385
+              ]
+            }
+          ]
+        }
+      },
+      "games": 5115,
+      "median_age_hours": 23.5,
+      "previous_day_share": 0.914271699627656,
+      "same_day_share": 0.08572830037234398,
+      "share_age_ge_12h": 0.914271699627656,
+      "statuses": [
+        {
+          "age_iqr_hours": [
+            23.0,
+            24.5
+          ],
+          "median_age_hours": 23.5,
+          "n": 32481,
+          "previous_day_share": 0.9103783750500293,
+          "rate": 0.989563129214002,
+          "scratches": 32142,
+          "status": "Out",
+          "wilson_95": [
+            0.9883985654407994,
+            0.9906119032450014
+          ]
+        },
+        {
+          "age_iqr_hours": [
+            23.0,
+            24.5
+          ],
+          "median_age_hours": 23.5,
+          "n": 1138,
+          "previous_day_share": 0.9358523725834798,
+          "rate": 0.9499121265377856,
+          "scratches": 1081,
+          "status": "Doubtful",
+          "wilson_95": [
+            0.9356561636055913,
+            0.9611407301141679
+          ]
+        },
+        {
+          "age_iqr_hours": [
+            23.0,
+            24.5
+          ],
+          "median_age_hours": 23.5,
+          "n": 7679,
+          "previous_day_share": 0.9442635759864566,
+          "rate": 0.5022789425706472,
+          "scratches": 3857,
+          "status": "Questionable",
+          "wilson_95": [
+            0.4910973184608425,
+            0.5134582876315699
+          ]
+        },
+        {
+          "age_iqr_hours": [
+            22.0,
+            25.0
+          ],
+          "median_age_hours": 23.5,
+          "n": 2745,
+          "previous_day_share": 0.892896174863388,
+          "rate": 0.12786885245901639,
+          "scratches": 351,
+          "status": "Probable",
+          "wilson_95": [
+            0.11589406937646982,
+            0.14088376751307666
+          ]
+        },
+        {
+          "age_iqr_hours": [
+            21.0,
+            24.0
+          ],
+          "median_age_hours": 23.5,
+          "n": 808,
+          "previous_day_share": 0.8279702970297029,
+          "rate": 0.17698019801980197,
+          "scratches": 143,
+          "status": "Available",
+          "wilson_95": [
+            0.15221071374817352,
+            0.204806714282122
+          ]
+        }
+      ]
+    },
+    "transition_3h_to_30m": {
+      "Probable": {
+        "cells": {
+          "Available": {
+            "median_age_hours": 1.0,
+            "n": 787,
+            "rate": 0.06353240152477764,
+            "scratches": 50,
+            "updated_share": 1.0,
+            "wilson_95": [
+              0.04852064015763638,
+              0.08278454156269799
+            ]
+          },
+          "Doubtful": {
+            "median_age_hours": 2.5,
+            "n": 7,
+            "rate": 1.0,
+            "scratches": 7,
+            "updated_share": 1.0,
+            "wilson_95": [
+              0.6456611570247934,
+              1.0
+            ]
+          },
+          "Not listed at 30m": {
+            "median_age_hours": null,
+            "n": 0,
+            "rate": NaN,
+            "scratches": 0,
+            "updated_share": null,
+            "wilson_95": [
+              NaN,
+              NaN
+            ]
+          },
+          "Out": {
+            "median_age_hours": 2.0,
+            "n": 33,
+            "rate": 1.0,
+            "scratches": 33,
+            "updated_share": 1.0,
+            "wilson_95": [
+              0.8957265699643882,
+              1.0
+            ]
+          },
+          "Probable": {
+            "median_age_hours": 2.5,
+            "n": 2012,
+            "rate": 0.0989065606361829,
+            "scratches": 199,
+            "updated_share": 0.5536779324055666,
+            "wilson_95": [
+              0.0866161023498816,
+              0.1127257507004771
+            ]
+          },
+          "Probable_stays_fresh": {
+            "median_age_hours": 2.0,
+            "n": 1114,
+            "rate": 0.08527827648114901,
+            "scratches": 95,
+            "wilson_95": [
+              0.07026855142603328,
+              0.10313848585008883
+            ]
+          },
+          "Probable_stays_unchanged": {
+            "median_age_hours": 3.0,
+            "n": 898,
+            "rate": 0.11581291759465479,
+            "scratches": 104,
+            "wilson_95": [
+              0.09650009181802734,
+              0.13839880838795113
+            ]
+          },
+          "Questionable": {
+            "median_age_hours": 2.0,
+            "n": 44,
+            "rate": 0.75,
+            "scratches": 33,
+            "updated_share": 1.0,
+            "wilson_95": [
+              0.6055915019158504,
+              0.8542593391931426
+            ]
+          }
+        },
+        "n_at_3h_and_30m": 2883,
+        "p_flip_to_out_by_30m": 0.011446409989594173,
+        "scratch_rate_at_30m_population": {
+          "median_age_hours": 2.5,
+          "n": 2267,
+          "rate": 0.09880899867666519,
+          "scratches": 224,
+          "wilson_95": [
+            0.08719542032617188,
+            0.11177997276157141
+          ]
+        },
+        "scratch_rate_at_3h": {
+          "median_age_hours": 5.5,
+          "n": 2883,
+          "rate": 0.11168921262573708,
+          "scratches": 322,
+          "wilson_95": [
+            0.10070400062121114,
+            0.12370789644996867
+          ]
+        },
+        "updated_by_30m_share": 0.6885189039195283
+      },
+      "Questionable": {
+        "cells": {
+          "Available": {
+            "median_age_hours": 1.0,
+            "n": 1212,
+            "rate": 0.13448844884488448,
+            "scratches": 163,
+            "updated_share": 1.0,
+            "wilson_95": [
+              0.11643088636037212,
+              0.15485576808540433
+            ]
+          },
+          "Doubtful": {
+            "median_age_hours": 2.5,
+            "n": 65,
+            "rate": 1.0,
+            "scratches": 65,
+            "updated_share": 1.0,
+            "wilson_95": [
+              0.9441965323292892,
+              0.9999999999999999
+            ]
+          },
+          "Not listed at 30m": {
+            "median_age_hours": null,
+            "n": 0,
+            "rate": NaN,
+            "scratches": 0,
+            "updated_share": null,
+            "wilson_95": [
+              NaN,
+              NaN
+            ]
+          },
+          "Out": {
+            "median_age_hours": 2.0,
+            "n": 1202,
+            "rate": 1.0,
+            "scratches": 1202,
+            "updated_share": 1.0,
+            "wilson_95": [
+              0.9968141752614935,
+              0.9999999999999999
+            ]
+          },
+          "Probable": {
+            "median_age_hours": 2.5,
+            "n": 132,
+            "rate": 0.06818181818181818,
+            "scratches": 9,
+            "updated_share": 1.0,
+            "wilson_95": [
+              0.036281922945680084,
+              0.12450534693335547
+            ]
+          },
+          "Questionable": {
+            "median_age_hours": 2.5,
+            "n": 5145,
+            "rate": 0.4890184645286686,
+            "scratches": 2516,
+            "updated_share": 0.5595724003887269,
+            "wilson_95": [
+              0.4753724467541027,
+              0.5026808691606849
+            ]
+          },
+          "Questionable_stays_fresh": {
+            "median_age_hours": 2.0,
+            "n": 2879,
+            "rate": 0.48037513025356027,
+            "scratches": 1383,
+            "wilson_95": [
+              0.46216310806390887,
+              0.49863945562880313
+            ]
+          },
+          "Questionable_stays_unchanged": {
+            "median_age_hours": 3.0,
+            "n": 2266,
+            "rate": 0.5,
+            "scratches": 1133,
+            "wilson_95": [
+              0.47943028378490493,
+              0.5205697162150951
+            ]
+          }
+        },
+        "n_at_3h_and_30m": 7756,
+        "p_flip_to_out_by_30m": 0.15497679216090768,
+        "scratch_rate_at_30m_population": {
+          "median_age_hours": 2.5,
+          "n": 5780,
+          "rate": 0.5008650519031141,
+          "scratches": 2895,
+          "wilson_95": [
+            0.48797850392968256,
+            0.5137504507498508
+          ]
+        },
+        "scratch_rate_at_3h": {
+          "median_age_hours": 19.0,
+          "n": 7756,
+          "rate": 0.509927797833935,
+          "scratches": 3955,
+          "wilson_95": [
+            0.4988000846070344,
+            0.5210456813168474
+          ]
+        },
+        "updated_by_30m_share": 0.7078390923156266
+      }
+    }
+  },
+  "title": "Late-scratch report: designation reliability by time to tip"
+}
