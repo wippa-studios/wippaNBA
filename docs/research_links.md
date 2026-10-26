@@ -173,6 +173,21 @@ beats a team that is 1-from-5": not measurably, at any bracket of either
 window, on the season that would be bet.
 [results/issue60b_recent_form.json](../results/issue60b_recent_form.json).
 
+**Meta-replication (issue #70): inconclusive, by its own declared rule.**
+Re-asked on the **2024-25** holdout (train = everything before 2024-10-22;
+test = 1,225 games) under the identical protocol, all four recent arms are null
+again — momentum **+0.000033, |z| 0.04**, form5 **−0.000227, |z| 0.22**, form10
+**−0.001117, |z| 0.87**, tz pair **−0.000225, |z| 0.64** — but the availability
+positive control on that season reads only **+0.004787, |z| 2.68**, below the
+bar.  Because the control failed, the pre-registered reading is *inconclusive*:
+2024-25 cannot resolve an availability-sized effect, so these nulls are
+underpowered rather than evidence that the nulls are season-stable.  The tz
+arm is the exception in precision — its interval [−0.000934, +0.000445] is
+narrow enough to exclude an availability-scale addition — while the 8–20-column
+streak/form ladders carry ~0.004-wide intervals.  The 2025-26 results above
+remain the stronger single-season evidence.
+[results/issue70_null_replication.json](../results/issue70_null_replication.json).
+
 ---
 
 ## Sources that repeat leakage classes this repo already found

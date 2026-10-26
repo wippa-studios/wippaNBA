@@ -1,0 +1,160 @@
+{
+  "arms": {
+    "form10": {
+      "delta": {
+        "abs_z": 0.8690599201326032,
+        "bootstrap_seed": 42,
+        "ci_hi": 0.0013898890099202658,
+        "ci_lo": -0.0036488774865518743,
+        "delta_candidate_minus_reference": -0.0011171098063512686,
+        "n_boot": 2000,
+        "p_positive": 0.197,
+        "se": 0.0012854232262613345,
+        "z": -0.8690599201326032
+      },
+      "features_added": 20,
+      "log_loss": 0.6029498122875269,
+      "metrics": {
+        "accuracy": 0.6742857142857143,
+        "auc": 0.7322011037492008,
+        "brier": 0.20771025143923735,
+        "log_loss": 0.6029498122875269,
+        "n": 1225
+      }
+    },
+    "form5": {
+      "delta": {
+        "abs_z": 0.21841647494293895,
+        "bootstrap_seed": 42,
+        "ci_hi": 0.0017995079893030925,
+        "ci_lo": -0.0022711296995139548,
+        "delta_candidate_minus_reference": -0.00022681394524626253,
+        "n_boot": 2000,
+        "p_positive": 0.3935,
+        "se": 0.0010384470553584267,
+        "z": -0.21841647494293895
+      },
+      "features_added": 10,
+      "log_loss": 0.6020595164264219,
+      "metrics": {
+        "accuracy": 0.6824489795918367,
+        "auc": 0.734968537236758,
+        "brier": 0.20723405772403783,
+        "log_loss": 0.6020595164264219,
+        "n": 1225
+      }
+    },
+    "momentum": {
+      "delta": {
+        "abs_z": 0.035421775245846665,
+        "bootstrap_seed": 42,
+        "ci_hi": 0.0019833888446116406,
+        "ci_lo": -0.001691230046598588,
+        "delta_candidate_minus_reference": 3.3205080419485e-05,
+        "n_boot": 2000,
+        "p_positive": 0.5205,
+        "se": 0.0009374199962882554,
+        "z": 0.035421775245846665
+      },
+      "features_added": 8,
+      "log_loss": 0.6017994974007561,
+      "metrics": {
+        "accuracy": 0.6775510204081633,
+        "auc": 0.7344365451682761,
+        "brier": 0.2072159253569908,
+        "log_loss": 0.6017994974007561,
+        "n": 1225
+      }
+    },
+    "tz": {
+      "delta": {
+        "abs_z": 0.640412281374774,
+        "bootstrap_seed": 42,
+        "ci_hi": 0.0004448675554684697,
+        "ci_lo": -0.0009342247167249019,
+        "delta_candidate_minus_reference": -0.00022530710468704473,
+        "n_boot": 2000,
+        "p_positive": 0.27,
+        "se": 0.00035181571503185047,
+        "z": -0.640412281374774
+      },
+      "features_added": 2,
+      "log_loss": 0.6020580095858626,
+      "metrics": {
+        "accuracy": 0.6775510204081633,
+        "auc": 0.7347213490029179,
+        "brier": 0.2071952253930128,
+        "log_loss": 0.6020580095858626,
+        "n": 1225
+      }
+    }
+  },
+  "control_clears": false,
+  "generated_utc": "2026-10-26T04:06:48.116018+00:00",
+  "issue": 70,
+  "n_test": 1225,
+  "n_train": 10749,
+  "positive_control_availability_on_minus_off": {
+    "abs_z": 2.684803644498635,
+    "bootstrap_seed": 42,
+    "ci_hi": 0.00819128489896033,
+    "ci_lo": 0.0012027526055101462,
+    "delta_candidate_minus_reference": 0.004786525918626938,
+    "n_boot": 2000,
+    "p_positive": 0.9935,
+    "se": 0.0017828215960727298,
+    "z": 2.684803644498635
+  },
+  "prior_2025_26": {
+    "form10": {
+      "abs_z": 0.63,
+      "delta": -0.000764,
+      "season": "2025-26",
+      "source": "results/issue60b_recent_form.json"
+    },
+    "form5": {
+      "abs_z": 0.64,
+      "delta": -0.00062,
+      "season": "2025-26",
+      "source": "results/issue60b_recent_form.json"
+    },
+    "momentum": {
+      "abs_z": 0.29,
+      "delta": 0.00026,
+      "season": "2025-26",
+      "source": "results/issue60_momentum.json"
+    },
+    "tz": {
+      "abs_z": 0.28,
+      "delta": 3.5e-05,
+      "season": "full frame (#56)",
+      "source": "results/issue56_tz_travel.json"
+    }
+  },
+  "protocol_ref": "I70-prereg-null-meta-replication",
+  "reference": {
+    "log_loss": 0.6018327024811756,
+    "metrics": {
+      "accuracy": 0.68,
+      "auc": 0.7344257978537613,
+      "brier": 0.20717331669083436,
+      "log_loss": 0.6018327024811756,
+      "n": 1225
+    }
+  },
+  "reproduction": {
+    "canonical_log_loss": 0.615663649343085,
+    "drift": 3.4308500485025206e-10,
+    "n_scored": 6600,
+    "recorded": 0.615663649,
+    "within_tolerance": true
+  },
+  "runtime_seconds": 11.1,
+  "verdict": "INCONCLUSIVE: the availability positive control did not clear (|z| > 3) on 2024-25, so this season cannot resolve an availability-sized effect. The nulls above are underpowered, not evidence of stability.",
+  "verdicts": {
+    "form10": "NULL (underpowered): form10 reads -0.001117 nats, |z| 0.87 on 2024-25, consistent with the recorded -0.000764 (|z| 0.63).",
+    "form5": "NULL (underpowered): form5 reads -0.000227 nats, |z| 0.22 on 2024-25, consistent with the recorded -0.000620 (|z| 0.64).",
+    "momentum": "NULL (underpowered): momentum reads +0.000033 nats, |z| 0.04 on 2024-25, consistent with the recorded +0.000260 (|z| 0.29).",
+    "tz": "NULL (underpowered): tz reads -0.000225 nats, |z| 0.64 on 2024-25, consistent with the recorded +0.000035 (|z| 0.28)."
+  }
+}
