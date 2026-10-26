@@ -148,6 +148,36 @@ the 2025-26 holdout — gives +0.000737 nats at |z| 2.15, a hint that the spot
 carries a trace of information, already priced. Full write-up:
 [docs/form_mismatch.md](docs/form_mismatch.md).
 
+### Stacking filters does not create a price: Elo plus the form mismatch
+
+The next natural move after #74 was to stack: require a pre-game Elo gap of at
+least 100 (bet the higher-rated side, home or away), then require that side to
+be 6-4 or better over its last 10 and the other side 3-7 or worse. Registered
+as `I81-prereg-layered-elo-form` and run as a **closing test of the form
+family**, not a candidate.
+
+Two facts made that the right framing. The higher-Elo side is the market
+favourite in **95.2%** of games with a 100-point gap, so the Elo layer is close
+to "back the favourite", which returns **−3.66%** ATS over all 12,385 priced
+games. And the Elo gap correlates **0.736** with the 10-game form gap: Elo has
+already absorbed most of the recent results the form filter re-reads.
+
+| bet | n | ROI | SE | \|z\| |
+|---|---|---|---|---|
+| primary: high side ATS −110 | 1,886 | **−4.42%** | 2.19% | 2.01 |
+| high side moneyline | 1,886 | **−4.06%** | 1.23% | 3.32 |
+| Elo layer alone, ATS | 6,735 | −5.11% | — | 4.32 |
+| back the favourite, ATS | 12,385 | −3.66% | 0.85% | 4.31 |
+
+The form filter improves the Elo layer by about +0.7 points (−5.11% to
+−4.42%), but the cell stays negative and the cell-minus-complement contrast is
++0.96pp at |z| 0.38. The 11-game "6-5 against 3-7" reading is worse (−5.28%,
+|z| 2.41). Inside the Elo filter the hot/cold cell is −4.47%, hot/not-cold is
+−3.78%, not-hot/cold is −5.51%, and neither is −9.01%: the high-side condition
+has a hint (+2.99pp, |z| 1.24), the cold-side condition has nothing (+0.41pp,
+|z| 0.18), and all four cells lose. Full write-up:
+[docs/layered_elo_form.md](docs/layered_elo_form.md).
+
 ### A number in the committed output that looked good, and was a bug
 
 An earlier revision reported **+11.76%** ROI for the model and **+13.54%** for model +
