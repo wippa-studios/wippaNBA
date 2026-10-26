@@ -288,6 +288,47 @@ disagree on the favourite, the market's favourite covers at **+2.75%**
 pay the hold. Fading raw Elo is the profitable side of the disagreement —
 consistent with the repo's oldest result, the market beats every model.
 
+## Family 5: `user_rules` — 13 fan-style rules, pre-registered before the run
+
+The user supplied 13 rules built only from odds, schedule and form (#91) —
+delivered *before* any number existed, which makes them a genuine
+pre-registration. All 13 settle at the best-of-books moneyline (O−1/−1, no
+pushes); coherent-row ROI is reported beside each as the family-3 artifact
+diagnostic. Discovery 11,902 priced games, holdout 1,204; bar \|z\| > 3.0.
+
+| rule | n disc | ROI disc | \|z\| | n hold | ROI hold | verdict |
+|---|---|---|---|---|---|---|
+| R1 home fav 7-3+ vs 3-7- away, away on B2B | 147 | −0.29% | 0.08 | 11 | +16.3% | no evidence |
+| R2 road fav 8-2+ vs home 3-7- | 349 | −3.24% | 0.99 | 37 | +4.4% | no evidence |
+| R3 home dog 6-4+ vs fav 4-6- | 120 | +0.78% | 0.07 | 8 | −41.8% | no evidence |
+| R4 home 4+ straight home wins vs opp 4+ road losses | 215 | −2.37% | 0.61 | 24 | −2.2% | no evidence |
+| R5 home fav ≤1.40, 7-3+, opp road form ≤2-8 | 362 | −2.75% | 1.19 | 50 | −7.9% | no evidence |
+| R6 rested (2+d) 5-5+ team vs B2B opponent | 1,873 | +1.37% | 0.60 | 184 | −1.2% | no evidence |
+| R7 home off 15+ pt loss vs opp road B2B | 204 | −1.82% | 0.23 | 27 | −6.8% | no evidence |
+| R8 home opponent of a road favourite on its 4th game in 6 nights | 1,291 | **+9.36%** | **2.21** | 146 | **−4.62%** | no evidence |
+| R9 home returning from a 4+ game road trip, 6-4+ | 341 | −4.54% | 1.06 | 41 | −10.1% | no evidence |
+| R10 home opponent of a road-B2B team off a 2OT+ game | 91 | +16.97% | 1.57 | 9 | −43.9% | no evidence |
+| R11 home on 3-game losing streak, season win% > .550 | 118 | −1.92% | 0.26 | 7 | −16.7% | no evidence |
+| R12 home off a 20+ pt loss, 6-4+ | 197 | +1.85% | 0.35 | 27 | +3.9% | same sign, underpowered |
+| R13 home dog that won 3 of the last 4 meetings | 607 | +2.50% | 0.46 | 94 | +10.8% | same sign, underpowered |
+
+**Family closed: no candidate.** No arm reached \|z\| 3.0. The two largest
+discovery surpluses are exactly the shape the loop has learned to distrust:
+fatigue-flavoured (R8, R10) and holdout-negative. The holdout samples for the
+rare-event rules (R3, R10, R11) are single digits — those cells can never
+clear a bar, which is a finding in itself.
+
+Two arms are *same sign, underpowered* and go on the watchlist with the
+family-1 pair: **R12** (home team bounced back from a 20-point loss, 6-4+,
++1.9%/+3.9%) and **R13** (home dog with 3 of the last 4 head-to-head wins,
++2.5%/+10.8%, n 607/94). Neither is evidence; both are the kind of spot a
+20-bet season would spend its budget on only after a forward season confirms.
+
+The fatigue rules collectively confirm the parked family-2 probe: schedule
+spots that look compelling (2OT road B2Bs, 4-in-6 favourites) show fat
+discovery numbers and negative or single-digit holdouts — the market's
+schedule pricing is not beatable from this data.
+
 ## Adding a family
 
 1. Write `family_<name>(j)` in `scripts/edge_search.py`; return `(arms, meta)`
