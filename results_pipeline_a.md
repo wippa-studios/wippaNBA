@@ -219,8 +219,11 @@ reason.** Summing each player's expected minutes over the squad that played the 
 *previous* game — known before tip-off whatever happens tonight — improves log loss by
 0.00382 nats. With issue #36 landed, its measured contribution to the canonical model
 is Δ **+0.00390** [0.00237, 0.00557] at **|z| = 4.78** (`python -m
-src.Models.logreg_rolling`) — above this project's |z| > 3 bar, and the only effect
-measured here that clears it honestly. Three instruments agree on one effect:
+src.Models.logreg_rolling`) — above this project's |z| > 3 bar.  It was the only
+effect measured here that cleared the bar honestly until issue #68 promoted the
+pre-tip injury multiplier on top of the same block (+0.003579, |z| 3.85, forward
+two-season holdout; see [the injury pipeline](docs/injury_pipeline.md#what-it-measured-68-promoted-on-a-powered-forward-holdout)).
+Three instruments agree on one effect:
 **+0.00382** published (`results/availability.json`, the table above), **+0.00399** on
 the ablation frame, **+0.00390** in the canonical model. Team-level season averages
 cannot express it, because a team is not one number. The block's full history — the

@@ -317,9 +317,10 @@ cannot contradict or confirm a smaller one.  That is the honest reading of the
 The full 2019-20 → 2025-26 span the two seasons were too small to answer is now
 backfilled and scored in the criterion measurement below: on the completed
 store the same injury multiplier reads **+0.002632 nats, |z| 4.47** against the
-availability block — a criterion-level signal (see next section).  The season
-protocol remains the promotion path and stays null, so the feature is not
-promoted.
+availability block — a criterion-level signal (see next section).  The original
+2020-21/2021-22 season protocol above remains a null; the powered replacement
+protocol pre-registered as issue #68 (**Promoted**, below) is what carries the
+feature over the bar.
 
 ### The recorded 43-column bar (criterion 4)
 
@@ -370,18 +371,66 @@ grew faster than its noise — the |z| climb to 4.47 is the effect outrunning
 its error, not an SE fall.  And this is the **criterion** reading: the arm was
 declared after the season protocol and can only answer criterion 4.  Per the
 refresh declaration, a `|z| > 3` criterion result is reported as a signal but
-**cannot promote** — promotion requires the pre-registered season protocol's
-rule, which remains a null (2021-22 canonical_replace +0.003868 |z| 0.96;
-2020-21 +0.000760 |z| 0.24).  No feature is promoted and the canonical model is
-unchanged.  The `availability_weights=` parameter exists, its default is
+**cannot promote** — promotion requires a pre-registered season protocol, and
+the original one (2020-21/2021-22) remains a null (2021-22 canonical_replace
++0.003868 |z| 0.96; 2020-21 +0.000760 |z| 0.24).  That criterion reading is
+what motivated the powered forward protocol in #68, which promotes the feature
+below.  The `availability_weights=` parameter exists, its default is
 bit-identical to the pre-#37 block (pinned by a test), and no experiment record
 claims otherwise.
+
+### What it measured (#68): promoted on a powered forward holdout
+
+The #37 record ended with a criterion signal that could not promote because the
+original season protocol was underpowered.  Issue #68 closed that path with a
+new pre-registration (`I68-prereg-injury-promotion`): the exact #37 criterion
+arms — E14 + unadjusted availability vs E14 + injury-weighted availability, 47
+columns, 15-minute gate — fitted once on everything before 2024-10-22 (10,749
+rows) and scored **forward** on the 2024-25 and 2025-26 seasons (2,450 games).
+The decision rule was the repository bar, declared before execution: promote
+iff the paired delta is positive with |z| > 3 on 2,000 bootstrap resamples
+(seed 42) over the combined two-season holdout; the per-season cells were
+declared descriptive.
+
+| arm | n | availability | injury | delta | 95% CI | \|z\| |
+|---|---|---|---|---|---|---|
+| **2024-25 + 2025-26 (decision)** | 2,450 | 0.59742 | 0.59384 | **+0.003579** | **[+0.001729, +0.005376]** | **3.85** |
+| 2024-25 only (descriptive) | 1,225 | 0.60041 | 0.59791 | +0.002494 | [−0.000186, +0.005230] | 1.80 |
+| 2025-26 only (descriptive) | 1,225 | 0.59443 | 0.58977 | +0.004663 | [+0.002006, +0.007290] | 3.46 |
+
+Positive control on the same forward holdout: availability vs E14 **+0.006576,
+|z| 5.49** — the frame resolves the known effect, so the injury delta is not an
+underpowered reading.  Coverage: 1,861 of the 2,450 test games (76.0%) carry at
+least one injury-adjusted weight.
+
+**Verdict: PROMOTED.** The injury multiplier is the first candidate to clear
+`|z| > 3` on a forward season holdout rather than a pooled walk-forward, and it
+does so with the positive control resolving in the same frame.  Three caveats
+stay attached:
+
+- **Season stability is only descriptive.**  The combined cell is the
+  pre-registered decision; 2025-26 alone clears (|z| 3.46), 2024-25 alone does
+  not (|z| 1.80).  One season carries most of the evidence, and the interval for
+  2024-25 crosses zero.
+- **The reproduction anchor drifted, and is kept as failed.**  The E14
+  walk-forward reproduces at 0.618303736 against #37's recorded 0.618307119 —
+  drift −3.4e-6, tolerance 1e-6, with the scored-row count identical at 6,600.
+  The data snapshot has been refreshed since #37 (whose own refresh already sat
+  +7.4e-7 from its constant).  Both arms are fitted and scored on the same
+  refreshed rows, so the paired delta cancels common drift; the drift is 0.09%
+  of the measured effect.  The payload keeps `within_tolerance: false` and the
+  ledger carries `I68-annotation-reproduction-drift` rather than a rewritten
+  number.
+- **Promotion is an evidence verdict, not a model edit.**  The canonical
+  `full` model does not consume `availability_weights` by default and is
+  unchanged; nothing in the betting stack silently switched to the
+  injury-adjusted block.
 
 ## What this is for
 
 Point-in-time designations are the input the availability feature reads (see
 [the availability block](availability_block.md) for what is measured today and
-where its boundary is). The first use is measured above and comes back null
-with an uninformative-interval caveat; the pipeline keeps banking evidence
-append-only, so the question can be asked again on a sample that can actually
-answer it.
+where its boundary is).  The first use is measured above: null on the original
+underpowered season protocol, promoted on the powered forward holdout in #68.
+The pipeline keeps banking evidence append-only, so any question that outgrows
+its first sample can be asked again on a sample that can actually answer it.

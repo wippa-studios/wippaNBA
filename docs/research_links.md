@@ -224,7 +224,8 @@ page + CVUT copies), and the graph-NN arXiv paper twice.
 The file was split in two and each half assessed against this repository's
 measured results (canonical 0.6157 log loss; market 0.59766 vs 0.62034,
 |z| 7.28; bet rule −8.23%; availability +0.00390, |z| 4.78, priced out at the
-close; injury multiplier +0.000818, |z| 2.67, not promoted; the two
-documented leak classes).  Buckets: **A** already known/covered, **B** new but
-not actionable, **C** genuinely missed / worth acting on.  The working notes
+close; injury multiplier +0.003579, |z| 3.85 on a forward two-season holdout
+(promoted, #68); the two documented leak classes).  Buckets: **A** already
+known/covered, **B** new but not actionable, **C** genuinely missed / worth
+acting on.  The working notes
 live at `/tmp/opencode/research_links_A.md` and `research_links_B.md`.

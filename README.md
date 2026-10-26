@@ -31,7 +31,7 @@ The same project is genuinely read three ways, and each way has different eviden
 
 Pre-registered experiments, an append-only ledger, and a high bar for calling anything real. **Every candidate feature and model is measured against the same frame; the project's bar is |z| > 3** (Vandenbruaene et al. 2022, *J Sports Econ* 23(7)).
 
-- **One effect clears the bar:** player-level *expected minutes* (availability) improves log loss by **+0.00390 nats, |z| 4.78** — and the closing line already prices it in.
+- **Two effects clear the bar, and both are about who plays:** player-level *expected minutes* (availability) improves log loss by **+0.00390 nats, |z| 4.78**; the same-game injury multiplier on top of it clears a **forward two-season holdout at +0.003579, |z| 3.85**. The closing line already prices the availability block in.
 - **Two headline "wins" were leaks and are documented as such:** season-to-date stats that contained the game's own result (the famous 68.9%), and a per-player Elo block that summed over the lineup which *actually* played (|z| 5.18 → +0.00065 on a pre-game roster).
 - **The simple model wins:** an L2 logistic regression (0.6157 log loss) beats XGBoost, HistGradientBoosting, random forest, Gaussian NB, a five-seed neural net and margin/total models. Every run — including the nulls — is in `results/experiments.jsonl`.
 - **The field agrees:** ~45 public NBA repos top out at 65–69% accuracy; the external literature lands at roughly this project's log loss and loses betting too. Quotes and links in [the research-notes page](docs/research_links.md).
@@ -44,7 +44,7 @@ The same models, scored against the closing line and the posted price — the au
 
 - **The market beats the model decisively:** on 5,788 games with both a prediction and a closing line, market log loss **0.59766** vs model + availability **0.62034** — a gap of 0.02268 nats, interval entirely on the market's side (|z| 7.28).
 - **Selective betting does not rescue it:** bet wherever the model beats the posted price (both sides, no free parameters) → **−8.23%** over 4,828 bets; no margin/threshold cell reaches |z| 3.
-- **The one real model edge is already in the price:** availability adds +0.00390 nats to the model, then *nothing* after conditioning on the close (tight null at the market-anchored stack).
+- **The one real model edge is already in the price:** availability adds +0.00390 nats to the model, then *nothing* after conditioning on the close (tight null at the market-anchored stack). The injury multiplier is measured as a model feature, not at the close.
 - **The original pipeline's headline was measured leakage:** the audit found and fixed six defects, including a 68.9% accuracy and ROI inflation from target leakage, a leaked API key, and a totals model with no signal.
 
 **Start here:** [Results: Pipeline B](results_pipeline_b.md) · [why odds are legitimate here](docs/market_anchor.md) · [the totals target](docs/totals_target.md) · [the full audit](audit_and_fixes.md) · [roadmap to a real forecasting engine](ROADMAP.md).
@@ -69,7 +69,7 @@ A single reproducible feature layer over NBA's own data, and the tooling that ke
 | **The 68.9% headline was target leakage** | Season-to-date stats were scraped with the game's own result included. Rebuilt without the leak, accuracy is ~48% on the affected rows. |
 | **The market beats the model decisively** | Market log loss **0.59766** vs model + availability **0.62034** on 5,788 games. Gap 0.02268 nats, \|z\| 7.28 — a loss, not a tie. |
 | **Selective betting does not rescue it** | Bet-where-the-model-beats-the-price returns **−8.23%** over 4,828 bets; no margin or threshold cell reaches \|z\| 3. |
-| **One mechanism genuinely works** | Player-level *expected minutes* (availability) improves log loss **+0.00390** at \|z\| 4.78 — the only effect that clears the bar honestly — and the close already prices it in. |
+| **Who plays is what works** | Player-level *expected minutes* (availability) improves log loss **+0.00390** at \|z\| 4.78; the pre-tip injury multiplier on top of it clears a forward two-season holdout at **+0.003579, \|z\| 3.85**. Availability is priced out at the close; the multiplier is a model result, not a measured bet. |
 | **The biggest-looking win was a leak** | A per-player Elo block measured \|z\| 5.18 and was leaking the real lineup; on a pre-game roster it is +0.00065. |
 | **The simplest sensible model wins** | Logistic regression (0.6157) leads XGBoost, HistGradientBoosting, random forest, Gaussian NB, a five-seed neural network and margin/total models. |
 | **The close absorbs everything our model knows** | Price + model loses to price alone (0.00177 nats, \|z\| 3.15); availability beyond price is a tight null. |
@@ -114,7 +114,7 @@ python scripts/closing_line.py             # does any of this beat the closing l
 
 | doc | what it covers |
 |---|---|
-| [Results: Pipeline A](results_pipeline_a.md) | Model comparison, feature blocks, the one thing that is not a null |
+| [Results: Pipeline A](results_pipeline_a.md) | Model comparison, feature blocks, the one thing that is not a null (and its injury add-on) |
 | [The October 2026 experiment campaign](docs/experiment_log_2026-10.md) | Every experiment from declared rationale to verdict, plus errata |
 | [Reading the results](docs/reading_the_results.md) | Why the ordering below the top row is the wrong thing to read |
 | [The reusable leakage gate](docs/leakage_gate.md) | One function, three probes, the three known leaks as fixtures |
@@ -138,7 +138,7 @@ python scripts/closing_line.py             # does any of this beat the closing l
 | doc | what it covers |
 |---|---|
 | [Models, features and retraining](models_and_training.md) | Model modules, `load_design`, retraining commands, the feature-order contract |
-| [The availability block](docs/availability_block.md) | The one mechanism that survived: expected minutes over the prior game's squad |
+| [The availability block](docs/availability_block.md) | The mechanism that survived: expected minutes over the prior game's squad, plus the pre-tip injury multiplier |
 | [The injury-report pipeline](docs/injury_pipeline.md) | Point-in-time availability as append-only evidence |
 | [The feature search](docs/feature_search.md) | Four pre-registered candidates and the fold-count artifact |
 | [Modelling exploration](docs/modeling_exploration.md) | Nine further candidate blocks, all scored, all null |
@@ -154,7 +154,7 @@ python scripts/closing_line.py             # does any of this beat the closing l
 
 1. **No demonstrated betting edge — this is a measured loss.** Betting wherever the model beats the posted price returns **−8.23%** over 4,828 bets; no margin or threshold cell reaches \|z\| 3. Reproduce with `python scripts/edge_betting.py`.
 2. **The model is worse than the market.** On 5,788 games with both a prediction and a closing line: market **0.59766** vs model + availability **0.62034** (gap 0.02268, CI [0.01638, 0.02859], \|z\| 7.28). Accuracy is not profitability; this project's 0.6573 is the field's normal – and no published figure in the survey accounts for the vig that this one measures at +4.13%.
-3. **Effect sizes here are small and the honest bar is high.** Everything measured is of order 0.001–0.03 nats; the one effect that clears |z| > 3 is the availability block, and it is priced in at the close (see [Pipeline A](results_pipeline_a.md)).
+3. **Effect sizes here are small and the honest bar is high.** Everything measured is of order 0.001–0.03 nats; the effects that clear |z| > 3 are availability and the pre-tip injury multiplier on top of it, and availability is priced in at the close (see [Pipeline A](results_pipeline_a.md)).
 4. **The committed model artifacts must be retrained.** They were fitted on the leaked dataset; the neural artifact also carries a stale totals column order. The totals model should not be used.
 5. **Kelly sizing here is full Kelly** with no fractional scaling or drawdown control.
 6. **Legal:** not financial advice; upstream data is not licensed for redistribution; neither this fork nor its upstream grants reuse rights.

@@ -45,8 +45,10 @@ The same mechanism measured three ways, all agreeing:
 | canonical model (issue #36) | `load_design(with_availability=True)` | **+0.00390** [+0.00237, +0.00557] | **\|z\| = 4.78** (Δ reads off the two `logreg_rolling` outputs above; its CI is from the #36 verification record, prints-only) |
 
 Δ = loss(without) − loss(with), so positive means the block helped. |z| = 4.78
-is the only effect in this repository that clears the project's |z| > 3 bar
-honestly.
+was the only effect in this repository that cleared the project's |z| > 3 bar
+honestly until issue #68, when the pre-tip injury multiplier built on this same
+block cleared a forward two-season holdout at +0.003579 (|z| 3.85) — see
+[the injury pipeline](injury_pipeline.md#what-it-measured-68-promoted-on-a-powered-forward-holdout).
 
 ## Falsification attempts that failed to falsify it
 
@@ -121,15 +123,17 @@ complete (every game date from January 2020 through the end of 2025-26), and
 the identical arm on the completed store reads **+0.002632
 [+0.001471, +0.003779], |z| 4.47, better in 5 of 5 folds** with coverage at
 7,206/13,199 games (54.6%) and 73.6% of scored rows carrying a changed weight.
-That **clears the |z| > 3 bar on the criterion measurement** — reported as a
-signal, still not a promotion: the pre-registered season protocol (the only
-promotion path) remains null, so the canonical model is unchanged and the
-injury multiplier stays a switchable, un-promoted extension. Full numbers in
-[the injury pipeline](injury_pipeline.md#what-it-measured-37-season-protocol-null-criterion-signal).
+That **cleared the |z| > 3 bar on the criterion measurement** at the time —
+reported as a signal, not a promotion, because the original pre-registered
+season protocol (2020-21/2021-22) remained null.  Issue #68 then ran the same
+arms on a powered forward holdout (train before 2024-10-22; test = 2024-25 plus
+2025-26) and the multiplier cleared at **+0.003579, |z| 3.85**; it is now
+promoted as evidence.  The canonical model is still unchanged: promotion does
+not silently rewire the default frame.  Full numbers in
+[the injury pipeline](injury_pipeline.md#what-it-measured-68-promoted-on-a-powered-forward-holdout).
 
-So the block keeps its measured claim and gains a **switchable** extension that
-is not promoted: the canonical model remains the 26-column frame described
-above. The useful transferable finding is the identity-resolution and
+So the block keeps its measured claim and gains a **switchable, now-promoted**
+extension: the canonical model remains the 26-column frame described above. The useful transferable finding is the identity-resolution and
 point-in-time machinery — 98.9% of 39,524 designations resolve to a player from
 the report's own team cell, and a 15-minute pre-tip gate leaves 93% of games
 covered — which is what a larger sample would be scored on.
