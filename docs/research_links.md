@@ -134,7 +134,17 @@ null on the 2025-26 season only.**  Pre-game entering-streak brackets
 holdout resolves the known availability effect at **+0.009247 nats, |z| 4.93**,
 this null is informative, not underpowered: if pre-game streaks carried
 availability-sized signal, the season that would be bet would have shown it.
-[results/issue60_momentum.json](../results/issue60_momentum.json).
+[results/issue60_momentum.json](../results/issue60_momentum.json).  **Follow-on
+(issue #60 thread, 2026-10-26): the same question re-asked as recent-FORM win
+counts is also null.**  Full cumulative ladders for wins in the last 5 and last
+10 games (both sides; every bracket introduced in the thread) read **form5
+−0.000620 nats (|z| 0.64)** and **form10 −0.000764 nats (|z| 0.63)** on the
+same 1,225-game 2025-26 holdout, with the availability positive control
+reproducing at **+0.009247, |z| 4.93** and the fitted bracket ladders flopping
+sign level-to-level (no coherent recent-form effect).  "A team that is 4-from-5
+beats a team that is 1-from-5": not measurably, at any bracket of either
+window, on the season that would be bet.
+[results/issue60b_recent_form.json](../results/issue60b_recent_form.json).
 
 ---
 

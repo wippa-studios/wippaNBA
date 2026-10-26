@@ -1,0 +1,195 @@
+{
+  "arms": {
+    "10": {
+      "bracket_columns": [
+        "home_form10_ge1",
+        "home_form10_ge2",
+        "home_form10_ge3",
+        "home_form10_ge4",
+        "home_form10_ge5",
+        "home_form10_ge6",
+        "home_form10_ge7",
+        "home_form10_ge8",
+        "home_form10_ge9",
+        "home_form10_ge10",
+        "away_form10_ge1",
+        "away_form10_ge2",
+        "away_form10_ge3",
+        "away_form10_ge4",
+        "away_form10_ge5",
+        "away_form10_ge6",
+        "away_form10_ge7",
+        "away_form10_ge8",
+        "away_form10_ge9",
+        "away_form10_ge10"
+      ],
+      "delta": {
+        "abs_z": 0.628156543899508,
+        "bootstrap_seed": 42,
+        "ci_hi": 0.0015895539143361281,
+        "ci_lo": -0.0031762254190914304,
+        "delta_candidate_minus_reference": -0.0007637016483653669,
+        "n_boot": 2000,
+        "p_positive": 0.266,
+        "se": 0.0012157823647341375,
+        "z": -0.628156543899508
+      },
+      "log_loss": 0.5945040181344946,
+      "metrics": {
+        "accuracy": 0.6677551020408163,
+        "auc": 0.7405012758473731,
+        "brier": 0.20421047946974874,
+        "log_loss": 0.5945040181344946,
+        "n": 1225
+      }
+    },
+    "5": {
+      "bracket_columns": [
+        "home_form5_ge1",
+        "home_form5_ge2",
+        "home_form5_ge3",
+        "home_form5_ge4",
+        "home_form5_ge5",
+        "away_form5_ge1",
+        "away_form5_ge2",
+        "away_form5_ge3",
+        "away_form5_ge4",
+        "away_form5_ge5"
+      ],
+      "delta": {
+        "abs_z": 0.6380822139951448,
+        "bootstrap_seed": 42,
+        "ci_hi": 0.0013080268669509478,
+        "ci_lo": -0.0025015789747627943,
+        "delta_candidate_minus_reference": -0.0006201240762405691,
+        "n_boot": 2000,
+        "p_positive": 0.2675,
+        "se": 0.0009718560753446854,
+        "z": -0.6380822139951448
+      },
+      "log_loss": 0.5943604405623698,
+      "metrics": {
+        "accuracy": 0.673469387755102,
+        "auc": 0.7408977865531621,
+        "brier": 0.20402195857902825,
+        "log_loss": 0.5943604405623698,
+        "n": 1225
+      }
+    }
+  },
+  "decision_protocol": "single last-season holdout: train < 2025-10-21, test = 2025-26 season; no whole-frame number",
+  "generated_utc": "2026-10-26T00:03:54.132303+00:00",
+  "issue": "60-followon",
+  "metrics": {
+    "canonical_26_holdout": {
+      "accuracy": 0.6669387755102041,
+      "auc": 0.7415721244881774,
+      "brier": 0.2038428852431653,
+      "log_loss": 0.5937403164861292,
+      "n": 1225
+    }
+  },
+  "n_test": 1225,
+  "n_train": 11974,
+  "per_side_bracket_coefficients": {
+    "10": {
+      "away_form10_ge1": 0.0353394197316014,
+      "away_form10_ge10": -0.023761270830027166,
+      "away_form10_ge2": -0.04902074498565469,
+      "away_form10_ge3": 0.031030397850339463,
+      "away_form10_ge4": -0.0027580217260825095,
+      "away_form10_ge5": -0.037103875275288446,
+      "away_form10_ge6": 0.043700009476178324,
+      "away_form10_ge7": 0.01828706807632922,
+      "away_form10_ge8": 0.04815521599835247,
+      "away_form10_ge9": 0.0006453796017582814,
+      "home_form10_ge1": -0.02091330113284644,
+      "home_form10_ge10": 0.01392953512277986,
+      "home_form10_ge2": 0.042452667480564435,
+      "home_form10_ge3": -0.03076565543869846,
+      "home_form10_ge4": 0.03008957707566558,
+      "home_form10_ge5": -0.03944011667290805,
+      "home_form10_ge6": 0.031474230942893276,
+      "home_form10_ge7": -0.02363993601768418,
+      "home_form10_ge8": -0.0001036357043797371,
+      "home_form10_ge9": -0.019175104588865663
+    },
+    "5": {
+      "away_form5_ge1": 0.006628721805030808,
+      "away_form5_ge2": -0.015511192026855905,
+      "away_form5_ge3": 0.0500545203383493,
+      "away_form5_ge4": 0.028828703219840372,
+      "away_form5_ge5": 0.01617002168430748,
+      "home_form5_ge1": -0.016892318880457582,
+      "home_form5_ge2": -0.0048296110130463645,
+      "home_form5_ge3": -0.0011688230621343114,
+      "home_form5_ge4": -0.030056210537091933,
+      "home_form5_ge5": -0.027588406432883388
+    }
+  },
+  "positive_control_availability_on_minus_off": {
+    "abs_z": 4.932708473912023,
+    "bootstrap_seed": 42,
+    "ci_hi": 0.012908035705048906,
+    "ci_lo": 0.005559737879449628,
+    "delta_candidate_minus_reference": 0.009246856307861484,
+    "n_boot": 2000,
+    "p_positive": 1.0,
+    "se": 0.0018746002032688554,
+    "z": 4.932708473912023
+  },
+  "protocol_ref": "I60b-prereg-recent-form",
+  "runtime_seconds": 8.3,
+  "sensitivity": {
+    "form5_and_form10": {
+      "delta": {
+        "abs_z": 1.1613540209767068,
+        "bootstrap_seed": 42,
+        "ci_hi": 0.0011912406742437041,
+        "ci_lo": -0.004636062869277616,
+        "delta_candidate_minus_reference": -0.0017264506903494903,
+        "n_boot": 2000,
+        "p_positive": 0.126,
+        "se": 0.0014865843310186615,
+        "z": -1.1613540209767068
+      },
+      "log_loss": 0.5954667671764787
+    },
+    "form5_away_only": {
+      "delta": {
+        "abs_z": 0.9113600192096264,
+        "bootstrap_seed": 42,
+        "ci_hi": 0.0007764538618730215,
+        "ci_lo": -0.0020398797224882026,
+        "delta_candidate_minus_reference": -0.0006547808606546246,
+        "n_boot": 2000,
+        "p_positive": 0.1825,
+        "se": 0.0007184656412978055,
+        "z": -0.9113600192096264
+      },
+      "log_loss": 0.5943950973467839
+    },
+    "form5_home_only": {
+      "delta": {
+        "abs_z": 0.05440180674593314,
+        "bootstrap_seed": 42,
+        "ci_hi": 0.0012262245925925006,
+        "ci_lo": -0.0011822301213696928,
+        "delta_candidate_minus_reference": 3.342517717297433e-05,
+        "n_boot": 2000,
+        "p_positive": 0.5235,
+        "se": 0.0006144129978821533,
+        "z": 0.05440180674593314
+      },
+      "log_loss": 0.5937068913089563
+    }
+  },
+  "verdicts": {
+    "10": "form10 NULL/NEGATIVE: point -0.000764 nats, CI [-0.003176, +0.001590], |z| 0.63.",
+    "5": "form5 NULL/NEGATIVE: point -0.000620 nats, CI [-0.002502, +0.001308], |z| 0.64."
+  },
+  "windows": [
+    5,
+    10
+  ]
+}

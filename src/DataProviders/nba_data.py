@@ -1330,6 +1330,65 @@ def streak_features(games: pd.DataFrame) -> pd.DataFrame:
     return out
 
 
+def recent_form_features(games: pd.DataFrame,
+                         windows: tuple[int, ...] = (5, 10)) -> pd.DataFrame:
+    """Recent-form win counts over sliding game windows (issue #60 follow-on).
+
+    For each team and game, and each window W, the number of WINS in that
+    team's most recent up-to-W games STRICTLY BEFORE the current game, counted
+    back chronologically over the full frame.  A team with fewer than W prior
+    games contributes its available window (count in 0..prior games), and the
+    window crosses SEASON boundaries deliberately: recent form does not reset
+    at the off-season the way a streak does, because the question is "how has
+    this team been playing", not "how long has the run gone".  Only
+    strictly-earlier games enter any window, so the feature is known before
+    tip-off and is truncation-invariant.
+
+    Returns ``len(windows) * 2`` integer columns aligned row-for-row with
+    ``games``: ``home_form{W}_enter`` / ``away_form{W}_enter``.  The bracket
+    ladders of the pre-registration (>=1..>=W indicators) are derived from
+    these in ``logreg_rolling.form_brackets``.
+    """
+    g = games.reset_index(drop=True)
+    g["gid"] = range(len(g))
+    long = pd.concat([
+        g[["GAME_ID", "GAME_DATE", "gid", "home", "away",
+           "home_pts", "away_pts"]].assign(team=lambda d: d["home"]),
+        g[["GAME_ID", "GAME_DATE", "gid", "home", "away",
+           "home_pts", "away_pts"]].assign(team=lambda d: d["away"]),
+    ], ignore_index=True)
+    long["won"] = ((long["team"] == long["home"])
+                   & (long["home_pts"] > long["away_pts"])) | (
+        (long["team"] != long["home"])
+        & (long["away_pts"] > long["home_pts"]))
+    long = long.sort_values(["team", "GAME_DATE"])
+
+    # Sliding window sum per (team, game): winsEntering = sum over the last
+    # up-to-W appearances, keyed by LABEL so the later reindex is position-safe.
+    for W in windows:
+        counts: dict[int, int] = {}
+        for _team, grp in long.groupby("team", sort=False):
+            acc = 0
+            ring: list[int] = []
+            for idx, w in zip(grp.index, grp["won"].astype(int).tolist()):
+                counts[idx] = acc
+                ring.append(int(w))
+                acc += int(w)
+                if len(ring) > W:
+                    acc -= ring.pop(0)
+        long[f"form{W}"] = long.index.map(counts)
+
+    h = long[long["team"] == long["home"]].set_index("gid")
+    a = long[long["team"] != long["home"]].set_index("gid")
+    out = pd.DataFrame(index=g.index)
+    for W in windows:
+        out[f"home_form{W}_enter"] = (
+            h[f"form{W}"].reindex(g.index).astype(float))
+        out[f"away_form{W}_enter"] = (
+            a[f"form{W}"].reindex(g.index).astype(float))
+    return out
+
+
 # --------------------------------------------------------------------------- #
 # Validation + evaluation
 # --------------------------------------------------------------------------- #
