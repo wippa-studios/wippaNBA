@@ -143,6 +143,74 @@ need its own registration. Testing it on 2025-26 now would be a post-hoc use of
 the holdout this family already read. It is recorded as a hypothesis for a
 future season, not as a result.
 
+## Family 3: `bestprice_ml` — the profit objective at the best bookable price
+
+Families 1 and 2 measure the market at **one book's** closing line, where the
+two sides of a spread sum to −8.94% and every structural bet pays the vig. The
+objective changed with #86: not "beat the market" but **"make a profit"** —
+and those settle at different prices. Profit is earned at the best price a
+bettor with accounts everywhere could actually get, which is not one book's
+close.
+
+### The data
+
+OddsPortal's season archives publish, for every NBA game, the **highest
+pre-game decimal moneyline odds across the bookmakers it tracks** — one number
+per side, each possibly from a different book. `scripts/backfill_oddsportal.py`
+crawls the 2015/16–2025/26 archives into `odds_ml_bestbooks`:
+
+| check | result |
+|---|---|
+| rows promoted | **14,305** (regular season + play-in + playoffs) |
+| regular-season games priced | **~12,600 / 12,704 (98.6%)** |
+| score agreement with the game logs | **0 disagreements** in ~14,600 outcomes, except one: the documented NBA scoring correction (Bucks–Hornets, 2022-01-08) |
+| moneyline overround 1/O1+1/O2 | **mean 1.006–1.020 by season** (~0.3–1.0% per side) vs ~4.5% single-book |
+| duplicate listings | 78 (same game under two event URLs, agreeing odds) — deduped |
+| date convention | headers render in the browser timezone after hydration; crawled with `America/New_York` so dates match the game logs |
+
+The crawl survived three site behaviours worth recording: hash-only pagination
+is silently ignored by the SPA, a reload boots back to page 1, and under load
+the archive URL can serve the *current* season (detected via upcoming games
+with no scores). The working cycle — click Next, then reload — and every
+recovery are in `scripts/backfill_oddsportal.py`.
+
+### Result: the price improvement is real; the edge is not
+
+14 arms (favourite/underdog by de-vigged probability, 7 buckets), bar
+**\|z\| > 3.0**. Population **13,106** priced regular-season games: discovery
+**11,902**, holdout **1,204**.
+
+| bet | n disc | ROI disc | \|z\| | n hold | ROI hold |
+|---|---|---|---|---|---|
+| ML underdog 0.80+ (best price) | 2,313 | **+20.41%** | **3.29** | 289 | −3.94% |
+| back the underdog, no bucket (reference) | 11,902 | **+4.10%** | 2.39 | 1,204 | −1.62% |
+| back the favourite, no bucket (reference) | 11,902 | −1.62% | 2.48 | 1,204 | −1.76% |
+| ML favourite 0.80+ (best price) | 2,313 | −3.03% | 3.42 | 289 | −2.33% |
+
+One discovery cell cleared the bar — big underdogs at **+20.41%** — and the
+aggregate "back the underdog" reference carries a 95% interval of
+**[+0.45%, +6.73%]**, entirely positive. Neither survives scrutiny:
+
+1. **The holdout is negative.** The 0.80+ cell returned −3.94% on 289
+   holdout bets. Per the registered rule: discovery-only, not a candidate.
+2. **The edge is a snapshot artifact.** The best-of-both-sides price lets the
+   two sides' quotes come from different books at different moments. Rows where
+   1/O1 + 1/O2 < 1 (13.7% of games) are exactly those snapshots. On
+   **coherent rows only**, the discovery underdog aggregate collapses from
+   **+4.10% to −0.14%**, and the dog win rate (32.28%) lands on the implied
+   break-even (32.10%). The market at coherent best-of-books prices is fair:
+   dogs priced to the cent, favourites paying the ~1% vig.
+3. **The both-sides "arbitrage" is the same artifact.** 1,791 rows admit a
+   riskless both-sides profit averaging 1.45% per unit staked — real as a
+   snapshot, unbookable at volume, and not a betting strategy.
+
+**Family closed: no candidate.** The closing moneyline is efficient at
+coherent best-of-books prices. What this family *did* establish is the honest
+size of the price improvement: settling family 1's structural bets at best
+available prices moves ROI by roughly +2 to +4 points — which is why
+single-book cells sit at −3% to −5% while the same bets at best prices sit at
+−1% to +4%. The remaining distance to profit is information, not price.
+
 ## Adding a family
 
 1. Write `family_<name>(j)` in `scripts/edge_search.py`; return `(arms, meta)`

@@ -48,6 +48,7 @@ The same models, scored against the closing line and the posted price — the au
 - **Stacking filters does not create a price:** an Elo gap ≥100 plus a 6-4/3-7 form mismatch returns **−4.42%** ATS (n=1,886, |z| 2.01) and **−4.06%** on the moneyline (|z| 3.32). The higher-Elo side is the favourite in **95.2%** of those games, and the form gap correlates **0.736** with the Elo gap — the layers are not independent information.
 - **The one real model edge is already in the price:** availability adds +0.00390 nats to the model, then *nothing* after conditioning on the close (tight null at the market-anchored stack). The injury multiplier is measured as a model feature, not at the close.
 - **A pre-registered 42-arm search finds no positive structural cell:** best is away ATS at |line| 10.5-12.5, **+3.52%** on discovery (|z| 1.12) and +3.19% on the 2025-26 holdout (n=111). Backing the underdog loses **−5.63%** (|z| 6.45); the two sides of the spread sum to **−8.94%**, the hold. Bar was |z| > 3.24.
+- **Best-of-books prices are not an edge either:** at OddsPortal best prices (overround ~1%, backfilled to 2015-16), backing the underdog looks like **+3.57%** (CI entirely positive) — but on coherent snapshots it is **−0.14%** and the dog win rate lands exactly on the implied break-even. The +20.41% big-underdog cell clears the bar on discovery and fails the holdout. The closing moneyline is efficient; the remaining distance to profit is information, not price.
 - **The original pipeline's headline was measured leakage:** the audit found and fixed six defects, including a 68.9% accuracy and ROI inflation from target leakage, a leaked API key, and a totals model with no signal.
 
 **Start here:** [Results: Pipeline B](results_pipeline_b.md) · [why odds are legitimate here](docs/market_anchor.md) · [the totals target](docs/totals_target.md) · [the full audit](audit_and_fixes.md) · [roadmap to a real forecasting engine](ROADMAP.md).
@@ -59,7 +60,7 @@ A single reproducible feature layer over NBA's own data, and the tooling that ke
 - **13,199 games, one shared design:** `scripts/download_nba_data.py` builds 310 CSVs (10+ seasons) and `src/DataProviders/nba_data.py` assembles **26 causal feature columns** used by every model. No model has a second loader.
 - **Causality is tested, not asserted:** deleting 5,199 future games changes no historical feature by more than `0.000e+00`; a reusable leakage gate separates confirmed future-dated leaks from same-date dependencies.
 - **Append-only evidence:** the injury-report store holds **2,046 snapshots across 1,037 report dates / 237,436 designation events** (official pre-tip injury reports, point-in-time semantics).
-- **1,537 tests, 0 failing, 104 subtests** across 63 files; CI on Python 3.10 & 3.11 and both sides of the scikit-learn 1.7 `multi_class` removal.
+- **1,543 tests, 0 failing, 104 subtests** across 63 files; CI on Python 3.10 & 3.11 and both sides of the scikit-learn 1.7 `multi_class` removal.
 
 **Start here:** [Models, features and retraining](models_and_training.md) · [the availability block](docs/availability_block.md) · [the injury-report pipeline](docs/injury_pipeline.md) · [the feature search](docs/feature_search.md) · [reproducing every number](reproducing.md).
 
@@ -75,6 +76,7 @@ A single reproducible feature layer over NBA's own data, and the tooling that ke
 | **Folk betting spots are already priced** | A 5-5 home team against a 2-8 road team wins 79.5% of the time; the close asks 82.7% → **−4.12%** on the moneyline, **−5.28%** on the spread at −110 over 965 games. The broad form gap covers 48.8%, a real \|z\| 4.36 mispricing that is smaller than the vig. |
 | **Stacking filters does not create a price** | An Elo gap ≥100 plus a 6-4/3-7 form mismatch returns **−4.42%** ATS (n=1,886, \|z\| 2.01) and **−4.06%** ML (\|z\| 3.32). The higher-Elo side is the favourite 95.2% of the time; the form gap correlates 0.736 with the Elo gap. |
 | **No positive structural cell survives multiplicity** | A pre-registered 42-arm scan of the close (bar \|z\| > 3.24) finds its best positive at **+3.52%** (away ATS, \|line\| 10.5-12.5, \|z\| 1.12). The largest signals are negative: underdog ATS **−5.63%** (\|z\| 6.45), heavy ML favourites **−5.26%** (\|z\| 6.21); the two spread sides sum to **−8.94%**, the hold. |
+| **Best-of-books prices close the "just shop better" route** | At OddsPortal best prices (overround ~1%, 2015-16..2025-26), ML underdogs look like **+3.57%** (CI entirely positive) — but on coherent snapshots it is **−0.14%**, with the dog win rate exactly at the implied break-even (32.28% vs 32.10%). The +20.41% big-underdog cell fails the holdout. Price improvement is real (+2 to +4 pts); it is not an edge. |
 | **Who plays is what works** | Player-level *expected minutes* (availability) improves log loss **+0.00390** at \|z\| 4.78; the pre-tip injury multiplier on top of it clears a forward two-season holdout at **+0.003579, \|z\| 3.85**. Availability is priced out at the close; the multiplier is a model result, not a measured bet. |
 | **The biggest-looking win was a leak** | A per-player Elo block measured \|z\| 5.18 and was leaking the real lineup; on a pre-game roster it is +0.00065. |
 | **The simplest sensible model wins** | Logistic regression (0.6157) leads XGBoost, HistGradientBoosting, random forest, Gaussian NB, a five-seed neural network and margin/total models. |
@@ -139,6 +141,7 @@ python scripts/closing_line.py             # does any of this beat the closing l
 | [Form-mismatch spots](docs/form_mismatch.md) | The hot-home / cold-road rule, priced: the mismatch is real, the close already has it |
 | [Layered Elo + form](docs/layered_elo_form.md) | Stacking an Elo filter with the form filter: the layer re-selects the favourite and loses the vig |
 | [The search loop](docs/edge_search.md) | A pre-registered 42-arm scan of the close, the multiplicity bar, and why the full-season 2025-26 holdout replaced the snapshot |
+| [Best-of-books moneylines](docs/edge_search.md) | The profit objective: OddsPortal best prices backfilled to 2015-16, and why the apparent underdog edge is a snapshot artifact |
 | [The audit and the fixes](audit_and_fixes.md) | The six defects found in the original, and everything this fork changed |
 | [ROADMAP](ROADMAP.md) | The levels between this pipeline and a real forecasting engine |
 
