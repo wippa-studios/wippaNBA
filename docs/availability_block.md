@@ -138,6 +138,56 @@ point-in-time machinery — 98.9% of 39,524 designations resolve to a player fro
 the report's own team cell, and a 15-minute pre-tip gate leaves 93% of games
 covered — which is what a larger sample would be scored on.
 
+## Issue #71: is the construction at an optimum, or on a plateau?
+
+The block's construction inherits choices made when it was first written: a
+15-game player halflife, the **previous game's squad**, and a sum over every
+squad member. Issue #71 asked whether that point is an interior optimum or an
+edge, with a pre-registered 24-cell grid (`I71-prereg-availability-sensitivity`):
+halflife {10, 15, 20, 30} × roster {prior game, season-average union} ×
+minutes-count {all, top 5, top 7}. Each cell is the canonical 22-column base
+plus the four rebuilt availability columns, scored on the canonical 5-fold
+walk-forward; the recorded cell (15, prior game, all) is a grid point and
+reproduces the canonical 0.615663649 exactly (drift +3.4e-10).
+
+**Decision rule, declared before execution:** ROBUST / INTERIOR iff no cell
+beats the recorded configuration at |z| > 3 *and* every cell's own availability
+effect clears |z| > 3; otherwise FRAGILE / BOUNDARY, naming the failing cells
+and reading the axis. No new value was promotion-eligible either way.
+
+| axis (others at the recorded setting) | cells | reading |
+|---|---|---|
+| halflife, prior game / all | 10: −0.000223 (**\|z\| 2.68**); 20: +0.000066 (1.30); 30: +0.000068 (0.58) | flat — no halflife beats the recorded 15 at the bar |
+| top-n, 15 / prior game | all: 0 (reproduction); 5: +0.000779 (0.86); 7: +0.000527 (0.75) | the top-5/7 cells read slightly better, but nowhere near \|z\| > 3; not promoted |
+| roster, 15 / all | prior game: 0; season average: **−0.002761 (\|z\| 3.02)** | the membership convention is load-bearing |
+
+**Verdict: FRAGILE / BOUNDARY — interior on halflife and minutes-count, at an
+edge on the roster convention.** No cell beats the recorded point at |z| > 3.
+The availability effect itself clears the bar in **all 12 prior-game cells**
+(+0.00368 to +0.00501, |z| 3.86–4.78). It fails in **11 of the 12
+season-average cells** (+0.00048 to +0.00131, |z| 0.83–3.18), and those cells
+are also reliably *worse than the recorded model* overall (−0.0026 to −0.0034
+nats, |z| up to 4.05). Replacing the previous game's squad with the season's
+cumulative union does not merely dilute the effect — it degrades the model.
+That is the useful sensitivity result: **the prior-game roster is not an
+arbitrary implementation detail; it is part of what works.** The halflife and
+top-n knobs, by contrast, sit on a plateau, so the recorded 15/all choice is
+not a tuned edge.
+
+At the close, the recorded cell reproduces **0.620331** against the recorded
+0.62034 (odds-snapshot drift −9.0e-6). Across the grid the close log loss runs
+0.6192–0.6231 against the market's 0.59766 — a 0.021–0.025-nat gap at |z| > 7
+in every cell, including the best full-frame cell (30, prior game, top 5:
+0.61921, gap 0.02155, |z| 7.41). The grid cannot manufacture a betting edge out
+of the block.
+
+Full artifact: `results/issue71_availability_sensitivity.json` /
+`.md`; run record and the close-frame annotation in
+`results/experiments.jsonl`. The first execution built the close arm from the
+canonical 26-column frame instead of `closing_line.py`'s 34-column frame; it is
+annotated, its full-frame cells reproduce to 1e-12, and only its close numbers
+are superseded.
+
 ## The honest boundary
 
 The block improves **forecasting**: +0.0039 nats at |z| = 4.78, three
