@@ -168,18 +168,19 @@ and anything that did not parse as a row — kept, never dropped), with ~32 MB o
 raw PDFs under `Data/injury_raw/`. The **live capture loop is running**
 (3-hourly slots) and the **historical backfill is complete**: every game date
 from 2020-01-01 through the end of 2025-26 has stored coverage (see the table
-below; 2019-20's October–December dates are out of scope because that layout
-does not parse). Historical recovery beyond the live page goes through the
+below; 2019-20's October–December dates are not captured yet — the parser
+handles them since #73, but that backfill leg has not been run). Historical
+recovery beyond the live page goes through the
 Wayback CDX API (PDFs back to Dec 2018) — a single public service, not a CDN:
 use CDX only for gap discovery, politely, and enumerate slots deterministically
 via this module's own URLs. Nothing in the module calls CDX today.
 
 The backfill now covers every game date from January 2020 onward.  From
-`2020-01-01` (the earliest parseable report) through the end of 2025-26, every
+`2020-01-01` (the earliest stored report) through the end of 2025-26, every
 season in `build_games()` has a stored snapshot for every game date — 901 of
 the 941 game dates across 2019-20 → 2025-26, with 2019-20's January-onward
-portion and its bubble covered and its October–December dates out of scope
-(the layout does not parse; see below).  The capture walks **game dates**
+portion and its bubble covered and its October–December dates not captured yet
+(the parser handles them since #73; see below).  The capture walks **game dates**
 rather than calendar days (a season has ~150 game dates and ~215 calendar days,
 so a range capture spends a third of its budget recording 404s on days when no
 report can exist):
@@ -208,15 +209,62 @@ that era, so afternoon games are uncovered there by construction); 2019-20
 regular-season dates used 13:00/17:00/20:00 and the bubble used 11:00/14:00/
 17:00, matching each era's published cadence.
 
-**A limitation, recorded rather than papered over:** the 2018-19 layout does
-not parse under the current cell grammar. A 2019-01-15 report yields 0 rows and
-94 line-shaped rejections, all `missing required cell(s): Current Status` — the
-era printed a different column set, and the header guard reports it instead of
-mis-attributing statuses. The layout changed for the better somewhere between
-2019-12-15 (still 0 rows) and 2020-01-05 (117 rows, 0 unparsed), so the usable
-window begins in **January 2020**, mid-way through the 2019-20 season, and the
-parser refuses loudly before that. Extending it to the earlier layout is a
-parser job, not a capture job.
+### The pre-2020 layouts (#73)
+
+The stored window still begins in January 2020, but that is now a capture
+choice, not a parser limit.  The 2018-19 and 2019-Q4 reports printed three
+column grammars; all three are anchored by label and parse:
+
+| window (observed) | columns | status position |
+|---|---|---|
+| 2018-12-17 → 2019-11-01 | Date, Time, Matchup, Team, Player, **Category**, Reason, **Current Status**, **Previous Status** | after Reason |
+| 2019-11-15 | Date, Time, Matchup, Team, Player, Reason, **Current Status**, **Previous Status** | after Reason |
+| 2019-12-01 | Date, Time, Matchup, Team, Player, **Current Status**, Reason, **Previous Status** | before Reason |
+| 2019-12-20 onward | the canonical seven | before Reason |
+
+The parser now anchors `Category` and `Previous Status` as delimiter columns.
+Their text can no longer leak into Player, Reason or Current Status; neither is
+stored, because the evidence schema has no field for them.  `Previous Status`
+also exposed a header-matching bug: the one-word `status` alias re-anchored
+`COL_STATUS` to the *last* column, so every row lost its Current Status and
+was rejected as `missing required cell(s)`.  A column is now anchored once, by
+its longest matching label, and never re-anchored.
+
+The same era printed a Team cell on a line of its own (`Minnesota` then
+`Timberwolves`) or on the line carrying the first player's wrapped Reason
+(`Portland Trail Blazers Injury/Illness - Left shoulder;`).  Those lines are
+block **context**: they update the inherited team/time/matchup and complete the
+row above (for a wrapped team name) instead of being filed as a
+NOT-YET-SUBMITTED slate line.  The wrapped reason still merges into the player
+row above or below by the normal run rule.
+
+**Validation.**  Eleven real PDFs spanning 2018-12-17 → 2020-01-05
+(2018-12-17, 2019-01-15, 2019-02-01, 2019-03-01, 2019-04-01, 2019-10-25,
+2019-11-01, 2019-11-15, 2019-12-01, 2019-12-20, 2020-01-05) parse with
+**0 unparsed lines** and only the five official designations.  The
+2019-01-15 report that produced 0 rows / 94 rejections now produces **91 rows /
+0 rejections**.  A 120-PDF sample of the modern store parses cell-for-cell
+identically before and after the change, so no stored row needs a re-parse.
+
+**Backfill policy for the newly usable window:**
+
+- The CDN archive starts at **2018-12-17** (2018-12-01 … 12-14 all return
+  403).  The 2018-19 season before that date, and anything earlier, would
+  need Wayback recovery; it is out of scope here.
+- Capture by **game date**, as the existing backfill does: 107 dates from
+  2018-12-17 → 2019-04-10 and 69 dates from 2019-10-22 → 2019-12-31.  Era 1
+  has no documented slot list, so probe the full 24-hour grid and record
+  absences; at the module's 5–10 s pacing this is ≈4,200 probes, 6–12 hours.
+  Run it as its own explicit, resumable leg with `--max-requests`; do not fold
+  it into the live loop.
+- Before treating a date's 403s as "no report", confirm a known-good slot on
+  that date (the 2025-26 boundary incident was a wrong URL, not an absence).
+  Store every probe outcome; an absence is evidence.
+- Parse only the newly captured snapshots.  Do not `parse --reparse` the
+  2020+ store for this change: their derived rows are unchanged.
+- Report the leg's snapshots, status events, unparsed rows and parse failures
+  before using the window in any model test.  This change unlocks the window;
+  it does not silently expand the evidence.
 
 ## The 2025-26 boundary incident
 
