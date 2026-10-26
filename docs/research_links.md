@@ -110,7 +110,15 @@ market-anchored stack used for the availability block).
    4,828-bet P&L and add a variance dimension (5-seed MLP dispersion or a
    logistic bootstrap); compare ROI vs the −8.23% baseline.  The prior is
    against it — the MDPI paper's own table shows uncertainty conditioning does
-   not rescue profitability.
+   not rescue profitability.  **Status (issue #58): measured NULL.**  Per-game
+   dispersion from a 50-resample residual bootstrap of the walk-forward
+   logistic is **uninformative** about where the model is wrong (corr with
+   wrong-bets **−0.05**; realized win rates flat across variance terciles
+   0.391 / 0.384 / 0.402), so no gate can help: restricting to low-dispersion
+   bets makes the rule *worse* (gate-25% −15.3% vs the −8.71% breakeven
+   baseline), the 75% gate wobbles +1.6pp, and all gate deltas sit at
+   |z| ≤ 0.6.  Sized rules lose too (1−var −10.4%; 0.3·Kelly(1−var) −19.8% —
+   Kelly amplifies a losing rule).  [results/issue58_variance_staking.json](../results/issue58_variance_staking.json).
 4. **Early-season market drift (weakest claim).**
    Only an affiliate blog
    ([SportsBoom](https://www.sportsboom.us/betting/nba-betting-strategies))

@@ -1,0 +1,72 @@
+{
+  "baseline_breakeven": {
+    "n_bets": 4822,
+    "recorded": "recorded 4,828 bets / -8.23% (older frame); current reproduction printed",
+    "roi": -0.08713654536166468
+  },
+  "dispersion": {
+    "corr_with_mistake": -0.04971224341651705,
+    "mean": 0.02369090650431364,
+    "sd": 0.0067468003547270575,
+    "source": "residual bootstrap of the walk-forward logistic (B=50, seed 42)",
+    "win_rate_by_variance_tercile": {
+      "high": 0.4019912881144991,
+      "low": 0.39116915422885573,
+      "mid": 0.3839452395768513
+    }
+  },
+  "gate_rules": {
+    "gate_25": {
+      "baseline_roi": -0.08713654536166468,
+      "ci": [
+        -0.27259058996667757,
+        0.15039575751505976
+      ],
+      "n_bets": 1205,
+      "p_positive": 0.278,
+      "roi": -0.15269426176740555,
+      "rule_minus_baseline": -0.06190574952669357,
+      "z": -0.5840132262791895
+    },
+    "gate_50": {
+      "baseline_roi": -0.08713654536166468,
+      "ci": [
+        -0.13682017473750582,
+        0.07145046900873256
+      ],
+      "n_bets": 2411,
+      "p_positive": 0.275,
+      "roi": -0.11944283064129584,
+      "rule_minus_baseline": -0.03254168939684913,
+      "z": -0.6024434025937708
+    },
+    "gate_75": {
+      "baseline_roi": -0.08713654536166468,
+      "ci": [
+        -0.03622537282526459,
+        0.0729795375617854
+      ],
+      "n_bets": 3616,
+      "p_positive": 0.724,
+      "roi": -0.07052836785067598,
+      "rule_minus_baseline": 0.016128106337241363,
+      "z": 0.5766980650688073
+    }
+  },
+  "generated_utc": "2026-10-26T00:47:12.186077+00:00",
+  "issue": 58,
+  "n_games_with_line": 5788,
+  "protocol_ref": "I58-prereg-variance-staking",
+  "runtime_seconds": 42.5,
+  "sized_rules": {
+    "stake_prop_0.3kelly_times_1_minus_var": {
+      "bets": 4243,
+      "roi": -0.19843535162466186
+    },
+    "stake_prop_1_minus_var": {
+      "bets": 4821,
+      "roi": -0.10399769345833584
+    }
+  },
+  "verdict": "NULL: variance conditioning does not rescue the rule. The median gate moves ROI by -0.0325 vs the -8.71% baseline (|z| 0.60), below the bar; the win-rate-by-variance-tercile diagnostic shows whether uncertainty even flags where the model is wrong. No promotion."
+}
