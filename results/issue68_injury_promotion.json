@@ -1,0 +1,155 @@
+{
+  "arms": {
+    "combined": {
+      "availability_frame": {
+        "accuracy": 0.6771428571428572,
+        "auc": 0.736704432887568,
+        "brier": 0.20550671074246674,
+        "log_loss": 0.597418969356114,
+        "n": 2450
+      },
+      "delta_injury_vs_availability": {
+        "abs_z": 3.8463514089752584,
+        "bootstrap_seed": 42,
+        "ci_hi": 0.005375640857614329,
+        "ci_lo": 0.0017285708804569895,
+        "delta_candidate_minus_reference": 0.003578614899373278,
+        "n_boot": 2000,
+        "p_positive": 0.9995,
+        "se": 0.0009303920830069683,
+        "z": 3.8463514089752584
+      },
+      "injury_frame": {
+        "accuracy": 0.6808163265306122,
+        "auc": 0.7411600663264206,
+        "brier": 0.20394578599205,
+        "log_loss": 0.5938403544567408,
+        "n": 2450
+      },
+      "label": "2024-25 + 2025-26",
+      "n": 2450
+    },
+    "season_2024_25": {
+      "availability_frame": {
+        "accuracy": 0.6693877551020408,
+        "auc": 0.7340388945312291,
+        "brier": 0.20676893979081143,
+        "log_loss": 0.600406287251895,
+        "n": 1225
+      },
+      "delta_injury_vs_availability": {
+        "abs_z": 1.804926264714881,
+        "bootstrap_seed": 42,
+        "ci_hi": 0.0052302639028965255,
+        "ci_lo": -0.00018588204350041825,
+        "delta_candidate_minus_reference": 0.002493858068867816,
+        "n_boot": 2000,
+        "p_positive": 0.9655,
+        "se": 0.001381695262361182,
+        "z": 1.804926264714881
+      },
+      "injury_frame": {
+        "accuracy": 0.6751020408163265,
+        "auc": 0.7370723240530274,
+        "brier": 0.2056843146818402,
+        "log_loss": 0.5979124291830272,
+        "n": 1225
+      },
+      "label": "2024-25 only",
+      "n": 1225
+    },
+    "season_2025_26": {
+      "availability_frame": {
+        "accuracy": 0.6848979591836735,
+        "auc": 0.7396300312353332,
+        "brier": 0.20424448169412202,
+        "log_loss": 0.5944316514603329,
+        "n": 1225
+      },
+      "delta_injury_vs_availability": {
+        "abs_z": 3.4596204600392366,
+        "bootstrap_seed": 42,
+        "ci_hi": 0.007289752908583818,
+        "ci_lo": 0.002005912779440763,
+        "delta_candidate_minus_reference": 0.004663371729878629,
+        "n_boot": 2000,
+        "p_positive": 0.999,
+        "se": 0.0013479431584312402,
+        "z": 3.4596204600392366
+      },
+      "injury_frame": {
+        "accuracy": 0.686530612244898,
+        "auc": 0.7453160487033831,
+        "brier": 0.20220725730225977,
+        "log_loss": 0.5897682797304543,
+        "n": 1225
+      },
+      "label": "2025-26 only",
+      "n": 1225
+    }
+  },
+  "coverage_note": {
+    "designations_in_store": 71393,
+    "diagnostics": {
+      "coverage_share": 0.5459504507917267,
+      "coverage_share_of_all_games": 0.5459504507917267,
+      "designations_applied": 71393,
+      "designations_on_prior_squad": 15114,
+      "events_ambiguous": 0,
+      "events_resolved": 234776,
+      "events_stored": 237311,
+      "games": 13199,
+      "games_total": 13199,
+      "games_with_changed_weight": 5642,
+      "games_with_designation": 7206,
+      "games_with_pre_tip_snapshot": 7206,
+      "games_with_prior_squad_designation": 6007,
+      "match_methods": {
+        "exact": 234776,
+        "unresolved": 2535
+      },
+      "resolution_rate": 0.98931781501911,
+      "status_counts": {
+        "Available": 5337,
+        "Doubtful": 1183,
+        "Out": 53788,
+        "Probable": 3068,
+        "Questionable": 8017
+      },
+      "status_on_prior_squad": {
+        "Available": 2445,
+        "Doubtful": 399,
+        "Out": 6599,
+        "Probable": 2002,
+        "Questionable": 3669
+      },
+      "test_games_with_changed_weight": 1861
+    },
+    "test_games": 2450
+  },
+  "generated_utc": "2026-10-26T03:55:12.852788+00:00",
+  "issue": 68,
+  "n_test_two_seasons": 2450,
+  "n_train": 10749,
+  "positive_control_availability_vs_e14": {
+    "abs_z": 5.485935060650401,
+    "bootstrap_seed": 42,
+    "ci_hi": 0.008943625866016694,
+    "ci_lo": 0.004244502900868724,
+    "delta_candidate_minus_reference": 0.0065764175844078565,
+    "n_boot": 2000,
+    "p_positive": 1.0,
+    "se": 0.001198777876825281,
+    "z": 5.485935060650401
+  },
+  "protocol_ref": "I68-prereg-injury-promotion",
+  "reproduction": {
+    "drift": -3.3825873487769442e-06,
+    "e14_walk_forward_log_loss": 0.6183037364126512,
+    "n_scored": 6600,
+    "recorded_bar": 0.618307119,
+    "within_tolerance": false
+  },
+  "runtime_seconds": 30.2,
+  "verdict": "PROMOTED: the injury multiplier clears |z| > 3 on the last-two-seasons holdout (+0.003579 nats, |z| 3.85, CI [+0.001729, +0.005376]) -- the criterion reading survives a forward season holdout. Promotion-grade evidence for the feature."
+}
