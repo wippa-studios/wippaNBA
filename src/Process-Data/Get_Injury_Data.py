@@ -1391,6 +1391,14 @@ COL_TEAM = 3
 COL_PLAYER = 4
 COL_STATUS = 5
 COL_REASON = 6
+# Two columns the 2018-19 / 2019-20 reports printed and later reports dropped.
+# They are anchored so their text cannot leak into Reason or Status by
+# position, but they are not part of the stored row: the evidence layer has no
+# field for them and the canonical seven columns are what every consumer
+# reads.  `Previous Status` is exactly why a short "status" alias must never
+# overwrite the `Current Status` anchor (see `_match_header`).
+COL_CATEGORY = 7
+COL_PREV_STATUS = 8
 
 HEADER_LABELS = {
     COL_GAME_DATE: ("game date",),
@@ -1400,6 +1408,8 @@ HEADER_LABELS = {
     COL_PLAYER: ("player",),
     COL_STATUS: ("current status", "status"),
     COL_REASON: ("reason", "reason for status", "comments"),
+    COL_CATEGORY: ("category",),
+    COL_PREV_STATUS: ("previous status",),
 }
 
 # A header declaration needs the query-critical columns plus a quorum of the
@@ -1521,6 +1531,11 @@ def _match_header(line_chars):
     the next anchor to the right, which is why a cell overflowing its column
     (a long "7:30 pm ET" in the Game Time column, say) still lands correctly:
     each CHARACTER is placed by its own position, not by a word-level guess.
+
+    A column is anchored once, by its longest matching alias. This matters on
+    the 2018-19 header, where "Previous Status" gives the one-word "status"
+    alias a second place to match; re-anchoring there would overwrite Current
+    Status with the last column and empty every row's status cell.
     """
     words = _char_words(line_chars)
     tokens = [_normalise_label(_chars_to_text(w["chars"], gap_ratio=0.0))
@@ -1533,6 +1548,12 @@ def _match_header(line_chars):
         key=lambda pair: -len(pair[0].split()),
     )
     for alias, col in candidates:
+        if col in anchors:
+            # A column is anchored by its longest matching label. Without
+            # this, the one-word "status" alias re-anchors COL_STATUS to the
+            # "Status" inside "Previous Status" in the 2018-19 header, and
+            # every row loses its Current Status cell.
+            continue
         alias_tokens = alias.split()
         width = len(alias_tokens)
         for start in range(len(tokens) - width + 1):
@@ -1647,6 +1668,19 @@ def parse_injury_pdf(data):
         the time and matchup once per game block. Rows carry no copies.
       * The label is "Player Name", not "Player". Column positions come from
         the header LABELS wherever they sit, never from constants.
+      * The 2018-19 reports added two columns later dropped: Category
+        (between Player and Reason) and Previous Status (after Current
+        Status). Both are anchored so their text cannot leak into the
+        stored Reason/Status cells, but neither is stored -- the evidence
+        schema has no field for them. A column is anchored by its longest
+        label and never re-anchored, so the one-word "status" alias cannot
+        steal the Current Status anchor from "Previous Status".
+      * In that era the Team cell can print on a line of its own (a wrapped
+        team name: "Minnesota" then "Timberwolves") or on the line that
+        carries the first player's wrapped Reason. Those lines are block
+        CONTEXT: they update the inherited team/time/matchup (and complete
+        the row above, for a wrapped team name), rather than being filed as
+        a NOT-YET-SUBMITTED slate line.
       * The Game Time cell reads "04:00 (ET)".
       * Titles and footers ("Injury Report: 10/23/26 12:00 AM", "Page 1 of 6")
         scatter words across the Team/Player/Status columns. They are kept out
@@ -1662,7 +1696,8 @@ def parse_injury_pdf(data):
         overflows its column does not corrupt the next one;
       * date cells tolerate MM/DD/YYYY, YYYY-MM-DD, MM/DD/YY, DD/MM/YYYY;
       * wrap text merges only into text columns (Reason, and Matchup/Game Time
-        when the row already printed them). A wrap run that cannot be
+        when the row already printed them); a Team cell on a wrap line is
+        context, never wrapped text. A wrap run that cannot be
         attributed to a row within a plausible distance is RECORDED as an
         unparsed line rather than glued onto an unrelated row. Known
         ambiguity: wrap lines from ADJACENT rows that sit textually adjacent,
@@ -1868,6 +1903,37 @@ _ROW_KEY_BY_COLUMN = {
 }
 
 
+def _absorb_context_cells(cells, context):
+    """Apply a secondary line's game context and return its wrap cells.
+
+    The 2018-19 reports print the Team cell on a line that also carries a
+    wrapped Reason ("Portland Trail Blazers Injury/Illness - Left shoulder;").
+    That line is the team block's header, not a slate line: the rows below
+    inherit its Game Time, Matchup and Team.  Only a Reason cell survives for
+    the wrap merger -- Game Time and Matchup on this line are CONTEXT, and
+    appending them to an inherited row (the generic wrap merge's rule for
+    those columns) would duplicate the time/matchup rather than continue it.
+
+    An unparseable Game Date is ignored here rather than failing the line:
+    the line is not a data row, and the context it would carry is already
+    suspect.  The primary row still inherits the last good date.
+    """
+    date_cell = _clean_cell(cells.get(COL_GAME_DATE, ""))
+    if date_cell:
+        parsed = _parse_game_date(date_cell)
+        if parsed is not None:
+            context["game_date_raw"] = date_cell
+            context["game_date_iso"] = parsed.isoformat()
+    for col, key in ((COL_GAME_TIME, "game_time"),
+                     (COL_MATCHUP, "matchup"),
+                     (COL_TEAM, "team")):
+        value = _clean_cell(cells.get(col, ""))
+        if value:
+            context[key] = value
+    reason = cells.get(COL_REASON, "")
+    return {COL_REASON: reason} if reason else {}
+
+
 def _process_page(entries, context, carry_row=None):
     """Two-pass page assembly: rows first, then wrap-RUN attribution.
 
@@ -1907,20 +1973,66 @@ def _process_page(entries, context, carry_row=None):
     merged = 0
 
     primaries = [e for e in entries if e["kind"] == "primary"]
-    secondaries = [e for e in entries if e["kind"] == "secondary"]
 
-    # Pass 1: rows, in reading order, with fill-forward context.
-    for entry in primaries:
-        row, problem = _row_from_cells(entry["cells"], entry["text"],
-                                       entry["line_no"], context)
-        if row is None:
-            unparsed.append({"line_no": entry["line_no"],
-                             "raw_text": entry["text"], "reason": problem})
-            entry["row"] = None
+    # Pass 1: rows, in reading order, with fill-forward context.  A later-era
+    # report prints the Team cell on the first row of each team block; the
+    # 2018-19 layout can print it on a line of its own (a wrapped team name)
+    # or on the line that carries the first player's wrapped Reason.  Those
+    # lines are block CONTEXT, not slate state, and must be absorbed at the
+    # point they appear or the first row inherits the previous team.
+    last_row = None
+    for entry in sorted(entries, key=lambda e: e["top"]):
+        if entry["kind"] == "primary":
+            row, problem = _row_from_cells(entry["cells"], entry["text"],
+                                           entry["line_no"], context)
+            if row is None:
+                unparsed.append({"line_no": entry["line_no"],
+                                 "raw_text": entry["text"], "reason": problem})
+                entry["row"] = None
+                last_row = None
+            else:
+                rows.append(row)
+                entry["row"] = row
+                last_row = row
+            continue
+
+        team = _clean_cell(entry["cells"].get(COL_TEAM, ""))
+        if not team:
+            continue
+        if "NOT YET SUBMITTED" in entry["text"].upper():
+            # A slate-state marker for a team with no designations yet.  It is
+            # recorded as furniture below, never treated as block context.
+            continue
+        carries_context = any(
+            entry["cells"].get(col)
+            for col in (COL_GAME_DATE, COL_GAME_TIME, COL_MATCHUP, COL_REASON))
+        if carries_context:
+            entry["cells"] = _absorb_context_cells(entry["cells"], context)
+            if not entry["cells"]:
+                entry["consumed"] = True
+                merged += 1
         else:
-            rows.append(row)
-            entry["row"] = row
+            # A team-only line is the wrapped remainder of the team name
+            # printed on the row above ("Minnesota" + "Timberwolves").
+            previous = context.get("team")
+            if previous and team in previous:
+                # The fragment is already part of the inherited name
+                # ("Clippers" after "LA Clippers"): keep the name.  Appending
+                # would duplicate it and replacing would truncate it.
+                context["team"] = previous
+            else:
+                context["team"] = f"{previous} {team}" if previous else team
+                if (last_row is not None and previous
+                        and last_row.get("team") == previous):
+                    last_row["team"] = context["team"]
+                elif (carry_row is not None and previous
+                        and carry_row.get("team") == previous):
+                    carry_row["team"] = context["team"]
+            entry["consumed"] = True
+            merged += 1
 
+    active = [e for e in entries if not e.get("consumed")]
+    secondaries = [e for e in active if e["kind"] == "secondary"]
     if not secondaries:
         return rows, merged, unparsed, furniture
 
@@ -1934,7 +2046,7 @@ def _process_page(entries, context, carry_row=None):
     # layout (line gap == row gap) from chaining a run past its own band.
     # A footer or a straggler sits far from every row: the attribution bound
     # stays at the page's median gap.
-    tops = sorted(e["top"] for e in entries)
+    tops = sorted(e["top"] for e in active)
     line_gaps = [b - a for a, b in zip(tops, tops[1:]) if b > a]
     median_gap = statistics.median(line_gaps) if line_gaps else 0.0
     distance_bound = max(15.0, median_gap)
@@ -1949,7 +2061,7 @@ def _process_page(entries, context, carry_row=None):
     runs = []
     current = []
     prev_top = None
-    for entry in sorted(entries, key=lambda e: e["top"]):
+    for entry in sorted(active, key=lambda e: e["top"]):
         if entry["kind"] == "primary":
             if current:
                 runs.append(current)

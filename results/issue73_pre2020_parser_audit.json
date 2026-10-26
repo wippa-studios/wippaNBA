@@ -1,0 +1,261 @@
+{
+  "generated_utc": "2026-10-26T05:25:20.676744+00:00",
+  "issue": 73,
+  "parseable": 11,
+  "parser_path": "src/Process-Data/Get_Injury_Data.py",
+  "parser_sha256": "875a15e9b7611459d5f077aa8e3b0428f119b97615af4957a0ef8a1cf51f1857",
+  "records": [
+    {
+      "date": "2018-12-14",
+      "error": "HTTP 403",
+      "http_status": 403,
+      "slot": "05PM",
+      "source": "http_error",
+      "url": "https://ak-static.cms.nba.com/referee/injury/Injury-Report_2018-12-14_05PM.pdf"
+    },
+    {
+      "continuation_lines": 4,
+      "date": "2018-12-17",
+      "error": null,
+      "furniture": 10,
+      "header_lines": 4,
+      "http_status": 200,
+      "rows": 89,
+      "sha256": "1650d479009749f8a0fe2f665a6e808484967b5b37b6b7a9860d892d99b3ed9d",
+      "slot": "05PM",
+      "source": "cache",
+      "statuses": {
+        "Available": 1,
+        "Doubtful": 1,
+        "Out": 74,
+        "Probable": 3,
+        "Questionable": 10
+      },
+      "unparsed": 0,
+      "unparsed_examples": [],
+      "url": "https://ak-static.cms.nba.com/referee/injury/Injury-Report_2018-12-17_05PM.pdf"
+    },
+    {
+      "continuation_lines": 7,
+      "date": "2019-01-15",
+      "error": null,
+      "furniture": 14,
+      "header_lines": 4,
+      "http_status": 200,
+      "rows": 91,
+      "sha256": "626964e266a3d207a6a040a4e88a14d4f07c17c249cbf9b782376744f8c2c714",
+      "slot": "05PM",
+      "source": "cache",
+      "statuses": {
+        "Available": 5,
+        "Out": 65,
+        "Probable": 7,
+        "Questionable": 14
+      },
+      "unparsed": 0,
+      "unparsed_examples": [],
+      "url": "https://ak-static.cms.nba.com/referee/injury/Injury-Report_2019-01-15_05PM.pdf"
+    },
+    {
+      "continuation_lines": 3,
+      "date": "2019-02-01",
+      "error": null,
+      "furniture": 18,
+      "header_lines": 5,
+      "http_status": 200,
+      "rows": 121,
+      "sha256": "d29176e3aa460a406eef7b6efbf3fbab86f72f7220b6a250a24ac34c03e04e59",
+      "slot": "05PM",
+      "source": "cache",
+      "statuses": {
+        "Available": 2,
+        "Doubtful": 2,
+        "Out": 92,
+        "Probable": 9,
+        "Questionable": 16
+      },
+      "unparsed": 0,
+      "unparsed_examples": [],
+      "url": "https://ak-static.cms.nba.com/referee/injury/Injury-Report_2019-02-01_05PM.pdf"
+    },
+    {
+      "continuation_lines": 4,
+      "date": "2019-03-01",
+      "error": null,
+      "furniture": 16,
+      "header_lines": 4,
+      "http_status": 200,
+      "rows": 85,
+      "sha256": "c38970a5f934c9385053552d45d54ba4dd8a9e34b55d778684cde6a94e70507f",
+      "slot": "05PM",
+      "source": "cache",
+      "statuses": {
+        "Available": 5,
+        "Out": 69,
+        "Probable": 2,
+        "Questionable": 9
+      },
+      "unparsed": 0,
+      "unparsed_examples": [],
+      "url": "https://ak-static.cms.nba.com/referee/injury/Injury-Report_2019-03-01_05PM.pdf"
+    },
+    {
+      "continuation_lines": 5,
+      "date": "2019-04-01",
+      "error": null,
+      "furniture": 14,
+      "header_lines": 4,
+      "http_status": 200,
+      "rows": 78,
+      "sha256": "b4601af97f5daffe74e2bee19204d5d7bcae5d3294d06310cc1c64539f352498",
+      "slot": "05PM",
+      "source": "cache",
+      "statuses": {
+        "Available": 1,
+        "Doubtful": 6,
+        "Out": 61,
+        "Probable": 1,
+        "Questionable": 9
+      },
+      "unparsed": 0,
+      "unparsed_examples": [],
+      "url": "https://ak-static.cms.nba.com/referee/injury/Injury-Report_2019-04-01_05PM.pdf"
+    },
+    {
+      "continuation_lines": 12,
+      "date": "2019-10-25",
+      "error": null,
+      "furniture": 17,
+      "header_lines": 3,
+      "http_status": 200,
+      "rows": 63,
+      "sha256": "f0593d24483f25206d92caadd1d5c9b7874826ed07d3cada487110d192f339c7",
+      "slot": "05PM",
+      "source": "cache",
+      "statuses": {
+        "Doubtful": 1,
+        "Out": 47,
+        "Probable": 3,
+        "Questionable": 12
+      },
+      "unparsed": 0,
+      "unparsed_examples": [],
+      "url": "https://ak-static.cms.nba.com/referee/injury/Injury-Report_2019-10-25_05PM.pdf"
+    },
+    {
+      "continuation_lines": 10,
+      "date": "2019-11-01",
+      "error": null,
+      "furniture": 17,
+      "header_lines": 4,
+      "http_status": 200,
+      "rows": 94,
+      "sha256": "6b521ed5802fdc83e7c1757d13d07630df91f552d67e8c92a650e3ab551c6b84",
+      "slot": "05PM",
+      "source": "cache",
+      "statuses": {
+        "Available": 5,
+        "Doubtful": 1,
+        "Out": 81,
+        "Probable": 3,
+        "Questionable": 4
+      },
+      "unparsed": 0,
+      "unparsed_examples": [],
+      "url": "https://ak-static.cms.nba.com/referee/injury/Injury-Report_2019-11-01_05PM.pdf"
+    },
+    {
+      "continuation_lines": 60,
+      "date": "2019-11-15",
+      "error": null,
+      "furniture": 19,
+      "header_lines": 6,
+      "http_status": 200,
+      "rows": 132,
+      "sha256": "e2af4ae478ca94167e1c42566da1fcef195739199f1b59dbe6137aef7ab2e3c1",
+      "slot": "05PM",
+      "source": "cache",
+      "statuses": {
+        "Available": 6,
+        "Doubtful": 3,
+        "Out": 102,
+        "Probable": 12,
+        "Questionable": 9
+      },
+      "unparsed": 0,
+      "unparsed_examples": [],
+      "url": "https://ak-static.cms.nba.com/referee/injury/Injury-Report_2019-11-15_05PM.pdf"
+    },
+    {
+      "continuation_lines": 55,
+      "date": "2019-12-01",
+      "error": null,
+      "furniture": 19,
+      "header_lines": 6,
+      "http_status": 200,
+      "rows": 132,
+      "sha256": "26f19d78e132e2c3573181c18e90eeaa8bb19c17736d64e2babbfbc6709fc4e6",
+      "slot": "05PM",
+      "source": "cache",
+      "statuses": {
+        "Available": 15,
+        "Doubtful": 3,
+        "Out": 107,
+        "Probable": 4,
+        "Questionable": 3
+      },
+      "unparsed": 0,
+      "unparsed_examples": [],
+      "url": "https://ak-static.cms.nba.com/referee/injury/Injury-Report_2019-12-01_05PM.pdf"
+    },
+    {
+      "continuation_lines": 2,
+      "date": "2019-12-20",
+      "error": null,
+      "furniture": 24,
+      "header_lines": 6,
+      "http_status": 200,
+      "rows": 138,
+      "sha256": "1280573548085642bf4704d5d48de1425874315a22cef8d01048882502214bdd",
+      "slot": "05PM",
+      "source": "cache",
+      "statuses": {
+        "Available": 6,
+        "Doubtful": 1,
+        "Out": 113,
+        "Probable": 7,
+        "Questionable": 11
+      },
+      "unparsed": 0,
+      "unparsed_examples": [],
+      "url": "https://ak-static.cms.nba.com/referee/injury/Injury-Report_2019-12-20_05PM.pdf"
+    },
+    {
+      "continuation_lines": 2,
+      "date": "2020-01-05",
+      "error": null,
+      "furniture": 14,
+      "header_lines": 5,
+      "http_status": 200,
+      "rows": 117,
+      "sha256": "1053f94c84d6f70d61e04e8f59e32687b67ac3f04d3930ec1eff19ebefa11936",
+      "slot": "05PM",
+      "source": "cache",
+      "statuses": {
+        "Available": 2,
+        "Out": 91,
+        "Probable": 9,
+        "Questionable": 15
+      },
+      "unparsed": 0,
+      "unparsed_examples": [],
+      "url": "https://ak-static.cms.nba.com/referee/injury/Injury-Report_2020-01-05_05PM.pdf"
+    }
+  ],
+  "reproduction": "python scripts/issue73_pre2020_parser_audit.py --cache-dir /tmp/issue73_pdfs",
+  "samples": 12,
+  "title": "pre-2020 injury-report parser audit",
+  "total_furniture": 182,
+  "total_rows": 1140,
+  "total_unparsed": 0
+}

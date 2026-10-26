@@ -402,6 +402,147 @@ class TestParserEras(PdfAccountingMixin, unittest.TestCase):
         self.assertEqual(result["rows"][0]["game_time"], "7:30 pm ET")
         self.assertNothingDropped(result, n_lines)
 
+    def test_legacy_nine_column_layout_keeps_status_out_of_reason(self):
+        # The 2018-19 layout: Game Date, Game Time, Matchup, Team, Player,
+        # Category, Reason, Current Status, Previous Status.  Anchoring
+        # "Previous Status" as its own column is what stops the one-word
+        # "status" alias from re-anchoring Current Status to the last column.
+        header = ["Game Date", "Game Time", "Matchup", "Team", "Player",
+                  "Category", "Reason", "Current Status", "Previous Status"]
+        colx = [36, 95, 145, 225, 315, 405, 480, 635, 715]
+        rows = [
+            ["01/15/2019", "07:00 (ET)", "MIN@PHI", "Minnesota",
+             "Covington, Robert", "Injury/Illness", "Right Knee Bone Bruise",
+             "Out", "Available"],
+            ["", "", "", "", "Rose, Derrick", "Injury/Illness",
+             "Sprained Right Ankle", "Questionable", "-"],
+        ]
+        lines, n_lines = build_page(rows, header=header, colx=colx)
+        result = gid.parse_injury_pdf(make_pdf([lines]))
+
+        self.assertIsNone(result["error"])
+        self.assertEqual(len(result["rows"]), 2)
+        first, second = result["rows"]
+        self.assertEqual(first["player"], "Covington, Robert")
+        self.assertEqual(first["team"], "Minnesota")
+        self.assertEqual(first["status"], "Out")
+        self.assertEqual(first["reason"], "Right Knee Bone Bruise")
+        self.assertNotIn("Available", first["reason"])
+        self.assertEqual(second["status"], "Questionable")
+        self.assertNotIn("Category", second["reason"])
+        self.assertNothingDropped(result, n_lines)
+
+    def test_legacy_eight_column_layout_prints_status_after_reason(self):
+        # Nov-Dec 2019 dropped Category but kept Previous Status and still
+        # printed Current Status AFTER Reason.
+        header = ["Game Date", "Game Time", "Matchup", "Team", "Player Name",
+                  "Reason", "Current Status", "Previous Status"]
+        colx = [36, 95, 150, 235, 330, 430, 620, 700]
+        rows = [
+            ["11/15/2019", "07:00 (ET)", "DET@CHA", "Charlotte Hornets",
+             "Bacon, Dwayne", "Right Knee Soreness", "Probable", "-"],
+            ["", "", "", "", "Batum, Nicolas", "Finger Injury", "Out", "-"],
+        ]
+        lines, n_lines = build_page(rows, header=header, colx=colx)
+        result = gid.parse_injury_pdf(make_pdf([lines]))
+
+        self.assertEqual(len(result["rows"]), 2)
+        self.assertEqual(result["rows"][0]["status"], "Probable")
+        self.assertEqual(result["rows"][0]["reason"], "Right Knee Soreness")
+        self.assertEqual(result["rows"][1]["status"], "Out")
+        self.assertNothingDropped(result, n_lines)
+
+    def test_team_printed_on_the_wrapped_reason_line_sets_the_block_context(self):
+        # 2018-19 can put the new team and the first player's wrapped reason
+        # on a line ABOVE that player's identity line.  The line is context +
+        # wrap, not a slate line: the row below must inherit the team, time
+        # and matchup, and keep the whole reason.
+        header = ["Game Date", "Game Time", "Matchup", "Team", "Player",
+                  "Category", "Reason", "Current Status", "Previous Status"]
+        colx = [36, 95, 145, 225, 315, 405, 480, 635, 715]
+        rows = [
+            ["01/15/2019", "07:00 (ET)", "MIA@MIL", "Miami Heat",
+             "Dragic, Goran", "Injury/Illness", "Sore calf", "Out", "-"],
+            ["", "08:30 (ET)", "POR@SAS", "Portland", "", "",
+             "Left shoulder;", "", ""],
+            ["", "", "", "", "Collins, Zach", "Injury/Illness", "", "Out",
+             "-"],
+            ["", "", "", "", "", "", "dislocation", "", ""],
+        ]
+        # Geometry matters here: the context line must sit nearer the row it
+        # heads than the row above (as it does in the real report, 4pt vs
+        # 18pt), so build the page with explicit y positions rather than the
+        # uniform 14pt grid.
+        def line(y, cells):
+            return (y, [(x, text) for x, text in zip(colx, cells) if text])
+
+        lines = [
+            (580, [(36, "NBA Official Injury Report")]),
+            line(556, header),
+            line(542, rows[0]),
+            line(518, rows[1]),
+            line(514, rows[2]),
+            line(500, rows[3]),
+        ]
+        result = gid.parse_injury_pdf(make_pdf([lines]))
+        n_lines = len(lines)
+
+        self.assertEqual(len(result["rows"]), 2)
+        collins = result["rows"][1]
+        self.assertEqual(collins["team"], "Portland")
+        self.assertEqual(collins["game_time"], "08:30 (ET)")
+        self.assertEqual(collins["matchup"], "POR@SAS")
+        self.assertEqual(collins["status"], "Out")
+        self.assertEqual(collins["reason"], "Left shoulder; dislocation")
+        self.assertEqual(result["rows"][0]["team"], "Miami Heat")
+        self.assertNothingDropped(result, n_lines)
+
+    def test_a_wrapped_team_name_completes_the_row_and_the_next_block(self):
+        # "Minnesota" + "Timberwolves" is one team cell split across two
+        # lines.  The continuation belongs to the row above AND is the context
+        # the rows below inherit.
+        header = ["Game Date", "Game Time", "Matchup", "Team", "Player",
+                  "Category", "Reason", "Current Status", "Previous Status"]
+        colx = [36, 95, 145, 225, 315, 405, 480, 635, 715]
+        rows = [
+            ["01/15/2019", "07:00 (ET)", "MIN@PHI", "Minnesota",
+             "Covington, Robert", "Injury/Illness", "Right Knee Bone Bruise",
+             "Out", "-"],
+            ["", "", "", "Timberwolves", "", "", "", "", ""],
+            ["", "", "", "", "Rose, Derrick", "Injury/Illness",
+             "Sprained Right Ankle", "Questionable", "-"],
+        ]
+        lines, n_lines = build_page(rows, header=header, colx=colx)
+        result = gid.parse_injury_pdf(make_pdf([lines]))
+
+        self.assertEqual(len(result["rows"]), 2)
+        self.assertEqual(result["rows"][0]["team"], "Minnesota Timberwolves")
+        self.assertEqual(result["rows"][1]["team"], "Minnesota Timberwolves")
+        self.assertEqual(result["continuation_lines"], 1)
+        self.assertNothingDropped(result, n_lines)
+
+    def test_a_repeated_team_fragment_never_truncates_the_name(self):
+        # If the continuation line restates a fragment of the name already
+        # inherited ("Clippers" after "LA Clippers"), the full name stands.
+        # Appending would duplicate it; replacing would truncate it.
+        header = ["Game Date", "Game Time", "Matchup", "Team", "Player",
+                  "Category", "Reason", "Current Status", "Previous Status"]
+        colx = [36, 95, 145, 225, 315, 405, 480, 635, 715]
+        rows = [
+            ["01/15/2019", "07:00 (ET)", "LAC@LAL", "LA Clippers",
+             "Doe, John", "Injury/Illness", "Sore knee", "Out", "-"],
+            ["", "", "", "Clippers", "", "", "", "", ""],
+            ["", "", "", "", "Roe, Jane", "Injury/Illness", "Sore ankle",
+             "Questionable", "-"],
+        ]
+        lines, n_lines = build_page(rows, header=header, colx=colx)
+        result = gid.parse_injury_pdf(make_pdf([lines]))
+
+        self.assertEqual(len(result["rows"]), 2)
+        self.assertEqual(result["rows"][0]["team"], "LA Clippers")
+        self.assertEqual(result["rows"][1]["team"], "LA Clippers")
+        self.assertNothingDropped(result, n_lines)
+
     def test_era2_iso_dates_and_the_en_dash_reason_are_preserved(self):
         rows = [
             game_row("Roe, Jane", "Out", "G League \u2013 Two-Way",
