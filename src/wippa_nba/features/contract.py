@@ -22,11 +22,11 @@ from pathlib import Path
 # sys.path and training_common imports under its plain top-level name. Importing
 # features must not depend on the caller having done that already: the runners
 # import this module before their own path setup.
-_TRAIN_MODELS_DIR = Path(__file__).resolve().parents[1] / "Train-Models"
+_TRAIN_MODELS_DIR = (Path(__file__).resolve().parents[1] / "legacy" / "train_models")
 if str(_TRAIN_MODELS_DIR) not in sys.path:
     sys.path.insert(0, str(_TRAIN_MODELS_DIR))
 
-from training_common import (  # noqa: E402
+from wippa_nba.legacy.train_models.training_common import (  # noqa: E402
     GAME_DATE_COLUMN,
     MONEYLINE_TARGET,
     TOTALS_TARGET,
