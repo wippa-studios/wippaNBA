@@ -33,7 +33,7 @@ jobs:
     # That is deliberately NOT done here -- keeping CI honest about installing
     # the real dependency set is worth the minutes for now.
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Set up Python ${{ matrix.python-version }}
         uses: actions/setup-python@v5
@@ -106,7 +106,7 @@ jobs:
             numpy: "numpy"
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Set up Python
         uses: actions/setup-python@v5
