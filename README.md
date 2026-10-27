@@ -61,7 +61,7 @@ A single reproducible feature layer over NBA's own data, and the tooling that ke
 - **13,199 games, one shared design:** `scripts/download_nba_data.py` builds 310 CSVs (10+ seasons) and `src/DataProviders/nba_data.py` assembles **26 causal feature columns** used by every model. No model has a second loader.
 - **Causality is tested, not asserted:** deleting 5,199 future games changes no historical feature by more than `0.000e+00`; a reusable leakage gate separates confirmed future-dated leaks from same-date dependencies.
 - **Append-only evidence:** the injury-report store holds **2,046 snapshots across 1,037 report dates / 237,436 designation events** (official pre-tip injury reports, point-in-time semantics).
-- **1,551 tests, 0 failing, 104 subtests** across 65 files; CI on Python 3.10 & 3.11 and both sides of the scikit-learn 1.7 `multi_class` removal.
+- **1,554 tests, 0 failing, 104 subtests** across 66 files; CI on Python 3.10 & 3.11 and both sides of the scikit-learn 1.7 `multi_class` removal.
 
 **Start here:** [Models, features and retraining](models_and_training.md) · [the availability block](docs/availability_block.md) · [the injury-report pipeline](docs/injury_pipeline.md) · [the feature search](docs/feature_search.md) · [reproducing every number](reproducing.md).
 
@@ -147,6 +147,7 @@ python scripts/closing_line.py             # does any of this beat the closing l
 | [Exploratory follow-ups](docs/edge_search.md) | What 4th-win teams look like pre-game, and the Elo-parity underdog — the worst measured bet in the repo (−9.8%, z −7.5) |
 | [13 fan-style rules, backtested](docs/edge_search.md) | The user's form/schedule rules pre-registered and settled at best-of-books prices: no candidate; R8 and R10 fail the holdout |
 | [The 50-rule grid](docs/edge_search.md) | The fan rules expanded to a systematic 50-arm family: no candidate; the one \|z\|>3 result is a negative (heavy chalk ≤1.30 loses, z −3.1); fading tired teams loses everywhere |
+| [Lay bets](docs/edge_search.md) | Laying the favourite at its own price: the mirror of the favourite-overbet finding, coherent-surviving (z 3.1), +2% after 5% commission — exchange-only, re-expression not new information |
 | [The audit and the fixes](audit_and_fixes.md) | The six defects found in the original, and everything this fork changed |
 | [ROADMAP](ROADMAP.md) | The levels between this pipeline and a real forecasting engine |
 
