@@ -1,0 +1,29 @@
+# Feature request form for wippaNBA.
+#
+# This repository is a fork of kyleskom/NBA-Machine-Learning-Sports-Betting
+# by Kyle Skompinski and contributors; that credit applies to everything here.
+name: Feature request
+description: Propose a change — start from the problem, not the solution
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: What problem are you trying to solve?
+      description: Describe the situation that is wrong, missing, or costly today, before proposing any design. Several candidate improvements here have already been measured and ruled out; see CONTRIBUTING.md before re-running one of them.
+    validations:
+      required: true
+  - type: textarea
+    id: proposed-solution
+    attributes:
+      label: What would you change?
+      description: Your proposed approach, once the problem is stated. Alternatives you considered are welcome.
+    validations:
+      required: false
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Evidence
+      description: Any measurement, log, or standard error showing the problem is real. A point estimate without an interval is not a result here.
+    validations:
+      required: false

@@ -14,8 +14,8 @@ already.
 
 ## Rules for what may be committed
 
-This repository is public and has **no LICENSE file**, so default copyright
-applies and no reuse rights are granted. Keep it that way: adding a permissive
+This repository is public and proprietary: all rights reserved, and no reuse
+rights are granted (see `LICENSE`). Keep it that way: adding a permissive
 license would grant rights the maintainer has not chosen to grant.
 
 ### Never commit a configuration that shows an edge
@@ -71,19 +71,39 @@ publishing anything further about the search.
 
 ## Before you open a pull request
 
-- `pytest` and `python -m unittest discover` both pass on Python 3.10 and 3.11.
+- `python -m pytest tests/ -q` passes on Python 3.10 and 3.11 (the only
+  supported interpreters).
 - No entry point crashes. Five of eleven used to: three referenced a table that
   does not exist, and three defaulted to a same-day-join table that still
   carried the leakage this project exists to remove. Run them.
 - Every metric you report has a standard error attached. A point estimate
   without an interval is not a result here.
 - Any change to the dataset is accompanied by a regenerated
-  `Data/manifest.json`, and the row count and column list are reported. Column
-  **order** is part of the model contract; `src/Utils/features.py` exists to
-  enforce it.
+  `Data/manifest.json`, and the row count and column list are reported. The
+  repository itself ships no data — `Data/` contains only `manifest.json` — so
+  those numbers come from your local build. Column
+  **order** is part of the model contract; `src/wippa_nba/features/contract.py`
+  exists to enforce it.
 - New features carry an as-of assertion proving they cannot see the game they
   predict. `Create_Games.py` joins strictly *before* the game date for exactly
   this reason.
+
+## Adding a dependency
+
+Pins here are deliberate and load-bearing. Supported Python versions are
+**3.10 and 3.11 only** (`requires-python = ">=3.10,<3.12"` in
+`pyproject.toml`): `tensorflow==2.14.0` publishes cp310/cp311 wheels only, and
+moving past it is a code-and-artifact migration (Keras 3 removed the legacy
+optimizers the trainers call), not a version bump — see the comment at the top
+of `requirements.txt`.
+
+A new dependency must therefore:
+
+- pin an exact version, with the reason for that pin written next to it;
+- be added to both `requirements.txt` and `pyproject.toml` (they mirror each
+  other 1:1);
+- not require Python above 3.11, and not break the `numpy>=1.23.5,<2.0`
+  interval that tensorflow and scikit-learn jointly impose.
 
 ## Things that have already been measured, so you do not have to
 

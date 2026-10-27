@@ -1,0 +1,12 @@
+# Issue configuration for wippaNBA.
+#
+# This repository is a fork of kyleskom/NBA-Machine-Learning-Sports-Betting
+# by Kyle Skompinski and contributors; that credit applies to everything here.
+blank_issues_enabled: false
+contact_links:
+  - name: Documentation (docs/)
+    url: https://github.com/wippa-studios/wippaNBA/tree/main/docs
+    about: Measurement write-ups, the module map, the leakage gate, and the test-suite notes.
+  - name: Contributing guide
+    url: https://github.com/wippa-studios/wippaNBA/blob/main/CONTRIBUTING.md
+    about: Read before opening an issue or pull request — what may be committed, and what has already been measured.
