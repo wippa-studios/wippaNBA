@@ -11,10 +11,10 @@ from pathlib import Path
 import pandas as pd
 import toml
 
-BASE_DIR = Path(__file__).resolve().parents[2]
-sys.path.insert(1, os.fspath(BASE_DIR))
+BASE_DIR = Path(__file__).resolve().parents[4]
+sys.path.insert(1, os.fspath(BASE_DIR / "src"))
 
-from src.Utils.tools import DataFetchError, get_json_data, to_data_frame  # noqa: E402
+from wippa_nba.data.tools import DataFetchError, get_json_data, to_data_frame  # noqa: E402
 
 CONFIG_PATH = BASE_DIR / "config.toml"
 DB_PATH = BASE_DIR / "Data" / "TeamData.sqlite"

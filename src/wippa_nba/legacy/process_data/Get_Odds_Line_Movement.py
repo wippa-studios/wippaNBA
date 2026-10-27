@@ -90,12 +90,12 @@ from datetime import date as date_cls, datetime, timezone
 from math import sqrt
 from pathlib import Path
 
-BASE_DIR = Path(__file__).resolve().parents[2]
+BASE_DIR = Path(__file__).resolve().parents[4]
 # Same header as Get_Odds_Data.py: this directory has a hyphen, so it is not an
 # importable package and this file can only ever be loaded by path. The sys.path
 # insert mirrors the sibling module so both files resolve repo-root imports the
 # same way. noqa: E402 marks the imports below as deliberately after it.
-sys.path.insert(1, os.fspath(BASE_DIR))  # noqa: E402
+sys.path.insert(1, os.fspath(BASE_DIR / "src"))  # noqa: E402
 
 try:
     from sbrscrape import Scoreboard  # noqa: E402

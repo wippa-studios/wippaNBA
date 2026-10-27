@@ -75,11 +75,11 @@ for _candidate in (ROOT, ROOT / "src"):
     if str(_candidate) not in sys.path:
         sys.path.insert(0, str(_candidate))
 
-from src.DataProviders import nba_data as nd                       # noqa: E402
-from src.DataProviders import feat_squad_quality as fsq            # noqa: E402
-from src.DataProviders import feat_squad_continuity as fsc         # noqa: E402
-from src.DataProviders import feat_team_elo as fte                 # noqa: E402
-from src.Models import baselines as bl                             # noqa: E402
+from wippa_nba.data import nba_data as nd                       # noqa: E402
+from wippa_nba.data import feat_squad_quality as fsq            # noqa: E402
+from wippa_nba.data import feat_squad_continuity as fsc         # noqa: E402
+from wippa_nba.data import feat_team_elo as fte                 # noqa: E402
+from wippa_nba.models import baselines as bl                             # noqa: E402
 
 #: The round-3 P1 gate's pass bar for a builder that sums floats.
 ROUND3_GATE = 1e-12
@@ -165,7 +165,7 @@ def build_squads(games: pd.DataFrame, pa: pd.DataFrame
     """Both squad builders against a synthetic player stream.
 
     `load_player_advanced` is stubbed at the module the builders actually bind
-    (`src.DataProviders.nba_data`), so this is fixture-level: no download, no
+    (`wippa_nba.data.nba_data`), so this is fixture-level: no download, no
     network, and nothing outside the two builders under test.
     """
     with mock.patch.object(fsq.nd, "load_player_advanced", lambda *a, **k: pa.copy()):

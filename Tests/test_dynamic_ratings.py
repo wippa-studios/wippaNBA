@@ -16,7 +16,7 @@ import unittest
 import numpy as np
 import pandas as pd
 
-from src.Models import dynamic_ratings as dr
+from wippa_nba.models import dynamic_ratings as dr
 
 
 def league(n: int = 30, seed: int = 0) -> pd.DataFrame:

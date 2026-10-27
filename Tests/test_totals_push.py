@@ -13,12 +13,12 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
-TRAIN_MODELS = ROOT / "src" / "Train-Models"
+TRAIN_MODELS = ROOT / "src" / "wippa_nba" / "legacy" / "train_models"
 if str(TRAIN_MODELS) not in sys.path:
     sys.path.insert(0, str(TRAIN_MODELS))
 
-from src.Predict.XGBoost_Runner import _format_game_line  # noqa: E402
-from training_common import (  # noqa: E402
+from wippa_nba.predict.XGBoost_Runner import _format_game_line  # noqa: E402
+from wippa_nba.legacy.train_models.training_common import (  # noqa: E402
     OU_PICK_LABELS,
     TOTALS_NUM_CLASSES,
 )

@@ -7,7 +7,7 @@ from pathlib import Path
 
 import pandas as pd
 
-CREATE_GAMES_PATH = Path(__file__).resolve().parents[1] / "src" / "Process-Data" / "Create_Games.py"
+CREATE_GAMES_PATH = Path(__file__).resolve().parents[1] / "src" / "wippa_nba" / "legacy" / "process_data" / "Create_Games.py"
 SPEC = importlib.util.spec_from_file_location("create_games", CREATE_GAMES_PATH)
 create_games = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(create_games)

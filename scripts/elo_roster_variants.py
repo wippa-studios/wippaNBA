@@ -32,7 +32,7 @@ for _c in (ROOT, ROOT / "src"):
     if str(_c) not in sys.path:
         sys.path.insert(0, str(_c))
 
-from DataProviders import nba_data as nd  # noqa: E402
+from wippa_nba.data import nba_data as nd  # noqa: E402
 
 VARIANTS = ("all_prior", "prev_game", "top_minutes")
 

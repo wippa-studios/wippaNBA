@@ -38,8 +38,8 @@ from pathlib import Path
 import pandas as pd
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
-TRAIN_MODELS_DIR = REPO_ROOT / "src" / "Train-Models"
-CREATE_GAMES_PATH = REPO_ROOT / "src" / "Process-Data" / "Create_Games.py"
+TRAIN_MODELS_DIR = REPO_ROOT / "src" / "wippa_nba" / "legacy" / "train_models"
+CREATE_GAMES_PATH = REPO_ROOT / "src" / "wippa_nba" / "legacy" / "process_data" / "Create_Games.py"
 DATASET_DB = REPO_ROOT / "Data" / "dataset.sqlite"
 REBUILT_TABLE = "dataset_2012-26"
 
@@ -52,15 +52,15 @@ for _path in (REPO_ROOT, TRAIN_MODELS_DIR):
     if str(_path) not in sys.path:
         sys.path.insert(0, str(_path))
 
-import training_reporting  # noqa: E402
-from training_common import (  # noqa: E402
+from wippa_nba.legacy.train_models import training_reporting  # noqa: E402
+from wippa_nba.legacy.train_models.training_common import (  # noqa: E402
     GAME_DATE_COLUMN,
     MONEYLINE_TARGET,
     TOTALS_TARGET,
     drop_columns_for,
 )
 
-from src.Utils import features  # noqa: E402
+from wippa_nba.features import contract as features  # noqa: E402
 
 _CG_SPEC = importlib.util.spec_from_file_location("create_games", CREATE_GAMES_PATH)
 create_games = importlib.util.module_from_spec(_CG_SPEC)

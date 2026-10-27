@@ -18,7 +18,7 @@ import unittest
 
 import numpy as np
 
-from src.Utils import metrics
+from wippa_nba.evaluation import metrics
 
 
 FLOAT_EPSILON = np.finfo(np.float64).eps

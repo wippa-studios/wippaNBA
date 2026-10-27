@@ -46,7 +46,7 @@ PY = sys.executable
 PROBE = r"""
 import sys, unittest
 sys.path.insert(0, %r)
-from DataProviders import nba_data as nd
+from wippa_nba.data import nba_data as nd
 try:
     g = nd.build_games()
     print("RESULT|ROWS|" + str(len(g)))
@@ -130,7 +130,7 @@ class TestTheDefaultPathWorksForAnyone(unittest.TestCase):
         """
         probe = (
             "import sys; sys.path.insert(0, %r)\n"
-            "from DataProviders.nba_data import DATA_ROOT, _REPO_ROOT\n"
+            "from wippa_nba.data.nba_data import DATA_ROOT, _REPO_ROOT\n"
             "print('RESULT|ROOT|' + DATA_ROOT + '|' + str(_REPO_ROOT))\n"
         ) % str(ROOT / "src")
         out = subprocess.run([PY, "-c", probe], capture_output=True, text=True,
@@ -160,7 +160,7 @@ class TestRealDataStillWorks(unittest.TestCase):
     def test_with_data_present_it_builds(self):
         """The guard must not fire when the data is actually there."""
         sys.path.insert(0, str(ROOT / "src"))
-        from DataProviders.nba_data import DATA_ROOT
+        from wippa_nba.data.nba_data import DATA_ROOT
 
         if not list(Path(DATA_ROOT, "game_logs").glob("*.csv")):
             self.skipTest(f"no downloaded data at {DATA_ROOT}")

@@ -57,8 +57,8 @@ for _c in (ROOT, ROOT / "src", ROOT / "scripts"):
 
 from scripts.round3_common import load_cached, oof_fixed, compare, log3  # noqa: E402
 from scripts.round3_run_U import per_fold_delta                          # noqa: E402
-from src.DataProviders import nba_data as nd                              # noqa: E402
-from src.DataProviders.feat_team_elo import team_elo_features            # noqa: E402
+from wippa_nba.data import nba_data as nd                              # noqa: E402
+from wippa_nba.data.feat_team_elo import team_elo_features            # noqa: E402
 
 PROMOTED_LL = 0.612523
 C_GRID = [0.01, 0.03, 0.1, 0.3, 1.0, 3.0]

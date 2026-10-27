@@ -73,7 +73,7 @@ except ModuleNotFoundError as exc:
         "of it. See the round-3 tree-audit finding on uncommitted round-2 "
         "harness dependencies."
     ) from exc
-from src.DataProviders import nba_data as nd    # noqa: E402
+from wippa_nba.data import nba_data as nd    # noqa: E402
 
 JSONL3 = ROOT / "results" / "round3_experiments.jsonl"
 

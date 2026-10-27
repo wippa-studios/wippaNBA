@@ -34,7 +34,7 @@ is intentionally left untouched by this file as well.
 
 import unittest
 
-from src.Utils import Kelly_Criterion as kc
+from wippa_nba.betting import kelly as kc
 
 
 class TestAmericanToDecimal(unittest.TestCase):

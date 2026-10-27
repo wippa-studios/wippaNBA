@@ -35,14 +35,14 @@ import pytest
 pytest.importorskip("tensorflow")
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
-TRAIN_MODELS_DIR = REPO_ROOT / "src" / "Train-Models"
+TRAIN_MODELS_DIR = REPO_ROOT / "src" / "wippa_nba" / "legacy" / "train_models"
 for _path in (REPO_ROOT, TRAIN_MODELS_DIR):
     if str(_path) not in sys.path:
         sys.path.insert(0, str(_path))
 
-import neural_training  # noqa: E402
-import training_common  # noqa: E402
-from src.Predict import NN_Runner  # noqa: E402
+from wippa_nba.legacy.train_models import neural_training  # noqa: E402
+from wippa_nba.legacy.train_models import training_common  # noqa: E402
+from wippa_nba.predict import NN_Runner  # noqa: E402
 
 
 def load_trainer(name):

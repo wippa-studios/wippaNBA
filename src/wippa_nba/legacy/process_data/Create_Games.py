@@ -7,9 +7,14 @@ from pathlib import Path
 
 import numpy as np
 import pandas as pd
+import sys
 import toml
 
-from src.Utils.Dictionaries import (
+_SRC_DIR = Path(__file__).resolve().parents[4] / "src"
+if str(_SRC_DIR) not in sys.path:
+    sys.path.insert(0, str(_SRC_DIR))
+
+from wippa_nba.data.Dictionaries import (
     canonical_team_name,
     team_index_07,
     team_index_08,
@@ -19,7 +24,7 @@ from src.Utils.Dictionaries import (
     team_index_current,
 )
 
-BASE_DIR = Path(__file__).resolve().parents[2]
+BASE_DIR = Path(__file__).resolve().parents[4]
 CONFIG_PATH = BASE_DIR / "config.toml"
 ODDS_DB_PATH = BASE_DIR / "Data" / "OddsData.sqlite"
 TEAMS_DB_PATH = BASE_DIR / "Data" / "TeamData.sqlite"

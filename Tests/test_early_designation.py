@@ -12,7 +12,7 @@ from pathlib import Path
 
 import pandas as pd
 
-from src.DataProviders import injury_features as inf
+from wippa_nba.data import injury_features as inf
 
 
 def _mini_store():

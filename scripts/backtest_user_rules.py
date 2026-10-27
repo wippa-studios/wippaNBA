@@ -32,7 +32,7 @@ for _c in (ROOT, ROOT / "src", ROOT / "scripts"):
 
 import closing_line as cl                      # noqa: E402
 import edge_search as es                       # noqa: E402
-from DataProviders import nba_data as nd       # noqa: E402
+from wippa_nba.data import nba_data as nd       # noqa: E402
 
 PRICE_TABLE = "odds_ml_bestbooks"
 BAR_Z = 3.0

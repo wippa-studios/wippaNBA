@@ -26,12 +26,12 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-for candidate in (ROOT, ROOT / "src" / "Process-Data"):
+for candidate in (ROOT, ROOT / "src" / "wippa_nba" / "legacy" / "process_data"):
     if str(candidate) not in sys.path:
         sys.path.insert(0, str(candidate))
 
 _spec = importlib.util.spec_from_file_location(
-    "glm", ROOT / "src" / "Process-Data" / "Get_Odds_Line_Movement.py"
+    "glm", ROOT / "src" / "wippa_nba" / "legacy" / "process_data" / "Get_Odds_Line_Movement.py"
 )
 glm = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(glm)

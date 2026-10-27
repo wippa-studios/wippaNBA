@@ -116,7 +116,7 @@ for _candidate in (ROOT, ROOT / "src"):
 if str(ROOT / "scripts") not in sys.path:
     sys.path.insert(0, str(ROOT / "scripts"))
 
-from DataProviders import nba_data as nd  # noqa: E402
+from wippa_nba.data import nba_data as nd  # noqa: E402
 import recency_ablation as ra  # noqa: E402
 
 SEED = 42

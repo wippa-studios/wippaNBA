@@ -9,18 +9,18 @@ import joblib
 import numpy as np
 import xgboost as xgb
 from colorama import Fore, Style, init, deinit
-from src.Utils import Expected_Value
-from src.Utils import Kelly_Criterion as kc
+from wippa_nba.betting import Expected_Value
+from wippa_nba.betting import kelly as kc
 
 try:
-    from src.Utils import features
+    from wippa_nba.features import contract as features
 except ImportError:
     features = None
 
 
 init()
 
-BASE_DIR = Path(__file__).resolve().parents[2]
+BASE_DIR = Path(__file__).resolve().parents[3]
 MODEL_DIR = BASE_DIR / "Models" / "XGBoost_Models"
 DATASET_DB = BASE_DIR / "Data" / "dataset.sqlite"
 
@@ -30,12 +30,12 @@ DATASET_DB = BASE_DIR / "Data" / "dataset.sqlite"
 # -- the same convention the six training scripts use. This used to hard-code
 # "dataset_2012-26" here while NN_Runner hard-coded a table that does not exist,
 # and neither trainer's default matched the other's. One name, one source.
-TRAIN_MODELS_DIR = BASE_DIR / "src" / "Train-Models"
+TRAIN_MODELS_DIR = BASE_DIR / "src" / "wippa_nba" / "legacy" / "train_models"
 if str(TRAIN_MODELS_DIR) not in sys.path:
     sys.path.insert(0, str(TRAIN_MODELS_DIR))
 try:
-    from training_common import DEFAULT_DATASET as DATASET_TABLE
-    from training_common import OU_PICK_LABELS
+    from wippa_nba.legacy.train_models.training_common import DEFAULT_DATASET as DATASET_TABLE
+    from wippa_nba.legacy.train_models.training_common import OU_PICK_LABELS
 except ImportError as _exc:  # pragma: no cover - only in a broken checkout
     # Deliberately NOT a second literal. A fallback name is a name that can drift
     # from the trainers' one, which is the whole defect being fixed here.

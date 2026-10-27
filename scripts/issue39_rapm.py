@@ -6,13 +6,13 @@ calibration rule and the expected roster.
 
 WHAT IS FITTED
 --------------
-:mod:`src.Models.rapm` builds one estimating equation per player-stint::
+:mod:`wippa_nba.models.rapm` builds one estimating equation per player-stint::
 
     signed PT_DIFF_j = sum_i (overlap seconds / 28800) * theta_i + home * hca
 
 and solves the duration-weighted ridge normal equations.  The response is the
 recorded plus-minus, so no box-score proxy enters the fit.  Predictions use the
-expected roster and expected minutes from :mod:`src.Models.player_ratings`;
+expected roster and expected minutes from :mod:`wippa_nba.models.player_ratings`;
 actual participants are the label, never an input.
 
 SCORING
@@ -43,10 +43,10 @@ for _c in (ROOT, ROOT / "src", ROOT / "scripts"):
     if str(_c) not in sys.path:
         sys.path.insert(0, str(_c))
 
-from DataProviders import nba_data as nd          # noqa: E402
-from Models import measurement as ms              # noqa: E402
-from Models import player_ratings as pr           # noqa: E402
-from Models import rapm                           # noqa: E402
+from wippa_nba.data import nba_data as nd          # noqa: E402
+from wippa_nba.models import measurement as ms              # noqa: E402
+from wippa_nba.models import player_ratings as pr           # noqa: E402
+from wippa_nba.models import rapm                           # noqa: E402
 
 JSONL = ROOT / "results" / "experiments.jsonl"
 OUT_JSON = ROOT / "results" / "issue39_rapm.json"

@@ -27,7 +27,7 @@ for _path in (ROOT, ROOT / "src", ROOT / "scripts"):
         sys.path.insert(0, str(_path))
 
 import issue74_form_mismatch as i74  # noqa: E402
-from DataProviders import nba_data as nd  # noqa: E402
+from wippa_nba.data import nba_data as nd  # noqa: E402
 
 
 def tiny_games(season1_wins=10, season2_wins=0, games_per_season=10):

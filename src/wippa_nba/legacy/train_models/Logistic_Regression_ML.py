@@ -17,16 +17,16 @@ import sys
 # This directory is named with a hyphen, so it is not an importable package.
 # The shared modules below are siblings, which means they only resolve when
 # this script runs with the repository root on sys.path -- e.g.
-# `python -m src.Train-Models.Logistic_Regression_ML`. Adding the script's own
+# `python -m wippa_nba.legacy.train_models.Logistic_Regression_ML`. Adding the script's own
 # directory keeps `python src/Train-Models/Logistic_Regression_ML.py` working too.
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "..")))
 
 # Imported as a MODULE as well as by name: `training_common.DATE_COLUMN` is read at
 # run time to snap the split points to date-group boundaries, and mixing the two
 # spellings in one file is how the two get out of step.
-import training_common
+from wippa_nba.legacy.train_models import training_common
 
-from logistic_training import (
+from wippa_nba.legacy.train_models.logistic_training import (
     build_class_weight,
     compute_sample_weights,
     logistic_regression_kwargs,
@@ -34,7 +34,7 @@ from logistic_training import (
     split_train_calib,
     split_train_test,
 )
-from training_common import (
+from wippa_nba.legacy.train_models.training_common import (
     DEFAULT_DATASET,
     DEFAULT_TRIALS,
     MONEYLINE_NUM_CLASSES,
@@ -47,7 +47,7 @@ from training_common import (
     report_search_selection_risk,
     walk_forward_folds,
 )
-from training_reporting import (
+from wippa_nba.legacy.train_models.training_reporting import (
     MIN_CALIBRATION_ROWS,
     log_loss_standard_error,
     make_calibrated_estimator,

@@ -49,9 +49,9 @@ import pandas as pd
 from sklearn.calibration import CalibratedClassifierCV
 from sklearn.metrics import accuracy_score
 
-from src.Utils import metrics
+from wippa_nba.evaluation import metrics
 
-from training_common import BASE_DIR
+from wippa_nba.legacy.train_models.training_common import BASE_DIR
 
 ODDS_DB = BASE_DIR / "Data" / "OddsData.sqlite"
 
@@ -71,7 +71,7 @@ MIN_CALIBRATION_ROWS = 2000
 CALIBRATION_CHOICES = ("sigmoid", "none")
 
 # Re-exported so the trainers get it from a sibling module that already
-# imported src.Utils.metrics, rather than each of them reaching across to the
+# imported wippa_nba.evaluation.metrics, rather than each of them reaching across to the
 # repository root and depending on import order within their own file.
 log_loss_standard_error = metrics.log_loss_standard_error
 

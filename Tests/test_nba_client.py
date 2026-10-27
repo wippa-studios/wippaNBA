@@ -26,7 +26,7 @@ from unittest import mock
 
 import pandas as pd
 
-from src.Utils import nba_client
+from wippa_nba.data import nba_client
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 
@@ -96,7 +96,7 @@ class TestNormaliseSnapshot(unittest.TestCase):
         self.assertEqual(list(result.index), list(range(30)))
 
     def test_row_order_matches_the_dictionaries_index_map(self):
-        from src.Utils.Dictionaries import team_index_current
+        from wippa_nba.data.Dictionaries import team_index_current
         result = nba_client.normalise_snapshot(make_snapshot(), table_name="2025-01-15")
         for position, team in enumerate(result["TEAM_NAME"]):
             self.assertEqual(team_index_current[team], position, team)
@@ -362,7 +362,7 @@ class TestLazyImport(unittest.TestCase):
             "            raise ImportError('nba_api is blocked for this test')\n"
             "        return None\n"
             "sys.meta_path.insert(0, Block())\n"
-            "import src.Utils.nba_client as m\n"
+            "sys.path.insert(0, 'src')\nimport wippa_nba.data.nba_client as m\n"
             "assert 'nba_api' not in sys.modules\n"
             "print('imported OK, nba_api in sys.modules:', 'nba_api' in sys.modules)\n"
         )
@@ -377,7 +377,7 @@ class TestLazyImport(unittest.TestCase):
 
     def test_module_namespace_has_no_top_level_nba_api_binding(self):
         """Static check: the source must not import nba_api at module scope."""
-        source = (REPO_ROOT / "src" / "Utils" / "nba_client.py").read_text()
+        source = (REPO_ROOT / "src" / "wippa_nba" / "data" / "nba_client.py").read_text()
         for line in source.splitlines():
             stripped = line.strip()
             if stripped.startswith("import nba_api") or stripped.startswith("from nba_api"):

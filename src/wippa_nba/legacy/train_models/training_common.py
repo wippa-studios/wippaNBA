@@ -48,14 +48,14 @@ import numpy as np
 import pandas as pd
 from sklearn.preprocessing import StandardScaler
 
-BASE_DIR = Path(__file__).resolve().parents[2]
+BASE_DIR = Path(__file__).resolve().parents[4]
 DATASET_DB = BASE_DIR / "Data" / "dataset.sqlite"
 
 # The repository root goes on sys.path here, once, so that any module in this
 # directory can reach ``src.Utils.*``.
 #
 # This directory is executed three different ways -- ``python -m
-# src.Train-Models.X`` from the root, ``python src/Train-Models/X.py`` from the
+# wippa_nba.legacy.train_models.X`` from the root, ``python src/Train-Models/X.py`` from the
 # root, and ``cd src/Train-Models && python -m X`` -- and the three put different
 # directories on sys.path. The first two have the root (so ``src`` resolves); the
 # third does not. Every entry point already worked around that by inserting its
@@ -66,8 +66,9 @@ DATASET_DB = BASE_DIR / "Data" / "dataset.sqlite"
 #
 # `src/Train-Models` has a HYPHEN and can never be a package, so this asymmetry is
 # permanent; renaming it is tracked as follow-up work.
-if str(BASE_DIR) not in sys.path:
-    sys.path.insert(0, str(BASE_DIR))
+_SRC_DIR = BASE_DIR / "src"
+if str(_SRC_DIR) not in sys.path:
+    sys.path.insert(0, str(_SRC_DIR))
 
 # The one and only dataset table any entry point reads by default. It used to be
 # spelled out in each of the six trainers and both runners, and the six copies
@@ -246,7 +247,7 @@ def resolve_dataset_table(name):
     if not available:
         raise FileNotFoundError(
             f"No dataset database at {DATASET_DB}. Build it first with "
-            "`python -m src.Process-Data.Create_Games`."
+            "`python -m wippa_nba.legacy.process_data.Create_Games`."
         )
     if name not in available:
         raise LookupError(
@@ -261,7 +262,7 @@ def resolve_dataset_table(name):
             "snapshot includes the game being predicted, so its features carry "
             "the label. Use "
             f"{DEFAULT_DATASET!r}, or rebuild this table with "
-            "`python -m src.Process-Data.Create_Games`."
+            "`python -m wippa_nba.legacy.process_data.Create_Games`."
         )
     return name
 
@@ -565,7 +566,7 @@ def report_search_selection_risk(n_configs_tried, metric_name, n_test_rows, stan
     visible; a crash at the end of a two-hour search is not.
     """
     try:
-        from src.Utils.validation import report_selection_risk
+        from wippa_nba.evaluation.validation import report_selection_risk
     except Exception as exc:  # pragma: no cover - import-failure path
         print(
             f"Selection risk not reported: could not load src/Utils/validation.py "

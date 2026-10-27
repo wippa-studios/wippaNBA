@@ -8,7 +8,7 @@ from pathlib import Path
 import pandas as pd
 from tqdm import tqdm
 
-BASE_DIR = Path(__file__).resolve().parents[2]
+BASE_DIR = Path(__file__).resolve().parents[4]
 DB_PATH = BASE_DIR / "Data" / "OddsData.sqlite"
 DATE_FORMAT = "%Y-%m-%d"
 DEFAULT_DATASETS = [

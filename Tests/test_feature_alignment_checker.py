@@ -67,7 +67,7 @@ from pathlib import Path
 import pandas as pd
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
-TRAIN_MODELS_DIR = REPO_ROOT / "src" / "Train-Models"
+TRAIN_MODELS_DIR = REPO_ROOT / "src" / "wippa_nba" / "legacy" / "train_models"
 SCRIPT_PATH = REPO_ROOT / "scripts" / "check_feature_alignment.py"
 DATASET_DB = REPO_ROOT / "Data" / "dataset.sqlite"
 MODEL_DIR = REPO_ROOT / "Models"
@@ -76,9 +76,9 @@ for _path in (REPO_ROOT, TRAIN_MODELS_DIR):
     if str(_path) not in sys.path:
         sys.path.insert(0, str(_path))
 
-import training_common  # noqa: E402
+from wippa_nba.legacy.train_models import training_common  # noqa: E402
 
-from src.Utils import features  # noqa: E402
+from wippa_nba.features import contract as features  # noqa: E402
 
 _SPEC = importlib.util.spec_from_file_location("check_feature_alignment", SCRIPT_PATH)
 checker = importlib.util.module_from_spec(_SPEC)

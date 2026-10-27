@@ -33,7 +33,7 @@ for _c in (ROOT, ROOT / "src", ROOT / "scripts"):
         sys.path.insert(0, str(_c))
 
 from closing_line import tricode_to_full_name  # noqa: E402
-from DataProviders import nba_data as nd       # noqa: E402
+from wippa_nba.data import nba_data as nd       # noqa: E402
 
 KEEP_STAGES = {"regular", "play offs", "promotion - play offs"}
 

@@ -1,5 +1,5 @@
 import unittest
-from src.Utils import Expected_Value
+from wippa_nba.betting import Expected_Value
 
 
 class TestExpectedValue(unittest.TestCase):

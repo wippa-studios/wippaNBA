@@ -14,7 +14,7 @@ import unittest
 
 import numpy as np
 
-from src.Models import ensemble as en
+from wippa_nba.models import ensemble as en
 
 
 class TestBlend(unittest.TestCase):

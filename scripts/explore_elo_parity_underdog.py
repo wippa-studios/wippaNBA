@@ -35,8 +35,8 @@ for _c in (ROOT, ROOT / "src", ROOT / "scripts"):
         sys.path.insert(0, str(_c))
 
 import edge_search as es                       # noqa: E402
-from Models import baselines as bl             # noqa: E402
-from DataProviders import nba_data as nd       # noqa: E402
+from wippa_nba.models import baselines as bl             # noqa: E402
+from wippa_nba.data import nba_data as nd       # noqa: E402
 
 
 def elo_gap_frame() -> pd.DataFrame:

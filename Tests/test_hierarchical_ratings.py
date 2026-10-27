@@ -18,7 +18,7 @@ import unittest
 import numpy as np
 import pandas as pd
 
-from src.Models import hierarchical_ratings as hr
+from wippa_nba.models import hierarchical_ratings as hr
 
 
 class FakeEM:

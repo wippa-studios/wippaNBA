@@ -35,7 +35,7 @@ import pandas as pd
 import xgboost as xgb
 from sklearn.metrics import log_loss
 
-from training_common import (
+from wippa_nba.legacy.train_models.training_common import (
     DATE_COLUMN,
     STABLE_SORT_KIND,
     recency_weighted_fold_mean,

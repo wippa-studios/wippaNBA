@@ -204,7 +204,7 @@ def canonicalise(df: pd.DataFrame) -> pd.DataFrame:
 
 def validate(df: pd.DataFrame, season: str = "2025-26") -> dict:
     """Match the table against the project's own game logs, both season types."""
-    from DataProviders import nba_data as nd
+    from wippa_nba.data import nba_data as nd
 
     mapping = cl.tricode_to_full_name()
     mapping.pop("_alias", None)

@@ -25,7 +25,7 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-MODULE_PATH = (Path(__file__).resolve().parents[1] / "src" / "Process-Data"
+MODULE_PATH = (Path(__file__).resolve().parents[1] / "src" / "wippa_nba" / "legacy" / "process_data"
                / "Create_Recency_Features.py")
 SPEC = importlib.util.spec_from_file_location("create_recency_features", MODULE_PATH)
 recency = importlib.util.module_from_spec(SPEC)

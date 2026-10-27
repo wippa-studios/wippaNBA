@@ -23,7 +23,7 @@ for _path in (ROOT, ROOT / "src", ROOT / "scripts"):
         sys.path.insert(0, str(_path))
 
 import issue72_late_scratch as i72  # noqa: E402
-from DataProviders import injury_features as inf  # noqa: E402
+from wippa_nba.data import injury_features as inf  # noqa: E402
 
 
 def _panel(rows):

@@ -19,14 +19,14 @@ import unittest
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-for candidate in (ROOT, ROOT / "src" / "Process-Data"):
+for candidate in (ROOT, ROOT / "src" / "wippa_nba" / "legacy" / "process_data"):
     if str(candidate) not in sys.path:
         sys.path.insert(0, str(candidate))
 
 
 def _load():
     spec = importlib.util.spec_from_file_location(
-        "glm", ROOT / "src" / "Process-Data" / "Get_Odds_Line_Movement.py"
+        "glm", ROOT / "src" / "wippa_nba" / "legacy" / "process_data" / "Get_Odds_Line_Movement.py"
     )
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
@@ -98,7 +98,7 @@ class TestScheduledCaptureExists(unittest.TestCase):
         )
 
     def test_watch_mode_exists_as_a_scheduler_free_alternative(self):
-        src = (ROOT / "src" / "Process-Data" / "Get_Odds_Line_Movement.py").read_text()
+        src = (ROOT / "src" / "wippa_nba" / "legacy" / "process_data" / "Get_Odds_Line_Movement.py").read_text()
         self.assertIn('"--watch"', src)
         self.assertIn('"--every"', src)
 
@@ -174,7 +174,7 @@ class TestCoverageGatesAnyClvClaim(unittest.TestCase):
         )
 
     def test_coverage_is_reported_before_capture_in_the_cli(self):
-        src = (ROOT / "src" / "Process-Data" / "Get_Odds_Line_Movement.py").read_text()
+        src = (ROOT / "src" / "wippa_nba" / "legacy" / "process_data" / "Get_Odds_Line_Movement.py").read_text()
         self.assertIn("snapshot_coverage(con, min_snapshots=args.min_snapshots)", src)
 
 

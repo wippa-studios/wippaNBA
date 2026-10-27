@@ -28,8 +28,8 @@ import warnings
 import numpy as np
 import pandas as pd
 
-from src.DataProviders.nba_data import paired_bootstrap_delta, walk_forward_split
-from src.Models import gbm
+from wippa_nba.data.nba_data import paired_bootstrap_delta, walk_forward_split
+from wippa_nba.models import gbm
 
 warnings.filterwarnings("ignore", category=DeprecationWarning)
 

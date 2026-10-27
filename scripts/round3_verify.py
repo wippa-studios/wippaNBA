@@ -34,8 +34,8 @@ for _c in (ROOT, ROOT / "src", ROOT / "scripts"):
     if str(_c) not in sys.path:
         sys.path.insert(0, str(_c))
 
-from src.DataProviders import nba_data as nd                        # noqa: E402
-from src.DataProviders.feat_squad_quality import (                  # noqa: E402
+from wippa_nba.data import nba_data as nd                        # noqa: E402
+from wippa_nba.data.feat_squad_quality import (                  # noqa: E402
     squad_quality_features, _player_streams, _prev_squad_roster, _explode_prev_squad)
 
 
@@ -153,7 +153,7 @@ if __name__ == "__main__":
 
 def elo_gate() -> dict:
     """P1_truncation for feat_team_elo, which is the feature being promoted."""
-    from src.DataProviders.feat_team_elo import team_elo_features
+    from wippa_nba.data.feat_team_elo import team_elo_features
     games = pd.read_pickle("/home/Joel/.cache/nba-frames/games.pkl")
     return gate1_truncation(
         games, lambda g: team_elo_features(g, 10.0), "2021-10-20",

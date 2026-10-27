@@ -19,13 +19,13 @@ from pathlib import Path
 import pandas as pd
 
 ROOT = Path(__file__).resolve().parents[1]
-TRAIN_MODELS = ROOT / "src" / "Train-Models"
+TRAIN_MODELS = ROOT / "src" / "wippa_nba" / "legacy" / "train_models"
 for _path in (ROOT, TRAIN_MODELS):
     if str(_path) not in sys.path:
         sys.path.insert(0, str(_path))
 
-import training_common  # noqa: E402
-from src.Utils import features  # noqa: E402
+from wippa_nba.legacy.train_models import training_common  # noqa: E402
+from wippa_nba.features import contract as features  # noqa: E402
 
 
 class TestEveryMirrorIsTheCanonicalList(unittest.TestCase):

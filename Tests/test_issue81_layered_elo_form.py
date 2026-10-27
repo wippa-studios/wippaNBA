@@ -138,7 +138,7 @@ class TestCausality(unittest.TestCase):
 
 class TestConstants(unittest.TestCase):
     def test_elo_constants_match_the_feature_builder(self):
-        from DataProviders.feat_team_elo import HFA, team_elo_features
+        from wippa_nba.data.feat_team_elo import HFA, team_elo_features
         sig = inspect.signature(team_elo_features)
         self.assertEqual(i81.ELO_K, sig.parameters["k"].default)
         self.assertEqual(i81.HFA, sig.parameters["home_advantage"].default)

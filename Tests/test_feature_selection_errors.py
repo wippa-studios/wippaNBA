@@ -34,7 +34,7 @@ for _candidate in (ROOT, ROOT / "src"):
     if str(_candidate) not in sys.path:
         sys.path.insert(0, str(_candidate))
 
-from Models import logreg_rolling as lr  # noqa: E402
+from wippa_nba.models import logreg_rolling as lr  # noqa: E402
 
 
 def _frame(n=8, cols=("net_diff", "home_ewm_margin", "away_ewm_margin")):

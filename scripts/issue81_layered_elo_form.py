@@ -59,8 +59,8 @@ for _c in (ROOT, ROOT / "src", ROOT / "scripts"):
 
 import closing_line as cl                      # noqa: E402
 from c44_spread_total import effective_line    # noqa: E402
-from DataProviders import nba_data as nd       # noqa: E402
-from Models import baselines as bl             # noqa: E402
+from wippa_nba.data import nba_data as nd       # noqa: E402
+from wippa_nba.models import baselines as bl             # noqa: E402
 
 PROTOCOL = "I81-prereg-layered-elo-form"
 OUT_JSON = ROOT / "results" / "issue81_layered_elo_form.json"

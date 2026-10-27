@@ -35,7 +35,7 @@ import warnings
 import numpy as np
 import pandas as pd
 
-from src.Models import player_ratings as pr
+from wippa_nba.models import player_ratings as pr
 
 warnings.filterwarnings("ignore", category=UserWarning)
 
@@ -229,7 +229,7 @@ class TestWalkForwardIsTruncated(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
-        from src.DataProviders import nba_data as D
+        from wippa_nba.data import nba_data as D
         cls.g = D.build_games()
         # A contiguous run from the middle: long enough to have a real training
         # prefix, short enough to run twice in a test suite.
@@ -284,7 +284,7 @@ class TestWalkForwardIsTruncated(unittest.TestCase):
         equality against the split geometry rather than disjointness from every
         training block.
         """
-        from src.DataProviders import nba_data as D
+        from wippa_nba.data import nba_data as D
         expected = set()
         for tr, te in D.walk_forward_split(self.sub, n_splits=2):
             self.assertFalse(set(tr.tolist()) & set(te.tolist()))
@@ -489,7 +489,7 @@ class TestCalibrationAndSignConventions(unittest.TestCase):
     def test_standard_errors_are_positive_and_far_below_the_metric(self):
         # A log-loss delta of 0.002 has to be judged against a standard error
         # of this size, so the SEs the report prints are checked for sanity.
-        from src.DataProviders import nba_data as D
+        from wippa_nba.data import nba_data as D
         g = D.build_games()
         y = g["y"].to_numpy()[:2000]
         p = np.clip(0.5645 + 0.0004 * (g["margin"].to_numpy()[:2000]), 0.02, 0.98)
@@ -522,7 +522,7 @@ class TestCalibrationAndSignConventions(unittest.TestCase):
         of the time at a flat 0.80; `coin` is a flat 0.50. The first has the
         lower log loss, so pairing it as `a` must give a NEGATIVE delta.
         """
-        from src.DataProviders import nba_data as D
+        from wippa_nba.data import nba_data as D
         n = 4000
         rng = np.random.default_rng(11)
         y = (rng.uniform(size=n) < 0.80).astype(int)

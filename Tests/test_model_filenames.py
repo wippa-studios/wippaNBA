@@ -19,13 +19,13 @@ import unittest
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-TRAIN_MODELS = ROOT / "src" / "Train-Models"
+TRAIN_MODELS = ROOT / "src" / "wippa_nba" / "legacy" / "train_models"
 for _path in (ROOT, TRAIN_MODELS):
     if str(_path) not in sys.path:
         sys.path.insert(0, str(_path))
 
-import training_common  # noqa: E402
-from src.Predict import XGBoost_Runner  # noqa: E402
+from wippa_nba.legacy.train_models import training_common  # noqa: E402
+from wippa_nba.predict import XGBoost_Runner  # noqa: E402
 
 
 class TestXGBoostNames(unittest.TestCase):
@@ -59,7 +59,7 @@ class TestNeuralNames(unittest.TestCase):
             training_common.neural_model_filename("UO", 0.5)
 
     def test_the_runner_can_still_parse_the_accuracy(self):
-        from src.Predict import NN_Runner
+        from wippa_nba.predict import NN_Runner
 
         name = training_common.neural_model_filename("ML", 0.6462)
         match = NN_Runner.ML_PATTERN.search(name)

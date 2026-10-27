@@ -8,7 +8,7 @@ from unittest import mock
 
 import pandas as pd
 
-GET_DATA_PATH = Path(__file__).resolve().parents[1] / "src" / "Process-Data" / "Get_Data.py"
+GET_DATA_PATH = Path(__file__).resolve().parents[1] / "src" / "wippa_nba" / "legacy" / "process_data" / "Get_Data.py"
 SPEC = importlib.util.spec_from_file_location("get_data", GET_DATA_PATH)
 get_data = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(get_data)

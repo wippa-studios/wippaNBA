@@ -38,7 +38,7 @@ for _c in (ROOT, ROOT / "src", ROOT / "scripts"):
         sys.path.insert(0, str(_c))
 
 from scripts.round3_common import load_cached, log3            # noqa: E402
-from src.DataProviders.feat_team_elo import team_elo_features  # noqa: E402
+from wippa_nba.data.feat_team_elo import team_elo_features  # noqa: E402
 
 
 def best_level(e14: pd.DataFrame, s: pd.Series) -> tuple[float, str]:

@@ -48,7 +48,7 @@ for _c in (ROOT, ROOT / "src", ROOT / "scripts"):
 
 from scripts.round3_common import (                      # noqa: E402
     load_cached, oof_fixed, compare, log3, delta_vs, scored_mask)
-from src.DataProviders import nba_data as nd              # noqa: E402
+from wippa_nba.data import nba_data as nd              # noqa: E402
 
 E14_BAR = 0.618307
 AV_LOG_LOSS = 0.614372          # R2_availability_on_e14, reproduced below

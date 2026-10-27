@@ -32,8 +32,8 @@ HOW THE HYPHEN IS HANDLED
 ========================
 ``src/Train-Models`` contains a hyphen, so it can never be an importable package.
 It goes on ``sys.path`` and its modules import under plain top-level names, which
-is the convention their own docstrings describe. ``src.Train-Models.XGBoost_*``
-and ``src.Train-Models.NN_*`` additionally import xgboost and tensorflow, neither
+is the convention their own docstrings describe. ``wippa_nba.legacy.train_models.XGBoost_*``
+and ``wippa_nba.legacy.train_models.NN_*`` additionally import xgboost and tensorflow, neither
 of which is installed here, so those two modules are NOT imported: their source is
 checked with ``ast`` instead. Every assertion about them is therefore about the
 text, not about behaviour, and says so.
@@ -54,21 +54,21 @@ import numpy as np
 import pandas as pd
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
-TRAIN_MODELS_DIR = REPO_ROOT / "src" / "Train-Models"
-PREDICT_DIR = REPO_ROOT / "src" / "Predict"
-CREATE_GAMES_PATH = REPO_ROOT / "src" / "Process-Data" / "Create_Games.py"
+TRAIN_MODELS_DIR = REPO_ROOT / "src" / "wippa_nba" / "legacy" / "train_models"
+PREDICT_DIR = REPO_ROOT / "src" / "wippa_nba" / "predict"
+CREATE_GAMES_PATH = REPO_ROOT / "src" / "wippa_nba" / "legacy" / "process_data" / "Create_Games.py"
 DATASET_DB = REPO_ROOT / "Data" / "dataset.sqlite"
 
 for _path in (REPO_ROOT, TRAIN_MODELS_DIR):
     if str(_path) not in sys.path:
         sys.path.insert(0, str(_path))
 
-import logistic_training  # noqa: E402
-import training_common  # noqa: E402
-import training_reporting  # noqa: E402
+from wippa_nba.legacy.train_models import logistic_training  # noqa: E402
+from wippa_nba.legacy.train_models import training_common  # noqa: E402
+from wippa_nba.legacy.train_models import training_reporting  # noqa: E402
 
-from src.Utils import metrics  # noqa: E402
-from src.Utils import validation  # noqa: E402
+from wippa_nba.evaluation import metrics  # noqa: E402
+from wippa_nba.evaluation import validation  # noqa: E402
 
 TRAINER_SOURCES = (
     "Logistic_Regression_ML.py",
@@ -309,7 +309,7 @@ class TestDatasetTableAgreement(unittest.TestCase):
             ]
             self.assertEqual(assigned, [], f"{name} still assigns DATASET_TABLE")
             self.assertIn(
-                "from training_common import DEFAULT_DATASET as DATASET_TABLE",
+                "from wippa_nba.legacy.train_models.training_common import DEFAULT_DATASET as DATASET_TABLE",
                 source,
                 name,
             )
@@ -546,7 +546,7 @@ class TestTotalsTrainerRunsEndToEnd(unittest.TestCase):
     repointed at it. Nothing is downloaded and the committed 38 MB table is not
     read, so this runs in about two seconds on any checkout. The CI job
     ``totals-trainer`` runs the same synthetic table through the real
-    ``python -m src.Train-Models.Logistic_Regression_UO`` entry point.
+    ``python -m wippa_nba.legacy.train_models.Logistic_Regression_UO`` entry point.
     """
 
     @classmethod
@@ -750,8 +750,8 @@ class TestSearchDoesNotRankNoise(unittest.TestCase):
 
     def test_a_missing_selection_module_is_reported_not_raised(self):
         # A reporting aid must never kill a training run.
-        saved = sys.modules.get("src.Utils.validation", False)
-        sys.modules["src.Utils.validation"] = None  # makes the import raise
+        saved = sys.modules.get("wippa_nba.evaluation.validation", False)
+        sys.modules["wippa_nba.evaluation.validation"] = None  # makes the import raise
         try:
             buffer = io.StringIO()
             with contextlib.redirect_stdout(buffer):
@@ -762,9 +762,9 @@ class TestSearchDoesNotRankNoise(unittest.TestCase):
             self.assertIn("Selection risk not reported", buffer.getvalue())
         finally:
             if saved is False:
-                sys.modules.pop("src.Utils.validation", None)
+                sys.modules.pop("wippa_nba.evaluation.validation", None)
             else:
-                sys.modules["src.Utils.validation"] = saved
+                sys.modules["wippa_nba.evaluation.validation"] = saved
 
     def test_selection_effect_shrinks_as_trials_shrink(self):
         # The measured premise of cutting --trials, asserted rather than assumed.

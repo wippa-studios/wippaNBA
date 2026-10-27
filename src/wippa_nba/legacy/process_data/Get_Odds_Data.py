@@ -12,8 +12,8 @@ import pandas as pd
 import toml
 from sbrscrape import Scoreboard
 
-BASE_DIR = Path(__file__).resolve().parents[2]
-sys.path.insert(1, os.fspath(BASE_DIR))
+BASE_DIR = Path(__file__).resolve().parents[4]
+sys.path.insert(1, os.fspath(BASE_DIR / "src"))
 
 CONFIG_PATH = BASE_DIR / "config.toml"
 DB_PATH = BASE_DIR / "Data" / "OddsData.sqlite"

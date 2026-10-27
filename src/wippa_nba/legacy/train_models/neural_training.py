@@ -34,7 +34,7 @@ import numpy as np
 import pandas as pd
 import tensorflow as tf
 
-from training_common import (
+from wippa_nba.legacy.train_models.training_common import (
     DATE_COLUMN,
     STABLE_SORT_KIND,
     fit_feature_scaler,

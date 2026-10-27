@@ -24,7 +24,7 @@ import unittest
 import numpy as np
 import pandas as pd
 
-from src.Models import ratings
+from wippa_nba.models import ratings
 
 
 # Elo's classic curve, spelled out so a test can reproduce any probability by

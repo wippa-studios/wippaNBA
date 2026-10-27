@@ -59,7 +59,7 @@ for _candidate in (ROOT, ROOT / "src"):
 
 import importlib.util  # noqa: E402
 
-from DataProviders import nba_data as nd  # noqa: E402
+from wippa_nba.data import nba_data as nd  # noqa: E402
 
 _spec = importlib.util.spec_from_file_location(
     "closing_line", ROOT / "scripts" / "closing_line.py")

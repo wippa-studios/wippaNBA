@@ -76,7 +76,7 @@ for _c in (ROOT, ROOT / "src", ROOT / "scripts"):
         sys.path.insert(0, str(_c))
 
 import closing_line as cl  # noqa: E402
-from DataProviders import nba_data as nd  # noqa: E402
+from wippa_nba.data import nba_data as nd  # noqa: E402
 
 SEED = 42
 THRESHOLDS = (0.50, 0.55, 0.60, 0.65, 0.70)

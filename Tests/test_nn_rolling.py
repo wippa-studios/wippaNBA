@@ -12,7 +12,7 @@ import unittest
 import numpy as np
 import pandas as pd
 
-from src.Models import nn_rolling as nn
+from wippa_nba.models import nn_rolling as nn
 
 ARCH = {
     "hidden_layer_sizes": (8,),

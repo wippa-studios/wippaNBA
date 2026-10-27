@@ -30,7 +30,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-PARSER = ROOT / "src" / "Process-Data" / "Get_Injury_Data.py"
+PARSER = ROOT / "src" / "wippa_nba" / "legacy" / "process_data" / "Get_Injury_Data.py"
 
 # The sample spans every layout observed between the archive boundary and the
 # first canonical month.  2018-12-14 is a deliberate negative control: the CDN

@@ -56,7 +56,7 @@ except ImportError:
 BASE_DIR = Path(__file__).resolve().parents[1]
 DATASET_DB = BASE_DIR / "Data" / "dataset.sqlite"
 MODEL_DIR = BASE_DIR / "Models"
-TRAINING_DIR = BASE_DIR / "src" / "Train-Models"
+TRAINING_DIR = BASE_DIR / "src" / "wippa_nba" / "legacy" / "train_models"
 
 # `src/Train-Models` contains a HYPHEN, so it can never be an importable package
 # (renaming it is tracked as follow-up work). It goes on sys.path instead and its
@@ -66,10 +66,11 @@ TRAINING_DIR = BASE_DIR / "src" / "Train-Models"
 # `Tests/test_training_layer.py` already use. `training_common` itself puts the
 # repository root on sys.path in turn, so importing it here is self-sufficient
 # whatever the working directory.
-if str(TRAINING_DIR) not in sys.path:
-    sys.path.insert(0, str(TRAINING_DIR))
+_SRC_DIR = BASE_DIR / "src"
+if str(_SRC_DIR) not in sys.path:
+    sys.path.insert(0, str(_SRC_DIR))
 
-import training_common  # noqa: E402
+from wippa_nba.legacy.train_models import training_common  # noqa: E402
 
 # THE FEATURE CONTRACT, TAKEN FROM THE TRAINERS.
 #
@@ -112,8 +113,9 @@ def load_frame_columns(path):
 
 def load_live_frames():
     sys.path.insert(0, str(BASE_DIR))
+    sys.path.insert(0, str(BASE_DIR / "src"))
     from main import create_todays_games_data, load_schedule, DATA_URL, TODAYS_GAMES_URL
-    from src.Utils.tools import get_json_data, to_data_frame, get_todays_games_json, create_todays_games
+    from wippa_nba.data.tools import get_json_data, to_data_frame, get_todays_games_json, create_todays_games
 
     stats_json = get_json_data(DATA_URL)
     df = to_data_frame(stats_json)

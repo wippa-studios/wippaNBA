@@ -37,8 +37,8 @@ import numpy as np
 import pandas as pd
 from scipy.stats import norm
 
-from src.DataProviders import nba_data as nd
-from src.Models import margin_total as mt
+from wippa_nba.data import nba_data as nd
+from wippa_nba.models import margin_total as mt
 
 
 # --------------------------------------------------------------------------- #

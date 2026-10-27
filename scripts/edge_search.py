@@ -62,7 +62,7 @@ for _c in (ROOT, ROOT / "src", ROOT / "scripts"):
 
 import closing_line as cl                      # noqa: E402
 from c44_spread_total import effective_line    # noqa: E402
-from DataProviders import nba_data as nd       # noqa: E402
+from wippa_nba.data import nba_data as nd       # noqa: E402
 
 OUT_DIR = ROOT / "results" / "edge_search"
 LEDGER = ROOT / "results" / "experiments.jsonl"

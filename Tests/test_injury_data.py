@@ -48,12 +48,12 @@ from pathlib import Path
 from zoneinfo import ZoneInfo
 
 ROOT = Path(__file__).resolve().parents[1]
-for _candidate in (ROOT, ROOT / "src" / "Process-Data"):
+for _candidate in (ROOT, ROOT / "src" / "wippa_nba" / "legacy" / "process_data"):
     if str(_candidate) not in sys.path:
         sys.path.insert(0, str(_candidate))
 
 _spec = importlib.util.spec_from_file_location(
-    "gid", ROOT / "src" / "Process-Data" / "Get_Injury_Data.py"
+    "gid", ROOT / "src" / "wippa_nba" / "legacy" / "process_data" / "Get_Injury_Data.py"
 )
 gid = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(gid)
@@ -681,7 +681,7 @@ class TestParserEras(PdfAccountingMixin, unittest.TestCase):
         script = (
             "import importlib.util, sys;"
             f"spec = importlib.util.spec_from_file_location('gid', "
-            f"{str(ROOT / 'src' / 'Process-Data' / 'Get_Injury_Data.py')!r});"
+            f"{str(ROOT / 'src' / 'wippa_nba' / 'legacy' / 'process_data' / 'Get_Injury_Data.py')!r});"
             "m = importlib.util.module_from_spec(spec);"
             "spec.loader.exec_module(m);"
             "assert 'pdfplumber' not in sys.modules, "

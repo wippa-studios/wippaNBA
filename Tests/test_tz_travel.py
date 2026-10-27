@@ -21,9 +21,9 @@ import unittest
 import numpy as np
 import pandas as pd
 
-from src.DataProviders import nba_data as nd
-from src.DataProviders.nba_data import TEAM_TZ_OFFSET, REAL_TEAMS
-from src.Models import logreg_rolling as lr
+from wippa_nba.data import nba_data as nd
+from wippa_nba.data.nba_data import TEAM_TZ_OFFSET, REAL_TEAMS
+from wippa_nba.models import logreg_rolling as lr
 
 
 def mini_games(rows):

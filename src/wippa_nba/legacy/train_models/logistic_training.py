@@ -36,7 +36,7 @@ import numpy as np
 import pandas as pd
 from sklearn.linear_model import LogisticRegression
 
-from training_common import DATE_COLUMN, STABLE_SORT_KIND, snap_cut_to_date_boundary
+from wippa_nba.legacy.train_models.training_common import DATE_COLUMN, STABLE_SORT_KIND, snap_cut_to_date_boundary
 
 
 def _snap(position, dates):

@@ -37,7 +37,7 @@ import pytest
 pytest.importorskip("flask")
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
-MODULE_PATH = REPO_ROOT / "Flask" / "app.py"
+MODULE_PATH = REPO_ROOT / "src" / "wippa_nba" / "web" / "app.py"
 
 SPEC = importlib.util.spec_from_file_location("flask_security_app", MODULE_PATH)
 webapp = importlib.util.module_from_spec(SPEC)

@@ -25,7 +25,7 @@ from sklearn.metrics import accuracy_score, log_loss
 ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
-TRAIN_MODELS = ROOT / "src" / "Train-Models"
+TRAIN_MODELS = ROOT / "src" / "wippa_nba" / "legacy" / "train_models"
 if str(TRAIN_MODELS) not in sys.path:
     sys.path.insert(0, str(TRAIN_MODELS))
 
@@ -166,7 +166,7 @@ class TestTheLossQuantityIsTheSame(unittest.TestCase):
 
 def _dataset_available():
     try:
-        import training_common  # noqa: F401
+        from wippa_nba.legacy.train_models import training_common  # noqa: F401
     except Exception:
         return False
     return training_common.DATASET_DB.exists()
@@ -183,7 +183,7 @@ class TestHeldOutMetricsDoNotMove(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
-        import training_common as tc
+        from wippa_nba.legacy.train_models import training_common as tc
 
         frame = tc.load_dataset()
         X, y, _features, data = prepare_data(

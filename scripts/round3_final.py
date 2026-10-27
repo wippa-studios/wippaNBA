@@ -47,8 +47,8 @@ for _c in (ROOT, ROOT / "src", ROOT / "scripts"):
         sys.path.insert(0, str(_c))
 
 from scripts.round3_common import load_cached, oof_fixed, compare, log3  # noqa: E402
-from src.DataProviders import nba_data as nd                              # noqa: E402
-from src.DataProviders.feat_team_elo import team_elo_features            # noqa: E402
+from wippa_nba.data import nba_data as nd                              # noqa: E402
+from wippa_nba.data.feat_team_elo import team_elo_features            # noqa: E402
 from scripts.round3_run_U import per_fold_delta                          # noqa: E402
 
 

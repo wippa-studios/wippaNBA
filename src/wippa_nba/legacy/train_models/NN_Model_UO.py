@@ -11,16 +11,16 @@ import sys
 # This directory is named with a hyphen, so it is not an importable package.
 # The shared modules below are siblings, which means they only resolve when
 # this script runs with the repository root on sys.path -- e.g.
-# `python -m src.Train-Models.NN_Model_ML`. Adding the script's own directory
-# keeps `python src/Train-Models/NN_Model_ML.py` working too.
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+# `python -m wippa_nba.legacy.train_models.NN_Model_UO`. Adding the script's own directory
+# keeps `python src/Train-Models/NN_Model_UO.py` working too.
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "..")))
 
 # Imported as a MODULE as well as by name: `training_common.DATE_COLUMN` is read at
 # run time to snap the split points to date-group boundaries, and mixing the two
 # spellings in one file is how the two get out of step.
-import training_common
+from wippa_nba.legacy.train_models import training_common
 
-from neural_training import (
+from wippa_nba.legacy.train_models.neural_training import (
     KerasProbabilityWrapper,
     build_model,
     prepare_data,
@@ -28,12 +28,12 @@ from neural_training import (
     split_train_es_calib_test,
     to_model_matrix,
 )
-from training_common import (
+from wippa_nba.legacy.train_models.training_common import (
     BASE_DIR,
     DEFAULT_DATASET,
     DEFAULT_TRIALS,
-    MONEYLINE_NUM_CLASSES,
-    MONEYLINE_TARGET,
+    TOTALS_NUM_CLASSES,
+    TOTALS_TARGET,
     calibration_choices,
     drop_columns_for,
     load_dataset,
@@ -41,7 +41,7 @@ from training_common import (
     report_search_selection_risk,
     write_run_manifest,
 )
-from training_reporting import (
+from wippa_nba.legacy.train_models.training_reporting import (
     MIN_CALIBRATION_ROWS,
     log_loss_standard_error,
     make_calibrated_estimator,
@@ -57,11 +57,13 @@ from training_reporting import (
 # two indistinguishable (issue #16). One directory, the one the runner prefers.
 MODEL_DIR = BASE_DIR / "Models" / "NN_Models"
 
-NUM_CLASSES = MONEYLINE_NUM_CLASSES
-TARGET_COLUMN = MONEYLINE_TARGET
-LABELS = [0, 1]
-# OU is dropped here on purpose: it is the label-adjacent closing line, and this
-# moneyline trainer does not want it. See training_common.drop_columns_for.
+NUM_CLASSES = TOTALS_NUM_CLASSES
+TARGET_COLUMN = TOTALS_TARGET
+LABELS = [0, 1, 2]
+# OU stays out of this list on purpose: the pre-game total is known before tip-off,
+# and this totals trainer must agree with XGBoost_Model_UO.DROP_COLUMNS, which keeps
+# it too, or the runner feeds the networks an input width and order neither trained on.
+# See training_common.drop_columns_for.
 DROP_COLUMNS = drop_columns_for(TARGET_COLUMN)
 
 
@@ -111,7 +113,7 @@ def add_search_arguments(parser):
 
 def build_parser():
     """The fully-populated parser, so its defaults can be inspected."""
-    parser = argparse.ArgumentParser(description="Train NN moneyline model (random search).")
+    parser = argparse.ArgumentParser(description="Train NN totals model (random search).")
     add_search_arguments(parser)
     parser.add_argument("--seed", type=int, default=42, help="Random seed.")
     parser.add_argument("--val-size", type=float, default=0.1, help="Validation (early-stop) size.")
@@ -159,7 +161,7 @@ def main():
     )
     rng = np.random.default_rng(args.seed)
     best = {"val_loss": float("inf"), "params": None}
-    temp_path = MODEL_DIR / "best_ml_temp.keras"
+    temp_path = MODEL_DIR / "best_uo_temp.keras"
     # A killed process cannot run a finally block, so a scratch file from an
     # earlier aborted run is removed before this one can be mistaken for it.
     temp_path.unlink(missing_ok=True)
@@ -255,7 +257,10 @@ def main():
         )
         print(f"Test accuracy: {accuracy:.4f}")
         print(f"Test log loss: {test_loss:.4f}")
-        print(f"Test ROC AUC: {roc_auc_score(y_test, probabilities[:, 1]):.4f}")
+        print(
+            "Test ROC AUC: multiclass "
+            f"{roc_auc_score(y_test, probabilities, labels=LABELS, multi_class='ovr', average='macro'):.4f}"
+        )
         report_calibration_effect(
             y_test,
             raw_probabilities,
@@ -272,14 +277,14 @@ def main():
         report_closing_line(
             test_rows,
             home_win_truth=test_rows["Home-Team-Win"].astype(int).to_numpy(),
-            moneyline_picks=y_pred,
+            moneyline_picks=None,
         )
 
         params = best["params"]
         # The filename carries the target and the held-out accuracy, nothing
         # else. The winning configuration goes into the manifest below, which is
         # gitignored. The runner's prefix glob still finds this artifact.
-        model_name = neural_model_filename("ML", accuracy)
+        model_name = neural_model_filename("OU", accuracy)
         model_path = MODEL_DIR / model_name
         best_model.save(model_path)
         print(f"Saved model: {model_path}")
@@ -300,7 +305,7 @@ def main():
         manifest_path = write_run_manifest(model_path, {
             "schema": 1,
             "artifact": model_path.name,
-            "kind": "moneyline",
+            "kind": "totals",
             "target": TARGET_COLUMN,
             "accuracy": float(accuracy),
             "test_loss": float(test_loss),

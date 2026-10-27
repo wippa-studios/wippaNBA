@@ -24,7 +24,7 @@ from datetime import date, datetime, timedelta
 import numpy as np
 import pandas as pd
 
-from src.Utils import validation
+from wippa_nba.evaluation import validation
 
 
 def synthetic_dates(n_days=200, start="2021-10-20", per_day=1):

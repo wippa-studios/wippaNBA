@@ -68,7 +68,7 @@ BASE_DIR = Path(__file__).resolve().parents[1]
 DATASET_DB = BASE_DIR / "Data" / "dataset.sqlite"
 ODDS_DB = BASE_DIR / "Data" / "OddsData.sqlite"
 TEAM_DB = BASE_DIR / "Data" / "TeamData.sqlite"
-TRAINING_DIR = BASE_DIR / "src" / "Train-Models"
+TRAINING_DIR = BASE_DIR / "src" / "wippa_nba" / "legacy" / "train_models"
 
 MONEYLINE_TARGET = "Home-Team-Win"
 DATE_COLUMN = "Date"
@@ -87,9 +87,9 @@ AWAY_TEAM = "TEAM_NAME.1"
 # TEAM_ID.1 are absent from the shipped table; the flag is kept because the
 # logistic trainers ask for it, `errors="ignore"` makes them no-ops, and this
 # harness must select the same columns they do.
-if str(TRAINING_DIR) not in sys.path:
-    sys.path.insert(0, str(TRAINING_DIR))
-from training_common import drop_columns_for  # noqa: E402
+if str(BASE_DIR / "src") not in sys.path:
+    sys.path.insert(0, str(BASE_DIR / "src"))
+from wippa_nba.legacy.train_models.training_common import drop_columns_for  # noqa: E402
 
 DROP_COLUMNS = drop_columns_for(MONEYLINE_TARGET, include_team_ids=True)
 
@@ -529,7 +529,7 @@ def compare_to_baseline(y_test, proba, run_id):
     if record is None or not record.get("test_predictions_zb64"):
         return None
     try:
-        from src.Utils.metrics import bootstrap_paired_delta
+        from wippa_nba.evaluation.metrics import bootstrap_paired_delta
     except ImportError:
         return None
     stored = np.frombuffer(
@@ -1077,7 +1077,7 @@ def canonical_team_coverage(test_rows, odds, known_frame=None):
     Returns a dict describing what was seen. Raises SystemExit on an unknown name.
     """
     try:
-        from src.Utils.Dictionaries import FRANCHISE_ALIASES, canonical_team_name
+        from wippa_nba.data.Dictionaries import FRANCHISE_ALIASES, canonical_team_name
     except Exception as exc:  # pragma: no cover - import-failure path
         print(
             f"Canonical team coverage NOT reported: could not load "

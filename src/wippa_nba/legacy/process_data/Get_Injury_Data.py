@@ -155,12 +155,12 @@ dependency produces.
 
 INVOCATION
 ==========
-    python -m src.Process-Data.Get_Injury_Data capture --date 2026-10-23 --max-requests 3
-    python -m src.Process-Data.Get_Injury_Data capture --from 2026-10-01 --to 2026-10-23
-    python -m src.Process-Data.Get_Injury_Data parse
-    python -m src.Process-Data.Get_Injury_Data query --player "Doe, John" \
+    python -m wippa_nba.legacy.process_data.Get_Injury_Data capture --date 2026-10-23 --max-requests 3
+    python -m wippa_nba.legacy.process_data.Get_Injury_Data capture --from 2026-10-01 --to 2026-10-23
+    python -m wippa_nba.legacy.process_data.Get_Injury_Data parse
+    python -m wippa_nba.legacy.process_data.Get_Injury_Data query --player "Doe, John" \
         --game 2026-10-23 --cutoff "2026-10-23T18:00:00-04:00"
-    python -m src.Process-Data.Get_Injury_Data slots --date 2026-10-23
+    python -m wippa_nba.legacy.process_data.Get_Injury_Data slots --date 2026-10-23
 
 (`python src/Process-Data/Get_Injury_Data.py ...` works too; the directory
 contains a hyphen, so tests load this file by path.)
@@ -183,15 +183,15 @@ from datetime import date as date_cls, datetime, timedelta, timezone
 from pathlib import Path
 from urllib.parse import urljoin, urlsplit
 
-BASE_DIR = Path(__file__).resolve().parents[2]
+BASE_DIR = Path(__file__).resolve().parents[4]
 # Same header as Get_Odds_Line_Movement.py: this directory has a hyphen, so it
 # is not an importable package and this file can only ever be loaded by path or
-# via `python -m src.Process-Data.Get_Injury_Data` (runpy resolves the hyphen;
+# via `python -m wippa_nba.legacy.process_data.Get_Injury_Data` (runpy resolves the hyphen;
 # the `import` statement cannot). The sys.path insert mirrors the sibling
 # module so both resolve repo-root imports the same way. noqa: E402 marks the
 # imports above as deliberately being pure stdlib -- this module must import
 # without pandas, without requests and without pdfplumber.
-sys.path.insert(1, os.fspath(BASE_DIR))  # noqa: E402
+sys.path.insert(1, os.fspath(BASE_DIR / "src"))  # noqa: E402
 
 
 # ---------------------------------------------------------------------------

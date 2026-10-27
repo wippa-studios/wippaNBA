@@ -59,8 +59,8 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-from src.DataProviders import nba_data as nd
-from src.Models import logreg_rolling as lr
+from wippa_nba.data import nba_data as nd
+from wippa_nba.models import logreg_rolling as lr
 
 # The design matrix over the real 13,199-game history is the same object for
 # every test that needs it, and building it costs ~2s. Built once, lazily, so a

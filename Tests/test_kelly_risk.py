@@ -27,7 +27,7 @@ are spelled out at the point of use.
 import math
 import unittest
 
-from src.Utils import Kelly_Criterion as kc
+from wippa_nba.betting import kelly as kc
 
 
 class TestImpliedProbability(unittest.TestCase):

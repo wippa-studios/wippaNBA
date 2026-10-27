@@ -44,7 +44,7 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-from src.Utils.leakage_gate import (
+from wippa_nba.evaluation.leakage_gate import (
     ColumnFinding,
     LeakageReport,
     audit_future_dependence,
@@ -596,7 +596,7 @@ class TestImportIsIndependentOfTheRepoData(unittest.TestCase):
     def test_importing_the_gate_does_not_import_nba_data(self):
         code = (
             "import sys;"
-            "import src.Utils.leakage_gate as g;"
+            "sys.path.insert(0, 'src');import wippa_nba.evaluation.leakage_gate as g;"
             "print('nba_data' in sys.modules);"
             "print(hasattr(g, 'audit_future_dependence'))"
         )

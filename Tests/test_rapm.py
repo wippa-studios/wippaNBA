@@ -17,7 +17,7 @@ import numpy as np
 import pandas as pd
 from scipy import sparse
 
-from src.Models import rapm
+from wippa_nba.models import rapm
 
 
 def toy_game() -> tuple[pd.DataFrame, pd.DataFrame]:

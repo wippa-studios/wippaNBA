@@ -31,9 +31,9 @@ for _c in (ROOT, ROOT / "src", ROOT / "scripts"):
     if str(_c) not in sys.path:
         sys.path.insert(0, str(_c))
 
-from DataProviders import nba_data as nd          # noqa: E402
-from Models import dynamic_ratings as dr          # noqa: E402
-from Models import measurement as ms              # noqa: E402
+from wippa_nba.data import nba_data as nd          # noqa: E402
+from wippa_nba.models import dynamic_ratings as dr          # noqa: E402
+from wippa_nba.models import measurement as ms              # noqa: E402
 
 JSONL = ROOT / "results" / "experiments.jsonl"
 OUT_JSON = ROOT / "results" / "issue40_dynamic_ratings.json"

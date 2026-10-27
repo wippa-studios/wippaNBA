@@ -63,8 +63,8 @@ for _candidate in (ROOT, ROOT / "src"):
     if str(_candidate) not in sys.path:
         sys.path.insert(0, str(_candidate))
 
-from src.DataProviders import nba_data as nd  # noqa: E402
-from src.Models import logreg_rolling as lr  # noqa: E402
+from wippa_nba.data import nba_data as nd  # noqa: E402
+from wippa_nba.models import logreg_rolling as lr  # noqa: E402
 
 ODDS_DB = ROOT / "Data" / "OddsData.sqlite"
 RESULTS = ROOT / "results" / "closing_line.json"
@@ -164,7 +164,7 @@ class TestAlignmentCannotSilentlyBreak(unittest.TestCase):
     def test_row_for_row_alignment_matches_the_model_output(self):
         if not ODDS_DB.exists():
             self.skipTest("odds database not present")
-        from DataProviders import nba_data as nd
+        from wippa_nba.data import nba_data as nd
 
         games = nd.build_games().head(2500)
         p = np.linspace(0.2, 0.8, len(games))
@@ -463,7 +463,7 @@ class TestFeatureFrameGuards(unittest.TestCase):
     `load_design`: `feature_frame` refuses a length-mismatched `load_design`
     output, and `load_design` refuses a length-mismatched (or re-shaped)
     availability block. The mocks target `cl.lr.nd`, which is the
-    `src.DataProviders.nba_data` module object `load_design` calls - NOT `cl.nd`,
+    `wippa_nba.data.nba_data` module object `load_design` calls - NOT `cl.nd`,
     the script's separately-imported copy of the same file.
     """
 

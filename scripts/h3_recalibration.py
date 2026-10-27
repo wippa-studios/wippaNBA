@@ -55,8 +55,8 @@ for _c in (ROOT, ROOT / "src", ROOT / "scripts"):
     if str(_c) not in sys.path:
         sys.path.insert(0, str(_c))
 
-from DataProviders import nba_data as nd          # noqa: E402
-from Models import logreg_rolling as lr           # noqa: E402
+from wippa_nba.data import nba_data as nd          # noqa: E402
+from wippa_nba.models import logreg_rolling as lr           # noqa: E402
 from Utils import metrics as um                   # noqa: E402
 
 JSONL = ROOT / "results" / "experiments.jsonl"

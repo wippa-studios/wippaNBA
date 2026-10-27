@@ -47,9 +47,9 @@ for _c in (ROOT, ROOT / "src"):
     if str(_c) not in sys.path:
         sys.path.insert(0, str(_c))
 
-from DataProviders import nba_data as nd  # noqa: E402
+from wippa_nba.data import nba_data as nd  # noqa: E402
 
-INJURY_MODULE = ROOT / "src" / "Process-Data" / "Get_Injury_Data.py"
+INJURY_MODULE = ROOT / "src" / "wippa_nba" / "legacy" / "process_data" / "Get_Injury_Data.py"
 
 
 def load_injury_module():

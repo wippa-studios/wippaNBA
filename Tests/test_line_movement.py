@@ -26,7 +26,7 @@ from pathlib import Path
 from unittest import mock
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
-MODULE_PATH = REPO_ROOT / "src" / "Process-Data" / "Get_Odds_Line_Movement.py"
+MODULE_PATH = REPO_ROOT / "src" / "wippa_nba" / "legacy" / "process_data" / "Get_Odds_Line_Movement.py"
 
 SPEC = importlib.util.spec_from_file_location("get_odds_line_movement", MODULE_PATH)
 line_movement = importlib.util.module_from_spec(SPEC)

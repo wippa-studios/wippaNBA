@@ -18,8 +18,8 @@ import unittest
 import numpy as np
 import pandas as pd
 
-from src.DataProviders import nba_data as nd
-from src.Models import measurement as ms
+from wippa_nba.data import nba_data as nd
+from wippa_nba.models import measurement as ms
 
 
 def synthetic_games(n: int = 200) -> pd.DataFrame:

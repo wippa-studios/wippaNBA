@@ -61,7 +61,7 @@ PREDICTIONS_SCHEMA_VERSION = 1
 # Derived from this file instead of the launch directory: `flask run` is started
 # from Flask/ in the README but from the repo root by anything else, and the child
 # process has to find main.py either way.
-REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+REPO_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 MAIN_SCRIPT = os.path.join(REPO_ROOT, "main.py")
 
 # An expected value is Pwin * payout - (1 - Pwin) * 100, so it can never fall below

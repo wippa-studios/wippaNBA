@@ -22,7 +22,7 @@ except ImportError:
     stub.Scoreboard = Scoreboard
     sys.modules["sbrscrape"] = stub
 
-GET_ODDS_PATH = Path(__file__).resolve().parents[1] / "src" / "Process-Data" / "Get_Odds_Data.py"
+GET_ODDS_PATH = Path(__file__).resolve().parents[1] / "src" / "wippa_nba" / "legacy" / "process_data" / "Get_Odds_Data.py"
 SPEC = importlib.util.spec_from_file_location("get_odds_data", GET_ODDS_PATH)
 get_odds_data = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(get_odds_data)

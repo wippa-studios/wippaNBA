@@ -1,5 +1,5 @@
 import unittest
-from src.Utils import Kelly_Criterion as kc
+from wippa_nba.betting import kelly as kc
 
 
 class TestKellyCriterion(unittest.TestCase):

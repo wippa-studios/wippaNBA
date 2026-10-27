@@ -28,8 +28,8 @@ import unittest
 import numpy as np
 import pandas as pd
 
-from src.DataProviders import nba_data as nd
-from src.Models import baselines, ratings
+from wippa_nba.data import nba_data as nd
+from wippa_nba.models import baselines, ratings
 
 
 # --------------------------------------------------------------------------- #

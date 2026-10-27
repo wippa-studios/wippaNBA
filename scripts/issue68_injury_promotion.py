@@ -36,9 +36,9 @@ for _c in (ROOT, ROOT / "src", ROOT / "scripts"):
     if str(_c) not in sys.path:
         sys.path.insert(0, str(_c))
 
-from DataProviders import injury_features as inf     # noqa: E402
-from DataProviders import nba_data as nd             # noqa: E402
-from Models import measurement as ms                 # noqa: E402
+from wippa_nba.data import injury_features as inf     # noqa: E402
+from wippa_nba.data import nba_data as nd             # noqa: E402
+from wippa_nba.models import measurement as ms                 # noqa: E402
 
 OUT_JSON = ROOT / "results" / "issue68_injury_promotion.json"
 OUT_MD = ROOT / "results" / "issue68_injury_promotion.md"

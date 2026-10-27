@@ -17,7 +17,7 @@ from unittest import mock
 import numpy as np
 import pandas as pd
 
-from src.DataProviders import nba_data as nd
+from wippa_nba.data import nba_data as nd
 
 
 # G0 exists so every player has one prior appearance and a materialised

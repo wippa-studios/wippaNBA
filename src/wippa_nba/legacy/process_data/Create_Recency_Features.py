@@ -160,8 +160,8 @@ import toml
 from collections import Counter
 from numpy.lib.stride_tricks import sliding_window_view
 
-BASE_DIR = Path(__file__).resolve().parents[2]
-sys.path.insert(1, os.fspath(BASE_DIR))
+BASE_DIR = Path(__file__).resolve().parents[4]
+sys.path.insert(1, os.fspath(BASE_DIR / "src"))
 
 CONFIG_PATH = BASE_DIR / "config.toml"
 ODDS_DB_PATH = BASE_DIR / "Data" / "OddsData.sqlite"

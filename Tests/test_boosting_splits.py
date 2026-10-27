@@ -24,12 +24,12 @@ if str(ROOT) not in sys.path:
 # boosting_training does `from training_common import ...`, and the directory's
 # hyphen means it can never be a package - the trainers rely on this being on the
 # path, so the test does too.
-TRAIN_MODELS = ROOT / "src" / "Train-Models"
+TRAIN_MODELS = ROOT / "src" / "wippa_nba" / "legacy" / "train_models"
 if str(TRAIN_MODELS) not in sys.path:
     sys.path.insert(0, str(TRAIN_MODELS))
 
 _spec = importlib.util.spec_from_file_location(
-    "boosting_training", ROOT / "src" / "Train-Models" / "boosting_training.py"
+    "boosting_training", ROOT / "src" / "wippa_nba" / "legacy" / "train_models" / "boosting_training.py"
 )
 boosting_training = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(boosting_training)
@@ -146,7 +146,7 @@ class TestCalibrationIsNeverTheValidationSet(unittest.TestCase):
         than the last, this whole split would be solving a different problem. Assert
         the shape of the call site instead of trusting the comment.
         """
-        src = (ROOT / "src" / "Train-Models" / "boosting_training.py").read_text()
+        src = (ROOT / "src" / "wippa_nba" / "legacy" / "train_models" / "boosting_training.py").read_text()
         self.assertIn("evals=[(dtrain, \"train\"), (dval, \"val\")]", src)
         self.assertIn("early_stopping_rounds=60", src)
 

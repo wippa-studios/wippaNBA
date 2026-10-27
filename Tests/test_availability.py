@@ -41,7 +41,7 @@ for _candidate in (ROOT, ROOT / "src"):
     if str(_candidate) not in sys.path:
         sys.path.insert(0, str(_candidate))
 
-from DataProviders import nba_data as nd  # noqa: E402
+from wippa_nba.data import nba_data as nd  # noqa: E402
 
 RESULTS = ROOT / "results" / "availability.json"
 
