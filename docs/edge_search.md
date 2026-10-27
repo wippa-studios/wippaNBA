@@ -477,6 +477,66 @@ favourite-overbet is executable **only on an exchange** (commission
 adjusted ~+2%), while at a regular sportsbook the same view is the dog bet,
 which measures +3.6% at z 0.84 — suggestive, not significant.
 
+## Family 8: `lay_grid` — the lay expansion beyond favourites
+
+Family 7 laid the favourite; family 8 expands the structure to everything
+else (#97): near-pick'em sides (the *no favs* lays), underdogs by de-vig
+bucket and price, streak and letdown teams, fatigued teams, venue lays, and
+form-gated lays. 24 arms; same settlement (+1 when the laid side loses,
+−(O−1) when it wins); discovery 11,902, holdout 1,204; bar \|z\| > 3.0.
+
+| arm | n disc | ROI disc | \|z\| | coh disc | comm 5% | liab | n hold | ROI hold | verdict |
+|---|---|---|---|---|---|---|---|---|---|
+| L13 lay the away side in near-pick'em (devig home 0.50-0.55) | 834 | +5.00% | 1.38 | +4.77% | +2.28% | 1.09 | 66 | -14.86% | no evidence |
+| L14 lay the home side in near-pick'em (devig home 0.45-0.50) | 834 | +2.51% | 0.69 | +2.20% | -0.15% | 1.09 | 77 | -17.78% | no evidence |
+| L15 lay the home side in tight-price games | 796 | -2.21% | 0.62 | -0.85% | -4.62% | 0.98 | 59 | +14.75% | no evidence |
+| L16 lay the away side in tight-price games | 796 | +4.80% | 1.35 | +4.35% | +2.21% | 0.98 | 59 | -14.90% | no evidence |
+| L17 lay the underdog, devig-dog 0.20-0.30 | 1,719 | -5.65% | 1.15 | +0.49% | -9.35% | 3.00 | 174 | +12.17% | no evidence |
+| L18 lay the underdog, devig-dog 0.30-0.40 | 2,126 | +0.69% | 0.24 | -0.01% | -2.55% | 1.84 | 177 | +7.12% | same sign, underpowered |
+| L19 lay the underdog, devig-dog 0.40-0.50 | 1,858 | +1.83% | 0.74 | +2.54% | -0.95% | 1.22 | 160 | -7.71% | no evidence |
+| L20 lay underdogs priced >= 2.50 | 8,320 | -6.48% | 2.82 | -0.81% | -10.13% | 3.65 | 874 | +5.26% | no evidence |
+| L21 lay underdogs priced >= 3.00 | 5,916 | -8.32% | 2.68 | -0.06% | -12.18% | 4.43 | 660 | +5.87% | no evidence |
+| L22 lay underdogs priced >= 4.00 | 3,450 | -14.87% | 3.12 | -2.02% | -18.97% | 5.88 | 411 | +0.43% | no evidence |
+| L23 lay the team on a 3+ game win streak | 3,271 | +0.84% | 0.45 | +2.98% | -1.09% | 0.89 | 345 | +5.16% | same sign, underpowered |
+| L24 lay the team on a 4+ game win streak | 1,998 | +3.08% | 1.40 | +3.50% | +1.18% | 0.81 | 213 | +3.32% | same sign, underpowered |
+| L25 lay the team off a 15+ point win | 3,309 | -0.64% | 0.29 | +4.15% | -2.71% | 1.06 | 403 | -12.60% | no evidence |
+| L26 lay the team off a 20+ point win | 1,955 | -4.44% | 1.48 | +0.79% | -6.43% | 1.05 | 255 | -14.35% | no evidence |
+| L27 lay the B2B team (either venue) | 3,730 | -1.55% | 0.84 | -0.47% | -3.64% | 1.16 | 369 | +0.54% | no evidence |
+| L28 lay the away team on a road B2B | 1,580 | +0.93% | 0.38 | +1.54% | -1.07% | 0.93 | 148 | +12.65% | same sign, underpowered |
+| L29 lay the team on its 4th game in 6 nights | 5,821 | -0.67% | 0.40 | +0.51% | -3.16% | 1.73 | 595 | +6.09% | no evidence |
+| L30 lay the team with >=1 day less rest | 5,743 | -0.20% | 0.10 | +2.22% | -2.93% | 2.13 | 551 | -0.75% | no evidence |
+| L31 lay the road team (any game) | 11,902 | -3.52% | 2.25 | +0.49% | -6.35% | 2.27 | 1,204 | +2.05% | no evidence |
+| L32 lay the home team (any game) | 11,902 | +1.03% | 1.05 | +1.44% | -1.13% | 1.14 | 1,204 | +1.33% | same sign, underpowered |
+| L33 lay the road favourite priced 1.30-1.70 | 2,299 | +2.01% | 1.33 | +2.31% | +0.28% | 0.51 | 233 | -0.43% | no evidence |
+| L34 lay the 7-3+ team vs a 3-7- opponent | 1,473 | -2.34% | 0.74 | +2.32% | -3.64% | 0.47 | 157 | -2.07% | no evidence |
+| L35 lay the 6-4+ team vs a 4-6- opponent | 4,068 | +1.34% | 0.85 | +3.16% | -0.27% | 0.58 | 389 | +3.60% | same sign, underpowered |
+| L36 lay the 8-2+ team vs a 2-8- opponent | 376 | -5.42% | 0.67 | +2.64% | -6.46% | 0.35 | 53 | -1.62% | no evidence |
+
+**Family closed: no candidate.** The one \|z\| > 3 result is again a
+**negative**: L22, laying underdogs priced ≥4.00, returns **−14.87%
+(z −3.12)** on discovery — the losing side of the back-dog snapshot artifact
+(coherent rows: −2.0%), with 5% commission amplifying it to **−18.97%**
+(commission fires on ~74% of long-lay bets).
+
+Three structural findings:
+
+1. **Commission asymmetry is the lay market's defining cost.** Commission
+   fires on p(lay wins): a chalk lay at 1.17 pays it ~17% of the time, a
+   long lay at ≥4.00 pays it ~74% of the time. The vig-capture that makes
+   lays theoretically attractive (~+0.5% on coherent rows for the road-team
+   lay) is smaller than the 5% commission load on anything but the shortest
+   prices.
+2. **Laying longshots is the worst side of the book.** L20/L21/L22 are
+   −6.5%/−8.3%/−14.9% raw — the mirror of the back-dog artifact — and
+   collapse to −0.8%/−0.1%/−2.0% on coherent rows before commission.
+3. **The watchlist gains three commission-light cells** (coherent discovery
+   and holdout same-sign): **L24** lay the 4+ win-streak team (+3.50% coh,
+   +3.32% hold, +1.18% after 5% commission), **L35** lay the 6-4+ team vs a
+   4-6- opponent (+3.16% coh z 2.55, +3.60% hold, −0.27% after commission),
+   and **L23** (3+ win streak: +2.98% coh, +5.16% hold). All under the 3.0
+   discovery bar — but these are short lays, where commission does not eat
+   the structure.
+
 ## Adding a family
 
 1. Write `family_<name>(j)` in `scripts/edge_search.py`; return `(arms, meta)`

@@ -314,6 +314,26 @@ measured favourite-overbet is executable only on an exchange, and only worth
 the trouble at scale; at a regular book it is the dog bet, which remains
 suggestive (z 0.84), not significant.
 
+### The lay grid: laying longshots is the worst side of the book
+
+Family 8 expanded the lay structure to everything but the favourite — 24 arms
+covering near-pick'em sides, underdogs by bucket and price, streak and
+letdown teams, fatigue spots, and venue lays (#97). **No candidate.** The one
+\|z\| > 3 result is a negative: laying underdogs priced ≥4.00 at their own
+(inflated best) prices returns **−14.87% (z −3.12)** — the losing side of the
+back-dog snapshot artifact — collapsing to −2.0% on coherent rows, with 5%
+commission amplifying it to **−18.97%** because long lays pay commission on
+~74% of bets.
+
+The commission asymmetry is the lay market's defining cost: it fires on
+p(lay wins) — ~17% of the time on a chalk lay at 1.17, ~74% on a long lay at
+≥4.00. The vig-capture that makes lays theoretically attractive (~+0.5% on
+coherent rows) is smaller than the commission load on anything but the
+shortest prices. The watchlist gains three commission-light short lays —
+lay the 4+ win-streak team (+3.5% coherent / +3.3% holdout, +1.2% after
+commission), lay the 6-4+ team vs a 4-6- opponent (+3.2% coherent z 2.55,
++3.6% holdout, commission-neutral) — all under the discovery bar.
+
 ### A number in the committed output that looked good, and was a bug
 
 An earlier revision reported **+11.76%** ROI for the model and **+13.54%** for model +
