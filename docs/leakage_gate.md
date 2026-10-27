@@ -138,7 +138,7 @@ Verdict: NO CONFIRMED LEAK, but 1 membership dependency(ies) to investigate.
 
 ## The fixtures: a gate must be shown to fire
 
-`Tests/test_leakage_gate_artifact.py` pins six fixtures with no download and no
+`tests/integration/test_leakage_gate_artifact.py` pins six fixtures with no download and no
 network. Three are the known-fatal patterns in this project's history; three are
 their honest counterparts.
 
@@ -164,7 +164,7 @@ published schedule, so neither probe moves it.
 Run them:
 
 ```bash
-pytest Tests/test_leakage_gate_artifact.py -q
+pytest tests/integration/test_leakage_gate_artifact.py -q
 ```
 
 ---
@@ -197,10 +197,10 @@ One full build plus two builds per probe date (three with `include_self_probe`),
 capped by `n_probe`. Probe dates are sampled deterministically from `seed`, one
 row per date, so the same frame and seed produce the same audit. On the
 repository's own data, point it at the three builders named in
-`Tests/test_leakage_gate.py` with a small `n_probe`; on a synthetic fixture, the
+`tests/unit/test_leakage_gate.py` with a small `n_probe`; on a synthetic fixture, the
 whole suite runs in seconds.
 
-CI runs `Tests/test_leakage_gate_artifact.py` as a test of the gate itself. The
+CI runs `tests/integration/test_leakage_gate_artifact.py` as a test of the gate itself. The
 three known leaks are the regression tests; the clean fixtures are the
 anti-vacuity controls. If a future change makes the gate stop firing on the
 player-Elo membership case, CI says so.

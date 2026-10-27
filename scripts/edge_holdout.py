@@ -76,7 +76,8 @@ for _c in (ROOT, ROOT / "src", ROOT / "scripts"):
         sys.path.insert(0, str(_c))
 
 import closing_line as cl  # noqa: E402
-from DataProviders import nba_data as nd  # noqa: E402
+from wippa_nba.data import nba_data as nd  # noqa: E402
+from _data_guard import require, require_data_dir  # noqa: E402
 
 SEED = 42
 THRESHOLDS = (0.50, 0.55, 0.60, 0.65, 0.70)
@@ -102,6 +103,9 @@ def roi(p_model, p_raw, y, threshold) -> tuple[float, int]:
 
 
 def main() -> int:
+    require(cl.ODDS_DB)
+    require_data_dir()
+
     games = nd.build_games()
     splits = nd.walk_forward_split(games, n_splits=5)
     p_avail, y = cl.model_probs(games, splits, with_availability=True)

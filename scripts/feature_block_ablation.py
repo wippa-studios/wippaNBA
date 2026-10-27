@@ -63,7 +63,7 @@ and must not be reported as one.
 FAILURE MODES THIS FILE GUARDS AGAINST
 ---------------------------------------
 Each of these has actually cost this repository a result. They are listed here,
-guarded below, and pinned in ``Tests/test_feature_block_ablation.py``.
+guarded below, and pinned in ``tests/unit/test_feature_block_ablation.py``.
 
 1. IMPUTATION AND SCALING FIT ON THE FULL FRAME.
    The imputer median and the scaler mean/sd are statistics of the rows they are
@@ -104,6 +104,7 @@ from __future__ import annotations
 import argparse
 import json
 import sys
+import unittest
 from pathlib import Path
 
 import numpy as np
@@ -116,7 +117,7 @@ for _candidate in (ROOT, ROOT / "src"):
 if str(ROOT / "scripts") not in sys.path:
     sys.path.insert(0, str(ROOT / "scripts"))
 
-from DataProviders import nba_data as nd  # noqa: E402
+from wippa_nba.data import nba_data as nd  # noqa: E402
 import recency_ablation as ra  # noqa: E402
 
 SEED = 42
@@ -653,7 +654,13 @@ def main() -> int:
                          f"Known blocks: {sorted(FEATURE_BLOCKS)}")
     blocks = args.blocks or sorted(FEATURE_BLOCKS)
 
-    games = nd.build_games()
+    try:
+        games = nd.build_games()
+    except unittest.SkipTest as exc:
+        # nba_data raises SkipTest for absent data so the test suite can skip;
+        # a script run must stop with the same one-line contract instead.
+        print(str(exc), file=sys.stderr)
+        raise SystemExit(1) from None
     splits = nd.walk_forward_split(games, n_splits=args.splits)
     frame = build_feature_frame(games)
 

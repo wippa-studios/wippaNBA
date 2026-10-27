@@ -1,15 +1,23 @@
 import argparse
+import sys
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
+
+# The application package lives under src/. Flask launches this file by absolute
+# path from an arbitrary working directory, so the source root is inserted here
+# rather than relying on cwd.
+_SRC_DIR = Path(__file__).resolve().parent / "src"
+if str(_SRC_DIR) not in sys.path:
+    sys.path.insert(0, str(_SRC_DIR))
 
 import pandas as pd
 import toml
 from colorama import Fore, Style
 
-from src.DataProviders.SbrOddsProvider import SbrOddsProvider
-from src.Predict import NN_Runner, XGBoost_Runner
-from src.Utils.Dictionaries import team_index_current
-from src.Utils.tools import (
+from wippa_nba.data.SbrOddsProvider import SbrOddsProvider
+from wippa_nba.predict import NN_Runner, XGBoost_Runner
+from wippa_nba.data.Dictionaries import team_index_current
+from wippa_nba.data.tools import (
     create_todays_games_from_odds,
     get_json_data,
     to_data_frame,

@@ -48,58 +48,33 @@ dev = [
     "coverage>=7.0",
 ]
 
+[tool.setuptools]
+# The source root is src/; every importable module lives in wippa_nba.
+package-dir = {"" = "src"}
+
 [tool.setuptools.packages.find]
-where = ["."]
+where = ["src"]
 include = [
-    "src",
-    "src.*",
-    "Flask",
-    "Flask.*",
+    "wippa_nba",
+    "wippa_nba.*",
 ]
-# `src/Process-Data` and `src/Train-Models` contain HYPHENS, so they are not
-# valid Python identifiers and can never be imported as ordinary packages.
-# They are excluded here EXPLICITLY rather than by luck: setuptools' PEP 420
-# namespace discovery does not reject them, so a wheel build succeeds and
-# happily ships two un-importable directories into site-packages. That is
-# verified behaviour, not a guess, and it is why the exclusion is stated rather
-# than assumed. Renaming those directories is intentionally out of scope for
-# this packaging fix -- it is tracked as its own change. Until then, scripts
-# that live there are executed by path, which is exactly what the three
-# `spec_from_file_location` tests in Tests/ do.
-#
-# `Tests` is excluded on purpose so the test suite is never installed as part
-# of the distribution.
-exclude = [
-    "src.Process-Data",
-    "src.Process-Data.*",
-    "src.Train-Models",
-    "src.Train-Models.*",
-    "Tests",
-    "Tests.*",
-    "scripts",
-    "scripts.*",
-    "Data",
-    "Data.*",
-    "Models",
-    "Models.*",
-    "Screenshots",
-    "Screenshots.*",
-]
+# `tests`, `scripts`, `Data`, `Models` and `Screenshots` live outside src/ and
+# are therefore never discovered as packages. The old hyphenated directories
+# (src/Process-Data, src/Train-Models) are gone: the same modules now sit under
+# wippa_nba.legacy.*, where they are ordinary importable packages.
+
+[tool.setuptools.package-data]
+# Flask resolves templates and static files relative to the package directory,
+# so a wheel has to carry them alongside app.py.
+"wippa_nba.web" = ["templates/*", "static/*"]
 
 [tool.pytest.ini_options]
-# `pythonpath` makes the repo root importable so `import src.Utils...` resolves
-# for both `pytest Tests/` and the bare `pytest` entry point (the `python -m
-# pytest` form only ever worked because cwd was implicitly on sys.path).
-# Requires pytest >= 7.0. conftest.py performs the same insertion for anyone
-# pinned to an older pytest.
-pythonpath = ["."]
-testpaths = ["Tests"]
+# `pythonpath` puts the source root first so `import wippa_nba...` resolves for
+# both `pytest tests/` and the bare `pytest` entry point. The repository root is
+# kept for `import main`, which some tests do. Requires pytest >= 7.0;
+# conftest.py performs the same insertion for anyone on an older pytest.
+pythonpath = ["src", "."]
+testpaths = ["tests"]
 
 [tool.coverage.run]
-source = ["src"]
-omit = [
-    # Hyphenated directories are not importable, so coverage cannot instrument
-    # them by module name without a source= rewrite that is not worth the churn.
-    "*/Process-Data/*",
-    "*/Train-Models/*",
-]
+source = ["src/wippa_nba"]

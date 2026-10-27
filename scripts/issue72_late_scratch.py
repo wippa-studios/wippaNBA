@@ -54,9 +54,10 @@ for _c in (ROOT, ROOT / "src", ROOT / "scripts"):
     if str(_c) not in sys.path:
         sys.path.insert(0, str(_c))
 
-from DataProviders import injury_features as inf  # noqa: E402
-from DataProviders import nba_data as nd          # noqa: E402
-from Models import measurement as ms              # noqa: E402
+from wippa_nba.data import injury_features as inf  # noqa: E402
+from wippa_nba.data import nba_data as nd          # noqa: E402
+from wippa_nba.models import measurement as ms              # noqa: E402
+from _data_guard import require  # noqa: E402
 STORE = ROOT / "Data" / "injury.sqlite"
 OUT_JSON = ROOT / "results" / "issue72_late_scratch.json"
 OUT_MD = ROOT / "results" / "issue72_late_scratch.md"
@@ -296,6 +297,8 @@ def rate_cell(x: pd.DataFrame, scratch_col: str = "scratch",
 
 
 def main() -> int:
+    require(STORE, hint="python scripts/backfill_injury_reports.py (docs/injury_pipeline.md)")
+
     t0 = time.time()
     panel, info = load_panel()
     if panel.empty:

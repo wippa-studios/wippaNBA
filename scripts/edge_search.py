@@ -62,7 +62,8 @@ for _c in (ROOT, ROOT / "src", ROOT / "scripts"):
 
 import closing_line as cl                      # noqa: E402
 from c44_spread_total import effective_line    # noqa: E402
-from DataProviders import nba_data as nd       # noqa: E402
+from wippa_nba.data import nba_data as nd       # noqa: E402
+from _data_guard import require, require_data_dir  # noqa: E402
 
 OUT_DIR = ROOT / "results" / "edge_search"
 LEDGER = ROOT / "results" / "experiments.jsonl"
@@ -706,6 +707,9 @@ def main() -> int:
         _append(rec)
         print(f"registered {rec['name']} with bar |z| > {rec['bar_z']:.2f}")
         return 0
+
+    require(cl.ODDS_DB)
+    require_data_dir()
 
     frame_loaders = {"price_structure": priced_frame,
                      "bestprice_ml": load_bestprice_frame,

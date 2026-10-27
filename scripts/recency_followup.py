@@ -42,11 +42,12 @@ import numpy as np
 import pandas as pd
 
 ROOT = Path(__file__).resolve().parents[1]
-for _candidate in (ROOT, ROOT / "src"):
+for _candidate in (ROOT, ROOT / "src", ROOT / "scripts"):
     if str(_candidate) not in sys.path:
         sys.path.insert(0, str(_candidate))
 
-from DataProviders import nba_data as nd  # noqa: E402
+from wippa_nba.data import nba_data as nd  # noqa: E402
+from _data_guard import require_data_dir  # noqa: E402
 
 SEED = 42
 N_SPLITS = 5
@@ -114,6 +115,8 @@ def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--out", default="results/recency_followup.json")
     args = ap.parse_args()
+
+    require_data_dir()
 
     games = nd.build_games()
     splits = nd.walk_forward_split(games, n_splits=N_SPLITS)

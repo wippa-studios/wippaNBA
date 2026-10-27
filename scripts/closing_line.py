@@ -60,12 +60,13 @@ import numpy as np
 import pandas as pd
 
 ROOT = Path(__file__).resolve().parents[1]
-for _candidate in (ROOT, ROOT / "src"):
+for _candidate in (ROOT, ROOT / "src", ROOT / "scripts"):
     if str(_candidate) not in sys.path:
         sys.path.insert(0, str(_candidate))
 
-from DataProviders import nba_data as nd  # noqa: E402
-from src.Models import logreg_rolling as lr  # noqa: E402
+from wippa_nba.data import nba_data as nd  # noqa: E402
+from wippa_nba.models import logreg_rolling as lr  # noqa: E402
+from _data_guard import require, require_data_dir  # noqa: E402
 
 SEED = 42
 N_SPLITS = 5
@@ -392,7 +393,7 @@ def feature_frame(games: pd.DataFrame, with_availability: bool = False) -> pd.Da
     ``assemble_features``: every rating, matchup, rebound and home-split feature
     is a home-minus-away difference; ``pace_mean``, the schedule levels and the
     constant ``home_adv`` are the only levels, and ``home_adv`` is the canonical
-    home indicator, constant 1.0 BY DESIGN). ``Tests/test_closing_line.py``
+    home indicator, constant 1.0 BY DESIGN). ``tests/regression/test_closing_line.py``
     pins the equality against ``load_design`` so this file cannot drift again.
 
     BOTH ARMS ARE ``load_design`` WITH AN EXPLICIT FLAG (issue #36). The
@@ -521,6 +522,9 @@ def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--out", default="results/closing_line.json")
     args = ap.parse_args()
+
+    require(ODDS_DB)
+    require_data_dir()
 
     games = nd.build_games()
     odds_rep: dict = {}

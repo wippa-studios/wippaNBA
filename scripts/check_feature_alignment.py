@@ -20,7 +20,7 @@ six trainers that call ``training_common.drop_columns_for``:
 Six of its ten entries were still correct, which is the worse shape: the checker
 agreed with the trainers on most of the contract and disagreed exactly where a
 permutation could hide. So both lists below are now the trainer function's own
-return values, and ``Tests/test_feature_alignment_checker.py`` pins the equality
+return values, and ``tests/unit/test_feature_alignment_checker.py`` pins the equality
 -- list AND order -- so the copy cannot start drifting again.
 
 WHAT WAS WRONG, against the live 117-column ``dataset_2012-26`` table: the two
@@ -56,20 +56,25 @@ except ImportError:
 BASE_DIR = Path(__file__).resolve().parents[1]
 DATASET_DB = BASE_DIR / "Data" / "dataset.sqlite"
 MODEL_DIR = BASE_DIR / "Models"
-TRAINING_DIR = BASE_DIR / "src" / "Train-Models"
+TRAINING_DIR = BASE_DIR / "src" / "wippa_nba" / "legacy" / "train_models"
 
 # `src/Train-Models` contains a HYPHEN, so it can never be an importable package
 # (renaming it is tracked as follow-up work). It goes on sys.path instead and its
 # modules import under plain top-level names, which is the bootstrap
 # `training_common`'s own docstring describes for the trainers, the one
-# `scripts/evaluate.py` uses, and the one `Tests/test_game_date.py` and
-# `Tests/test_training_layer.py` already use. `training_common` itself puts the
+# `scripts/evaluate.py` uses, and the one `tests/integration/test_game_date.py` and
+# `tests/integration/test_training_layer.py` already use. `training_common` itself puts the
 # repository root on sys.path in turn, so importing it here is self-sufficient
 # whatever the working directory.
-if str(TRAINING_DIR) not in sys.path:
-    sys.path.insert(0, str(TRAINING_DIR))
+_SRC_DIR = BASE_DIR / "src"
+if str(_SRC_DIR) not in sys.path:
+    sys.path.insert(0, str(_SRC_DIR))
+_SCRIPTS_DIR = BASE_DIR / "scripts"
+if str(_SCRIPTS_DIR) not in sys.path:
+    sys.path.insert(0, str(_SCRIPTS_DIR))
 
-import training_common  # noqa: E402
+from wippa_nba.legacy.train_models import training_common  # noqa: E402
+from _data_guard import require  # noqa: E402
 
 # THE FEATURE CONTRACT, TAKEN FROM THE TRAINERS.
 #
@@ -112,8 +117,9 @@ def load_frame_columns(path):
 
 def load_live_frames():
     sys.path.insert(0, str(BASE_DIR))
+    sys.path.insert(0, str(BASE_DIR / "src"))
     from main import create_todays_games_data, load_schedule, DATA_URL, TODAYS_GAMES_URL
-    from src.Utils.tools import get_json_data, to_data_frame, get_todays_games_json, create_todays_games
+    from wippa_nba.data.tools import get_json_data, to_data_frame, get_todays_games_json, create_todays_games
 
     stats_json = get_json_data(DATA_URL)
     df = to_data_frame(stats_json)
@@ -196,6 +202,8 @@ def main():
     parser.add_argument("--xgb-ml-model", help="Path to XGBoost ML model.")
     parser.add_argument("--xgb-uo-model", help="Path to XGBoost OU model.")
     args = parser.parse_args()
+
+    require(DATASET_DB)
 
     train_cols_ml = get_training_columns(args.dataset, DROP_COLUMNS_ML)
     train_cols_uo = get_training_columns(args.dataset, DROP_COLUMNS_UO)

@@ -553,5 +553,5 @@ Three structural findings:
 - `scripts/edge_search.py` — harness, settlement, statistics, families
 - `scripts/backfill_espn_close.py` — rebuilds `odds_2025-26_espn`
 - `results/edge_search/price_structure.{json,md}` — the authoritative artifact
-- `Tests/test_edge_search.py` — settlement, swap, bar, registry, holdout table
+- `tests/integration/test_edge_search.py` — settlement, swap, bar, registry, holdout table
 - Ledger: `E01-prereg-price_structure`, `E01-run-price_structure`

@@ -120,9 +120,10 @@ for _candidate in (ROOT, ROOT / "src", ROOT / "scripts"):
     if str(_candidate) not in sys.path:
         sys.path.insert(0, str(_candidate))
 
-from src.DataProviders import nba_data as nd            # noqa: E402
-from src.Models import margin_total as mt               # noqa: E402
-from src.Models import pace_first as pf                 # noqa: E402
+from wippa_nba.data import nba_data as nd            # noqa: E402
+from wippa_nba.models import margin_total as mt               # noqa: E402
+from wippa_nba.models import pace_first as pf                 # noqa: E402
+from _data_guard import require, require_data_dir  # noqa: E402
 
 # scripts/closing_line.py is imported, never modified and never reimplemented:
 # its load_odds twin-spelling reconciliation, its join accounting and its roi()
@@ -1166,6 +1167,9 @@ def main() -> int:
     if not declared:
         raise SystemExit(f"results/experiments.jsonl has no {PREREG_NAME} "
                          "pre-registration; run with --prereg first")
+
+    require(cl.ODDS_DB)
+    require_data_dir()
 
     t0 = time.time()
     inv = inventory()

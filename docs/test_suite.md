@@ -1,47 +1,51 @@
-# Test suite: 1,104 passing, 0 failing
+# Test suite: 1,406 passing, 184 skipped
 
-**Repo:** `/home/Joel/.cache/nba-fix-worktree` (branch `improve-model-v2`)
-**Run:** `pytest Tests/` — or `python -m unittest discover -s Tests -t .`
+**Run:** `python -m pytest tests/ -q` — or `python -m unittest discover -s tests -t .`
 
-35 files, measured individually:
+pytest collects **1,552 tests across 66 files**: **1,406 passed, 184 skipped** on a clone with no
+data (92 subtests; the skips are deliberate — see `docs/data/README.md`).
+`unittest` collects **1,461 tests, 126 skipped, OK**.
 
-| test file | tests | what it protects |
-|---|---|---|
-| `test_ratings.py` | 106 | Elo/SRS/Bradley-Terry arithmetic and walk-forward correctness |
-| `test_training_layer.py` | 94 | the sklearn version gate and the totals trainer end to end |
-| `test_line_movement.py` | 85 | the odds snapshot store, coverage, and CLV arithmetic |
-| `test_metrics.py` | 71 | log loss / Brier / AUC / calibration, cross-checked to scikit-learn |
-| `test_validation.py` | 57 | purged walk-forward splits and selection-bias correction |
-| `test_gbm.py` | 56 | gradient boosting, including that early stopping does not touch calibration |
-| `test_baselines.py` | 54 | Elo tuning, same-day cost, and the base-rate bar |
-| `test_kelly_risk.py` | 54 | fractional Kelly, caps, exposure limits |
-| `test_logreg_rolling.py` | 54 | the canonical model's features, causality and leakage guards |
-| `test_recency_features.py` | 53 | the as-of assertion on recency features |
-| `test_margin_total.py` | 41 | margin/total design and the Φ(m̂/σ) conversion |
-| `test_nba_client.py` | 39 | HTTP handling and endpoint fallback |
-| `test_player_ratings.py` | 33 | player-level ratings and their ablation |
-| `test_feature_block_ablation.py` | 22 | the ablation harness, including leak guards |
-| `test_feature_alignment_checker.py` | 19 | that the checker validates the trainers' real contract |
-| `test_line_movement_capture.py` | 19 | capture scheduling and exit codes |
-| `test_game_date.py` | 18 | date alignment across the pipeline |
-| `test_snapshot_provenance.py` | 14 | that a repeated price is never counted as a trajectory |
-| `test_edge_betting.py` | 13 | the parameter-free betting rule and its pricing control |
-| `test_feature_selection_errors.py` | 13 | that an empty feature list is an error, not a crash |
-| `test_player_elo.py` | 13 | player Elo: causality, scale, and that `elo_available` is inverted, not ordered |
-| `test_opponent_adjusted.py` | 12 | opponent-quality features: causality, and the margin sign convention |
-| `test_closing_line.py` | 11 | American-odds conversion, de-vigging, and row alignment |
-| `test_create_games.py` | 11 | dataset assembly |
-| `test_boosting_splits.py` | 10 | the 4-way split for gradient boosting |
-| `test_kelly_american_odds.py` | 9 | price parsing |
-| `test_availability.py` | 8 | that availability stays strictly causal and bounded |
-| `test_expected_value.py` | 8 | EV arithmetic |
-| `test_get_odds_data.py` | 8 | odds scraping |
-| `test_roi_denominator.py` | 6 | that ROI is divided by money staked, not by a signed sum |
-| `test_data_guard.py` | 7 | that missing *or partial* data skips instead of crashing a loader |
-| `test_recency_ablation.py` | 6 | the recency null stays a null |
-| `test_dataset_manifest.py` | 5 | dataset provenance |
-| `test_get_data.py` | 5 | team-stats scraping |
-| `test_kelly_criterion.py` | 5 | Kelly sizing |
+Per-file test counts were measured on a predecessor tree and are kept only for orientation; the
+current measured totals are the figures above. The table describes what each file protects:
+
+| test file | what it protects |
+|---|---|
+| `test_ratings.py` | Elo/SRS/Bradley-Terry arithmetic and walk-forward correctness |
+| `test_training_layer.py` | the sklearn version gate and the totals trainer end to end |
+| `test_line_movement.py` | the odds snapshot store, coverage, and CLV arithmetic |
+| `test_metrics.py` | log loss / Brier / AUC / calibration, cross-checked to scikit-learn |
+| `test_validation.py` | purged walk-forward splits and selection-bias correction |
+| `test_gbm.py` | gradient boosting, including that early stopping does not touch calibration |
+| `test_baselines.py` | Elo tuning, same-day cost, and the base-rate bar |
+| `test_kelly_risk.py` | fractional Kelly, caps, exposure limits |
+| `test_logreg_rolling.py` | the canonical model's features, causality and leakage guards |
+| `test_recency_features.py` | the as-of assertion on recency features |
+| `test_margin_total.py` | margin/total design and the Φ(m̂/σ) conversion |
+| `test_nba_client.py` | HTTP handling and endpoint fallback |
+| `test_player_ratings.py` | player-level ratings and their ablation |
+| `test_feature_block_ablation.py` | the ablation harness, including leak guards |
+| `test_feature_alignment_checker.py` | that the checker validates the trainers' real contract |
+| `test_line_movement_capture.py` | capture scheduling and exit codes |
+| `test_game_date.py` | date alignment across the pipeline |
+| `test_snapshot_provenance.py` | that a repeated price is never counted as a trajectory |
+| `test_edge_betting.py` | the parameter-free betting rule and its pricing control |
+| `test_feature_selection_errors.py` | that an empty feature list is an error, not a crash |
+| `test_player_elo.py` | player Elo: causality, scale, and that `elo_available` is inverted, not ordered |
+| `test_opponent_adjusted.py` | opponent-quality features: causality, and the margin sign convention |
+| `test_closing_line.py` | American-odds conversion, de-vigging, and row alignment |
+| `test_create_games.py` | dataset assembly |
+| `test_boosting_splits.py` | the 4-way split for gradient boosting |
+| `test_kelly_american_odds.py` | price parsing |
+| `test_availability.py` | that availability stays strictly causal and bounded |
+| `test_expected_value.py` | EV arithmetic |
+| `test_get_odds_data.py` | odds scraping |
+| `test_roi_denominator.py` | that ROI is divided by money staked, not by a signed sum |
+| `test_data_guard.py` | that missing *or partial* data skips instead of crashing a loader |
+| `test_recency_ablation.py` | the recency null stays a null |
+| `test_dataset_manifest.py` | dataset provenance |
+| `test_get_data.py` | team-stats scraping |
+| `test_kelly_criterion.py` | Kelly sizing |
 
 ## Why each guard exists
 
@@ -74,9 +78,9 @@ and [the player-Elo leak](player_elo_leak.md). The rest, in one line each:
 
 ## Skipping, not failing, without the data
 
-The model suites under `src/Models/` need the downloaded NBA data. When `data/nba`
+The model suites under `src/wippa_nba/models/` need the downloaded NBA data. When `data/nba`
 is absent they **skip** rather than fail, so a fresh clone still gets a meaningful
-signal, and the guard lives centrally in `src/DataProviders/nba_data.py` rather than
+signal, and the guard lives centrally in `src/wippa_nba/data/nba_data.py` rather than
 in each test module — two runners execute this suite (`pytest` and `unittest`) and
 they honour different skip mechanisms, so one change satisfies both.
 

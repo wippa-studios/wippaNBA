@@ -24,7 +24,7 @@ The four lists in `src/Utils/features.py` (`ML_DROP_COLUMNS`,
 `drop_columns_for` at import**, not transcribed. `scripts/evaluate.py` derives its
 list the same way. The NN moneyline list used to order `OU` before `OU-Cover`;
 dropping is membership-based, so the surviving order was identical either way, and
-`Tests/test_drop_columns.py` now pins that invariance instead of asserting it in a
+`tests/unit/test_drop_columns.py` now pins that invariance instead of asserting it in a
 comment. It also fails if any module under `src/` or `scripts/` re-declares a
 `*DROP_COLUMNS` list literal.
 
@@ -98,7 +98,7 @@ drifted from the six trainers that call `training_common.drop_columns_for`:
 **Six of its ten entries were still correct, which is the worse shape:** the checker
 agreed with the trainers on most of the contract and disagreed exactly where a
 permutation could hide. Both lists are now the trainer function's own return values,
-and `Tests/test_feature_alignment_checker.py` pins the equality — list **and** order
+and `tests/unit/test_feature_alignment_checker.py` pins the equality — list **and** order
 — so the copy cannot start drifting again.
 
 What was wrong against the live 117-column `dataset_2012-26` table: the two lists

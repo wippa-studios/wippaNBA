@@ -56,6 +56,7 @@ for _c in (ROOT, ROOT / "src", ROOT / "scripts"):
         sys.path.insert(0, str(_c))
 
 import closing_line as cl  # noqa: E402
+from _data_guard import require_data_dir  # noqa: E402
 
 SITE = "https://site.api.espn.com/apis/site/v2/sports/basketball/nba"
 CORE = "https://sports.core.api.espn.com/v2/sports/basketball/leagues/nba/events"
@@ -204,7 +205,7 @@ def canonicalise(df: pd.DataFrame) -> pd.DataFrame:
 
 def validate(df: pd.DataFrame, season: str = "2025-26") -> dict:
     """Match the table against the project's own game logs, both season types."""
-    from DataProviders import nba_data as nd
+    from wippa_nba.data import nba_data as nd
 
     mapping = cl.tricode_to_full_name()
     mapping.pop("_alias", None)
@@ -255,6 +256,8 @@ def main() -> int:
     ap.add_argument("--csv-out", type=Path, default=None)
     ap.add_argument("--db", type=Path, default=cl.ODDS_DB)
     args = ap.parse_args()
+
+    require_data_dir()  # validate() matches the scrape against build_games()
 
     if args.from_csv:
         df = pd.read_csv(args.from_csv)
