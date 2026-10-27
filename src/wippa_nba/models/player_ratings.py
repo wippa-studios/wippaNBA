@@ -61,7 +61,7 @@ the standalone AUC is not.
 
 SIGN CONVENTION
 ---------------
-:func:`src.DataProviders.nba_data.paired_bootstrap_delta` returns
+:func:`wippa_nba.data.nba_data.paired_bootstrap_delta` returns
 ``loss(a) - loss(b)``. **A positive delta means ``b`` is better.** Every delta
 in this module's docstrings and in :func:`availability_gap` /
 :func:`incremental_test` follows that convention and says so at the call site.
@@ -84,7 +84,7 @@ from functools import lru_cache
 import numpy as np
 import pandas as pd
 
-from src.DataProviders import nba_data as D
+from wippa_nba.data import nba_data as D
 
 __all__ = [
     "RatingConfig",
@@ -177,7 +177,7 @@ def load_plus_minus() -> pd.DataFrame:
     needs, but see the module docstring: with no stint data this is a
     plus-minus *approximation*, not RAPM.
 
-    This table is not wrapped by ``src.DataProviders.nba_data``, so the three
+    This table is not wrapped by ``wippa_nba.data.nba_data``, so the three
     documented traps are applied here explicitly: ``GAME_ID`` is read as ``str``,
     the date is parsed from the ISO prefix, and only the 30 real franchises and
     regular season are kept.

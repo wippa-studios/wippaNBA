@@ -32,7 +32,7 @@ from sklearn.linear_model import LogisticRegression
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import StandardScaler
 
-from src.DataProviders import nba_data as nd
+from wippa_nba.data import nba_data as nd
 
 __all__ = [
     "E14_COLUMNS",
@@ -202,7 +202,7 @@ def canonical_oof(games: pd.DataFrame | None = None, n_splits: int = 5,
     0.615663649.  The import is local because ``logreg_rolling`` is a heavier
     module and this keeps ``measurement`` cheap for the other issue scripts.
     """
-    from src.Models import logreg_rolling as lr
+    from wippa_nba.models import logreg_rolling as lr
 
     g = nd.build_games() if games is None else games.reset_index(drop=True)
     X = lr.load_design(games=g)

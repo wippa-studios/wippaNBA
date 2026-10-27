@@ -22,7 +22,7 @@ the scaler variances, the ridge penalty (chosen by an inner forward-chaining CV
 *inside* the training rows), the coefficients, the intercept, and both residual
 scales. The test rows are touched exactly once, by ``predict``. Nothing in this
 module reads ``snapshots/``; every feature comes from
-``src.DataProviders.nba_data``, which builds them strictly from games before the
+``wippa_nba.data.nba_data``, which builds them strictly from games before the
 game in question.
 
 THE HOME INDICATOR IS THE INTERCEPT
@@ -76,7 +76,7 @@ from sklearn.linear_model import LogisticRegression, PoissonRegressor, Ridge
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import StandardScaler
 
-from src.DataProviders import nba_data as nd
+from wippa_nba.data import nba_data as nd
 
 __all__ = [
     "EWM_MEASURES",

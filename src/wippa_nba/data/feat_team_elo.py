@@ -47,12 +47,12 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-ROOT = Path(__file__).resolve().parents[2]
+ROOT = Path(__file__).resolve().parents[3]
 for _c in (ROOT, ROOT / "src"):
     if str(_c) not in sys.path:
         sys.path.insert(0, str(_c))
 
-from src.DataProviders import nba_data as nd      # noqa: E402
+from wippa_nba.data import nba_data as nd      # noqa: E402
 
 HFA = 70.0        # the project's tuned home-court term, points
 
@@ -82,7 +82,7 @@ def team_elo_features(games: pd.DataFrame, k: float = 10.0,
     each training block. Test rows never entered that choice, and the sweep is
     published in that file, so it is not re-tuned here.
     """
-    from src.Models import baselines as bl
+    from wippa_nba.models import baselines as bl
 
     gg = games.rename(columns={"y": "home_win", "GAME_DATE": "date"})
     fit = bl.elo_rating_pass(gg, k=k, home_advantage=home_advantage,

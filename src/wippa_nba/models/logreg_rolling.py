@@ -8,7 +8,7 @@ there.
 WHAT IS AND IS NOT HERE
 -----------------------
 The loader, the causal feature builders, the walk-forward splitter, the metric
-harness and the paired bootstrap all come from ``src.DataProviders.nba_data``.
+harness and the paired bootstrap all come from ``wippa_nba.data.nba_data``.
 This module contains no second loader and no second evaluation harness. The only
 thing built here is the MODEL: the contrast matrix, a train-only imputer/
 standardiser, the regularised fit, and the reporting around it.
@@ -92,7 +92,7 @@ from __future__ import annotations
 import numpy as np
 import pandas as pd
 
-from src.DataProviders import nba_data as nd
+from wippa_nba.data import nba_data as nd
 
 # --------------------------------------------------------------------------- #
 # Feature recipes

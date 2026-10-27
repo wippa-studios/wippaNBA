@@ -13,7 +13,7 @@ used:
 3. **Log-linear on Elo** -- logistic regression on the two pre-game Elo ratings
    plus a home flag, fitted on train only. The deliverable's
    "Bradley-Terry-style logistic regression on two team ratings".
-4. **Bradley-Terry and SRS** from :mod:`src.Models.ratings`, both frozen and
+4. **Bradley-Terry and SRS** from :mod:`wippa_nba.models.ratings`, both frozen and
    walk-forward, because they are already in the repository and it would be
    dishonest to leave them out of the comparison.
 
@@ -92,8 +92,8 @@ from typing import Callable, Sequence
 import numpy as np
 import pandas as pd
 
-from src.DataProviders import nba_data as nd
-from src.Models import ratings
+from wippa_nba.data import nba_data as nd
+from wippa_nba.models import ratings
 
 __all__ = [
     "SEED",
@@ -281,12 +281,12 @@ def load_baseline_frame() -> pd.DataFrame:
     """The shared game table plus the schedule features, with column aliases.
 
     ``build_games`` and ``rest_and_travel`` come from
-    :mod:`src.DataProviders.nba_data` and are used unmodified -- this is a
+    :mod:`wippa_nba.data.nba_data` and are used unmodified -- this is a
     renaming and an index alignment check, not a second loader. Two aliases are
     added:
 
     ``home_win``
-        ``y`` under the name :mod:`src.Models.ratings` expects.
+        ``y`` under the name :mod:`wippa_nba.models.ratings` expects.
     ``date``
         ``GAME_DATE`` under the same expectation.
 
@@ -368,7 +368,7 @@ def _se(values: np.ndarray) -> float:
     right quantity to attach to a log loss column. It is not the uncertainty on
     a difference between two models, because the two are computed on the same
     games and are strongly positively correlated -- for that, use
-    :func:`src.DataProviders.nba_data.paired_bootstrap_delta`, which resamples
+    :func:`wippa_nba.data.nba_data.paired_bootstrap_delta`, which resamples
     games and keeps the pairing.
     """
     values = np.asarray(values, dtype=float)
@@ -622,7 +622,7 @@ def srs_predictions(
     the slope is not fitted on the same margins that produced the ratings.
     In-sample margins make the slope about twice as steep as it should be, which
     saturates the sigmoid; the module's own docstring reports this and
-    :func:`src.Models.ratings._calibrate_out_of_sample` is the in-repo fix.
+    :func:`wippa_nba.models.ratings._calibrate_out_of_sample` is the in-repo fix.
     """
     from sklearn.linear_model import LogisticRegression
 
@@ -982,7 +982,7 @@ def run_baseline_suite(
 
     What this suite found, in one paragraph
     ---------------------------------------
-    The batch point-differential systems in :mod:`src.Models.ratings` --
+    The batch point-differential systems in :mod:`wippa_nba.models.ratings` --
     Bradley-Terry and SRS -- **do not beat a constant home-win rate on log loss
     in this sample**, and they do not get there by being close. A frozen fit
     averages a team's point differential over five and a half seasons, and that
@@ -1181,7 +1181,7 @@ def main() -> int:
     print("  number here is evidence of profit. A null result is a real result.")
 
     out_path = os.path.join(
-        os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))),
+        os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))),
         "runs", "baselines_results.md",
     )
     os.makedirs(os.path.dirname(out_path), exist_ok=True)

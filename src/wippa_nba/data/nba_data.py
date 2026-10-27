@@ -69,7 +69,7 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-_REPO_ROOT = Path(__file__).resolve().parents[2]
+_REPO_ROOT = Path(__file__).resolve().parents[3]
 
 # Where the downloader puts its output. Resolved relative to the REPOSITORY, not
 # to a fixed absolute path.

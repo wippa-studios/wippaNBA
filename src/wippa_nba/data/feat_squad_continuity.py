@@ -66,13 +66,13 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-ROOT = Path(__file__).resolve().parents[2]
+ROOT = Path(__file__).resolve().parents[3]
 for _c in (ROOT, ROOT / "src"):
     if str(_c) not in sys.path:
         sys.path.insert(0, str(_c))
 
-from src.DataProviders import nba_data as nd              # noqa: E402
-from src.DataProviders.feat_squad_quality import (          # noqa: E402
+from wippa_nba.data import nba_data as nd              # noqa: E402
+from wippa_nba.data.feat_squad_quality import (          # noqa: E402
     _player_streams, _prev_squad_roster, _asof_attach)
 
 

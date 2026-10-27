@@ -22,7 +22,7 @@ exists.
 
 DATA
 ----
-Everything comes from ``src.DataProviders.nba_data``. There is no second loader
+Everything comes from ``wippa_nba.data.nba_data``. There is no second loader
 and no second evaluation harness here, by design: if you find yourself wanting
 to build a feature frame another way, the shared module is the place to change.
 
@@ -158,7 +158,7 @@ from typing import Mapping, Sequence
 import numpy as np
 import pandas as pd
 
-from src.DataProviders.nba_data import (
+from wippa_nba.data.nba_data import (
     build_games,
     evaluate,
     paired_bootstrap_delta,
@@ -1192,7 +1192,7 @@ def cross_family_sign_audit(games: pd.DataFrame, X: np.ndarray, y: np.ndarray, *
 
 def canonical_logreg_predictions(games: pd.DataFrame, *, n_splits: int = 5,
                                  initial_frac: float = 0.5, C: float = 1.0,
-                                 module_path: str = "src.Models.logreg_rolling"
+                                 module_path: str = "wippa_nba.models.logreg_rolling"
                                  ) -> dict | None:
     """Ask model 2 for its out-of-sample probabilities on our exact test blocks.
 
@@ -1227,7 +1227,7 @@ def canonical_logreg_predictions(games: pd.DataFrame, *, n_splits: int = 5,
 
 
 def run_canonical_logreg_comparison(result: dict, canonical: Mapping, *, games=None,
-                                    module_path: str = "src.Models.logreg_rolling",
+                                    module_path: str = "wippa_nba.models.logreg_rolling",
                                     n_boot: int = 2000) -> dict:
     """Re-score this module's deltas against model 2's canonical logreg.
 

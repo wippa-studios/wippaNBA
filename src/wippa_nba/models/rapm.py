@@ -21,7 +21,7 @@ downloaded games have partial rows / missing ``PT_DIFF``.  Those numbers are
 reported rather than papered over.
 
 Prediction uses the **expected** roster from
-:mod:`src.Models.player_ratings` (players who appeared in the team's previous
+:mod:`wippa_nba.models.player_ratings` (players who appeared in the team's previous
 ten games), weighted by expected minutes.  Actual participants are never an
 input; they are only the label.
 """
@@ -36,8 +36,8 @@ import numpy as np
 import pandas as pd
 from scipy import sparse
 
-from src.DataProviders import nba_data as nd
-from src.Models import player_ratings as pr
+from wippa_nba.data import nba_data as nd
+from wippa_nba.models import player_ratings as pr
 
 __all__ = [
     "RapmConfig",
@@ -101,7 +101,7 @@ def _normalise_stints(rot: pd.DataFrame) -> pd.DataFrame:
 def load_rotation(season: str = "2020-21",
                   data_root: str | Path | None = None) -> pd.DataFrame:
     path = (Path(data_root) if data_root is not None
-            else Path(__file__).resolve().parents[2] / "data" / "nba")
+            else Path(__file__).resolve().parents[3] / "data" / "nba")
     f = path / "rotations" / f"rotation_{season}.csv"
     if not f.exists():
         raise FileNotFoundError(f"no rotation file at {f}")

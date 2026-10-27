@@ -17,7 +17,7 @@ chosen from a fixed grid by a time-ordered inner validation block carved out of
 the **training** rows only.  The test block is never touched by the selection,
 by the expected-minutes model, or by the calibration.
 
-The roster is the one in :mod:`src.Models.player_ratings`'s candidate panel:
+The roster is the one in :mod:`wippa_nba.models.player_ratings`'s candidate panel:
 players who appeared for the team in the previous ten team-games.  That is a
 pre-game approximation, and it is the honest side of the availability gap.
 Actual participants are used only as the **label** (the game's final score),
@@ -33,8 +33,8 @@ import numpy as np
 import pandas as pd
 from scipy import sparse
 
-from src.DataProviders import nba_data as nd
-from src.Models import player_ratings as pr
+from wippa_nba.data import nba_data as nd
+from wippa_nba.models import player_ratings as pr
 
 __all__ = [
     "HierarchicalConfig",

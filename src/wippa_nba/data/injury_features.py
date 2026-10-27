@@ -156,7 +156,7 @@ def load_events(db_path: str | Path) -> tuple[pd.DataFrame, pd.DataFrame]:
     if not p.exists() or p.stat().st_size == 0:
         raise FileNotFoundError(
             f"injury store {p} is missing or empty; run "
-            "`python -m src.Process-Data.Get_Injury_Data capture ...` first")
+            "`python -m wippa_nba.legacy.process_data.Get_Injury_Data capture ...` first")
     con = sqlite3.connect(f"file:{p}?mode=ro", uri=True)
     try:
         events = pd.read_sql_query(

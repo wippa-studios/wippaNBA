@@ -32,7 +32,7 @@ paired bootstrap resamples (seed 42), the project's standing bar.
 
 Run::
 
-    OMP_NUM_THREADS=1 python -m src.Models.nn_rolling
+    OMP_NUM_THREADS=1 python -m wippa_nba.models.nn_rolling
 """
 from __future__ import annotations
 
@@ -45,11 +45,11 @@ import pandas as pd
 from sklearn.neural_network import MLPClassifier
 from threadpoolctl import threadpool_limits
 
-from src.DataProviders import nba_data as nd
-from src.Models import logreg_rolling as lr
-from src.Models import measurement as ms
+from wippa_nba.data import nba_data as nd
+from wippa_nba.models import logreg_rolling as lr
+from wippa_nba.models import measurement as ms
 
-ROOT = Path(__file__).resolve().parents[2]
+ROOT = Path(__file__).resolve().parents[3]
 OUT_JSON = ROOT / "results" / "nn_rolling.json"
 OUT_MD = ROOT / "results" / "nn_rolling.md"
 JSONL = ROOT / "results" / "experiments.jsonl"
