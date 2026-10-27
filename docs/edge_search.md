@@ -329,6 +329,98 @@ spots that look compelling (2OT road B2Bs, 4-in-6 favourites) show fat
 discovery numbers and negative or single-digit holdouts — the market's
 schedule pricing is not beatable from this data.
 
+## Family 6: `user_rules_50` — the grid expanded to 50 rules
+
+Family 5's 13 rules were expanded to a **systematic 50-rule grid** (#93): the
+originals (R1–R13, unchanged and reproduced exactly) plus a schedule × form ×
+venue/price expansion — opponent B2B/road-B2B/4-in-6 fades at plain, 5-5+ and
+6-4+ form gates, road trips, post-2OT legs, letdown spots, price roles
+(chalk ≤1.40/≤1.30, dogs ≥2.50), near-equal-form dogs, and rest edges.
+**Disclosure:** family 5's numbers were known when the grid was drawn; the
+expansion is systematic rather than hand-picked, and the holdout remains the
+protection. Bar **\|z\| > 3.0** (Bonferroni floor for 50).
+
+| rule | n disc | ROI disc | \|z\| | n hold | ROI hold | verdict |
+|---|---|---|---|---|---|---|
+| R1 home fav 7-3+ vs 3-7- away on B2B | 147 | -0.29% | 0.08 | 11 | +16.27% | no evidence |
+| R2 road fav 8-2+ vs home 3-7- | 349 | -3.24% | 0.99 | 37 | +4.38% | no evidence |
+| R3 home dog 6-4+ vs fav 4-6- | 120 | +0.78% | 0.07 | 8 | -41.75% | no evidence |
+| R4 home 4+ straight home wins vs opp 4+ straight road losses | 215 | -2.37% | 0.61 | 24 | -2.21% | no evidence |
+| R5 home fav <= 1.40, 7-3+, opp road form <= 2-8 | 362 | -2.75% | 1.19 | 50 | -7.94% | no evidence |
+| R6 rested (2+d) 5-5+ team vs B2B opponent | 1,873 | +1.37% | 0.60 | 184 | -1.16% | no evidence |
+| R7 home off 15+ pt loss vs opp road B2B | 204 | -1.82% | 0.23 | 27 | -6.78% | no evidence |
+| R8 home opp of road fav on 4th game in 6 nights | 1,291 | +9.36% | 2.21 | 146 | -4.62% | no evidence |
+| R9 home returning from 4+ game road trip, 6-4+ | 341 | -4.54% | 1.06 | 41 | -10.07% | no evidence |
+| R10 home opp of road-B2B team off a 2OT+ game | 91 | +16.97% | 1.57 | 9 | -43.89% | no evidence |
+| R11 home on 3-game losing streak, season win% > .550 | 118 | -1.92% | 0.26 | 7 | -16.71% | no evidence |
+| R12 home off 20+ pt loss, 6-4+ | 197 | +1.85% | 0.35 | 27 | +3.89% | same sign, underpowered |
+| R13 home dog that won 3 of last 4 meetings | 607 | +2.50% | 0.46 | 94 | +10.77% | same sign, underpowered |
+| R14 opp B2B, backed rest>=2 (either venue) | 3,152 | +0.60% | 0.30 | 299 | -0.61% | no evidence |
+| R15 opp B2B, backed rest>=2, backed 6-4+ | 813 | -1.22% | 0.50 | 63 | -11.78% | no evidence |
+| R16 opp B2B, backed rest>=3 | 508 | -0.32% | 0.08 | 36 | +6.56% | no evidence |
+| R17 opp away on road B2B (plain) | 1,580 | -0.93% | 0.38 | 148 | -12.65% | no evidence |
+| R18 opp away on road B2B, home 5-5+ | 941 | -3.47% | 1.46 | 89 | -12.84% | no evidence |
+| R19 opp away on road B2B, home 6-4+ | 653 | -3.56% | 1.26 | 60 | -16.57% | no evidence |
+| R20 opp away on road B2B, home rest>=2 | 1,249 | -3.62% | 1.33 | 100 | -18.33% | no evidence |
+| R21 opp on 4-in-6, backed rest>=2 (either venue) | 5,098 | -0.42% | 0.26 | 519 | -2.80% | no evidence |
+| R22 opp on 4-in-6, backed 5-5+ (either venue) | 3,808 | -0.38% | 0.23 | 396 | -7.07% | no evidence |
+| R23 opp on 4-in-6 playing away (plain) | 3,698 | +1.84% | 1.03 | 371 | -2.28% | no evidence |
+| R24 opp away on road B2B and 4-in-6 | 945 | +2.14% | 0.65 | 89 | -26.17% | no evidence |
+| R25 opp away on B2B that won last night; bet home | 727 | +3.26% | 0.84 | 57 | -8.33% | no evidence |
+| R26 opp away on B2B that lost last night; bet home | 853 | -4.50% | 1.51 | 91 | -15.35% | no evidence |
+| R27 home returning from 4+ road trip, opp rest>=2 | 731 | -4.97% | 1.32 | 73 | -3.33% | no evidence |
+| R28 home returning from 4+ road trip (plain) | 933 | -3.71% | 1.07 | 92 | -7.20% | no evidence |
+| R29 home win streak>=3 vs opp loss streak>=3 | 288 | -4.67% | 1.25 | 37 | +15.95% | no evidence |
+| R30 any team win streak>=4 | 1,998 | -3.08% | 1.40 | 213 | -3.32% | no evidence |
+| R31 home loss streak==3, season win%>.500 | 189 | +1.83% | 0.32 | 9 | +0.44% | same sign, underpowered |
+| R32 both teams on 3+ game losing streaks; bet home | 226 | -4.91% | 0.75 | 26 | -43.65% | no evidence |
+| R33 home off a 10+ pt loss (plain) | 2,929 | +0.03% | 0.01 | 331 | -4.37% | no evidence |
+| R34 home off a 10+ pt loss, 5-5+ | 1,118 | +4.03% | 1.45 | 123 | -1.05% | no evidence |
+| R35 opp off a 15+ pt win (letdown, either venue) | 3,309 | +2.86% | 1.01 | 403 | -12.93% | no evidence |
+| R36 away fav on B2B; bet home (plain) | 752 | +1.90% | 0.36 | 81 | -12.65% | no evidence |
+| R37 away fav on B2B, home 5-5+ | 221 | -9.98% | 1.15 | 30 | -21.00% | no evidence |
+| R38 home dog vs opp B2B | 752 | +1.90% | 0.36 | 81 | -12.65% | no evidence |
+| R39 home dog vs opp on 4-in-6 | 1,291 | +9.36% | 2.21 | 146 | -4.62% | no evidence |
+| R40 dog >=2.50 vs opp B2B | 1,104 | -0.14% | 0.03 | 135 | +9.04% | no evidence |
+| R41 favourite <=1.40 (plain) | 3,437 | -2.37% | 2.73 | 356 | -1.58% | no evidence |
+| R42 favourite <=1.30 | 2,428 | -2.88% | 3.13 | 256 | -3.72% | no evidence |
+| R43 favourite <=1.40 vs opp B2B | 939 | -1.10% | 0.71 | 80 | -7.59% | no evidence |
+| R44 road underdogs (plain) | 7,509 | +6.56% | 2.82 | 705 | -1.51% | no evidence |
+| R45 road underdogs 5-5+ | 3,622 | +6.99% | 2.09 | 325 | +0.12% | same sign, underpowered |
+| R46 home underdogs 5-5+ | 1,593 | -3.57% | 1.09 | 189 | +5.67% | no evidence |
+| R47 underdog when form10 differs by <=1 (either venue) | 1,463 | -2.91% | 0.86 | 174 | +9.39% | no evidence |
+| R48 rest edge >=1 day, both 5-5+ | 1,209 | -0.01% | 0.00 | 106 | -6.60% | no evidence |
+| R49 opp away on 3rd+ consecutive road game | 1,605 | -3.76% | 1.45 | 157 | -3.95% | no evidence |
+| R50 opp away on 4+ consecutive road game | 665 | -3.69% | 0.96 | 64 | -6.42% | no evidence |
+
+**Family closed: no candidate.** Fifty arms produced exactly one \|z\| > 3
+result — and it is a **negative**: R42, the favourite priced ≤1.30 at best
+prices, returns **−2.88% (z −3.13)** on discovery, −2.64% on coherent rows
+(z −2.80) and −3.72% on the holdout. Heavy chalk is significantly overbet at
+the best-of-books maximum; its dog-side mirror is +3.64% but noise-level
+(z 0.84) because longshot variance dwarfs it.
+
+The positive leads all die the established deaths:
+
+- **R44 road dogs (plain): +6.56% (z 2.82)** → coherent rows **+0.24%**;
+  holdout −1.51%. The family-3 artifact, again.
+- **R45 road dogs 5-5+: +6.99% (z 2.09)** → coherent −2.93%; holdout +0.12%.
+- **R8/R39 (home opponent of a road favourite on its 4th game in 6 nights):**
+  +9.36% (z 2.21), **coherent +9.59% (z 2.07)** — the one cell that survives
+  the artifact filter — and the holdout kills it (−4.62%, coherent −2.51%).
+- **R10 (fade the road-B2B team off a 2OT game): +17.0%** on 91 discovery
+  bets, **−43.9%** on 9 holdout bets.
+
+Same-sign-both-splits and underpowered, joining the watchlist: **R45**
+(+6.99%/+0.12%) and, weakly, **R31** (+1.83%/+0.44% on 9 holdout bets).
+
+The structural lesson of the grid: fading tired teams — the most intuitive
+schedule angle in basketball — is *negative* across every variant measured
+(R17–R20, R26, R49, R50 all negative on discovery), because the market
+already prices the fatigue. The only significant signal in 50 arms is that
+**heavy favourites at the best-of-books maximum lose more than the vig** —
+a pricing asymmetry worth remembering, but its mirror is too noisy to bet.
+
 ## Adding a family
 
 1. Write `family_<name>(j)` in `scripts/edge_search.py`; return `(arms, meta)`

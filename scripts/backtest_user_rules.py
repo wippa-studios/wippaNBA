@@ -74,6 +74,7 @@ def build_team_features() -> tuple[pd.DataFrame, pd.DataFrame]:
             "rest": rt[f"{side}_rest_days"], "b2b": rt[f"{side}_back_to_back"],
             "opp_rest": rt[f"{o}_rest_days"], "opp_b2b": rt[f"{o}_back_to_back"],
             "loss_streak": sf[f"{side}_loss_streak_enter"],
+            "win_streak": sf[f"{side}_streak_enter"],
             "opp_loss_streak": sf[f"{o}_loss_streak_enter"],
             "in3of4": rt[f"{side}_in_3_of_4"],
         }))
@@ -153,9 +154,10 @@ def assemble(L: pd.DataFrame, g: pd.DataFrame) -> pd.DataFrame:
     """Pivot team features to a per-game frame and attach best-of-books prices."""
     piv = L.pivot(index="GAME_ID", columns="is_home",
                   values=["form10", "rest", "b2b", "opp_rest", "opp_b2b", "loss_streak",
-                          "prev_margin", "prev_is_home", "prev_MIN", "season_win_pct",
-                          "games_in_last_5", "home_win_run_enter", "road_loss_run_enter",
-                          "away_run_enter", "road_games_enter", "road_wins_last10"])
+                          "win_streak", "prev_margin", "prev_is_home", "prev_MIN",
+                          "season_win_pct", "games_in_last_5", "home_win_run_enter",
+                          "road_loss_run_enter", "away_run_enter", "road_games_enter",
+                          "road_wins_last10"])
     F = pd.DataFrame(index=piv.index)
     for feat in piv.columns.levels[0]:
         F[f"home_{feat}"] = piv[feat][1]
@@ -180,8 +182,8 @@ def assemble(L: pd.DataFrame, g: pd.DataFrame) -> pd.DataFrame:
     return F
 
 
-def rules(F: pd.DataFrame) -> list[tuple[str, np.ndarray, np.ndarray]]:
-    """(label, mask, bet_home) for the 13 registered rules."""
+def rules_13(F: pd.DataFrame) -> list[tuple[str, np.ndarray, np.ndarray]]:
+    """(label, mask, bet_home) for the 13 family-5 rules."""
     fh, fa = F["home_form10"], F["away_form10"]
     home_rest, away_rest = F["home_rest"], F["away_rest"]
     home_b2b, away_b2b = F["home_b2b"], F["away_b2b"]
@@ -227,6 +229,126 @@ def rules(F: pd.DataFrame) -> list[tuple[str, np.ndarray, np.ndarray]]:
     return out
 
 
+def rules_50(F: pd.DataFrame) -> list[tuple[str, np.ndarray, np.ndarray]]:
+    """The family-5 grid expanded to 50 systematic rules (issue #93).
+
+    R1-R13 are the family-5 rules unchanged (their numbers must reproduce
+    family 5 exactly - deterministic). R14-R50 are the systematic expansion:
+    schedule events (B2B, road B2B, 4-in-6, road trips, 2OT legs, letdowns)
+    crossed with form gates (none / 5-5+ / 6-4+) and venue/price roles.
+    """
+    arms = rules_13(F)
+    fh, fa = F["home_form10"], F["away_form10"]
+    home_rest, away_rest = F["home_rest"], F["away_rest"]
+    home_b2b, away_b2b = F["home_b2b"], F["away_b2b"]
+    O1, O2 = F["O1"], F["O2"]
+    home_fav = O1 < O2
+    away_fav = O2 < O1
+    home_dog = O1 > O2
+    rest_diff = F["home_rest"] - F["away_rest"]
+    opp_prev_won = F["away_prev_margin"] > 0      # away team won last night
+    opp_prev_lost = F["away_prev_margin"] < 0
+
+    def add(label, mask, bet_home):
+        if np.isscalar(bet_home):
+            bet_home = np.full(len(F), bool(bet_home))
+        arms.append((label, mask.fillna(False).to_numpy(), np.asarray(bet_home, dtype=bool)))
+
+    # --- opponent B2B, rested side (any venue) ---
+    r14_home = (away_b2b == 1) & (home_rest >= 2)
+    r14_away = (home_b2b == 1) & (away_rest >= 2)
+    add("R14 opp B2B, backed rest>=2 (either venue)", r14_home | r14_away, r14_home)
+    add("R15 opp B2B, backed rest>=2, backed 6-4+", r14_home & (fh >= 6), True)
+    add("R16 opp B2B, backed rest>=3", (away_b2b == 1) & (home_rest >= 3), True)
+    # --- road B2B ---
+    add("R17 opp away on road B2B (plain)", (away_b2b == 1) & (F["away_prev_is_home"] == 0), True)
+    add("R18 opp away on road B2B, home 5-5+", (away_b2b == 1) & (F["away_prev_is_home"] == 0) & (fh >= 5), True)
+    add("R19 opp away on road B2B, home 6-4+", (away_b2b == 1) & (F["away_prev_is_home"] == 0) & (fh >= 6), True)
+    add("R20 opp away on road B2B, home rest>=2",
+        (away_b2b == 1) & (F["away_prev_is_home"] == 0) & (home_rest >= 2), True)
+    # --- 4-in-6 ---
+    r21_home_opp = (F["away_games_in_last_5"] == 3) & (home_rest >= 2)
+    r21_away_opp = (F["home_games_in_last_5"] == 3) & (away_rest >= 2)
+    add("R21 opp on 4-in-6, backed rest>=2 (either venue)",
+        r21_home_opp | r21_away_opp, r21_home_opp)
+    add("R22 opp on 4-in-6, backed 5-5+ (either venue)",
+        ((F["away_games_in_last_5"] == 3) & (fh >= 5)) |
+        ((F["home_games_in_last_5"] == 3) & (fa >= 5)),
+        (F["away_games_in_last_5"] == 3))
+    add("R23 opp on 4-in-6 playing away (plain)", F["away_games_in_last_5"] == 3, True)
+    add("R24 opp away on road B2B and 4-in-6",
+        (away_b2b == 1) & (F["away_prev_is_home"] == 0) & (F["away_games_in_last_5"] == 3), True)
+    # --- B2B previous-game splits ---
+    add("R25 opp away on B2B that won last night; bet home",
+        (away_b2b == 1) & (F["away_prev_is_home"] == 0) & opp_prev_won, True)
+    add("R26 opp away on B2B that lost last night; bet home",
+        (away_b2b == 1) & (F["away_prev_is_home"] == 0) & opp_prev_lost, True)
+    # --- road trips ---
+    add("R27 home returning from 4+ road trip, opp rest>=2",
+        (F["home_away_run_enter"] >= 4) & (away_rest >= 2), True)
+    add("R28 home returning from 4+ road trip (plain)",
+        F["home_away_run_enter"] >= 4, True)
+    # --- streaks ---
+    add("R29 home win streak>=3 vs opp loss streak>=3",
+        (F["home_win_streak"] >= 3) & (F["away_loss_streak"] >= 3), True)
+    r30_home = F["home_win_streak"] >= 4
+    r30_away = F["away_win_streak"] >= 4
+    add("R30 any team win streak>=4", r30_home | r30_away, r30_home)
+    # --- losing streaks ---
+    add("R31 home loss streak==3, season win%>.500",
+        (F["home_loss_streak"] == 3) & (F["home_season_win_pct"] > 0.50), True)
+    add("R32 both teams on 3+ game losing streaks; bet home",
+        (F["home_loss_streak"] >= 3) & (F["away_loss_streak"] >= 3), True)
+    # --- bounce-back / letdown ---
+    add("R33 home off a 10+ pt loss (plain)", F["home_prev_margin"] <= -10, True)
+    add("R34 home off a 10+ pt loss, 5-5+", (F["home_prev_margin"] <= -10) & (fh >= 5), True)
+    r35_home = F["home_prev_margin"] >= 15   # home won big last game -> fade home, bet away
+    r35_away = F["away_prev_margin"] >= 15   # away won big last game -> bet home
+    add("R35 opp off a 15+ pt win (letdown, either venue)", r35_home | r35_away, r35_away)
+    # --- road favourite on a B2B ---
+    add("R36 away fav on B2B; bet home (plain)", away_fav & (away_b2b == 1), True)
+    add("R37 away fav on B2B, home 5-5+", away_fav & (away_b2b == 1) & (fh >= 5), True)
+    # --- dog + schedule ---
+    add("R38 home dog vs opp B2B", home_dog & (away_b2b == 1), True)
+    add("R39 home dog vs opp on 4-in-6", home_dog & (F["away_games_in_last_5"] == 3), True)
+    big_dog_home = (O1 >= 2.50)
+    big_dog_away = (O2 >= 2.50)
+    add("R40 dog >=2.50 vs opp B2B",
+        (big_dog_home & (away_b2b == 1)) | (big_dog_away & (home_b2b == 1)), big_dog_home)
+    # --- price roles ---
+    add("R41 favourite <=1.40 (plain)", O1 <= 1.40, True)
+    add("R42 favourite <=1.30", O1 <= 1.30, True)
+    add("R43 favourite <=1.40 vs opp B2B", (O1 <= 1.40) & (away_b2b == 1), True)
+    add("R44 road underdogs (plain)", (O2 > O1), False)
+    add("R45 road underdogs 5-5+", (O2 > O1) & (fa >= 5), False)
+    add("R46 home underdogs 5-5+", (O1 > O2) & (fh >= 5), True)
+    near_form = (fh - fa).abs() <= 1
+    r47_home = home_dog & near_form
+    r47_away = away_fav & near_form   # away team is the underdog when the home side is fav
+    add("R47 underdog when form10 differs by <=1 (either venue)",
+        r47_home | r47_away, r47_home)
+    add("R48 rest edge >=1 day, both 5-5+",
+        (rest_diff >= 1) & (fh >= 5) & (fa >= 5), True)
+    add("R49 opp away on 3rd+ consecutive road game",
+        (F["away_away_run_enter"] >= 3), True)
+    add("R50 opp away on 4+ consecutive road game",
+        (F["away_away_run_enter"] >= 4), True)
+    assert len(arms) == 50, len(arms)
+    return arms
+
+
+FAMILIES = {
+    "user_rules": rules_13,
+    "user_rules_50": rules_50,
+}
+
+def family_defs():
+    return {
+        "user_rules": {"ledger": "E05", "issue": 91, "n": 13, "bar": 3.0},
+        "user_rules_50": {"ledger": "E06", "issue": 93, "n": 50, "bar": 3.0},
+    }
+
+
 def settle(F: pd.DataFrame, mask: np.ndarray, bet_home) -> dict:
     """Settle the rows selected by `mask` at the best-of-books ML.
 
@@ -260,19 +382,25 @@ def settle(F: pd.DataFrame, mask: np.ndarray, bet_home) -> dict:
 
 def main() -> int:
     ap = argparse.ArgumentParser()
-    ap.add_argument("--out", type=Path, default=ROOT / "results" / "edge_search" / "user_rules.json")
+    ap.add_argument("--family", default="user_rules",
+                    choices=["user_rules", "user_rules_50"])
+    ap.add_argument("--out", type=Path, default=None)
     ap.add_argument("--preregister", action="store_true")
     args = ap.parse_args()
+    if args.out is None:
+        args.out = ROOT / "results" / "edge_search" / f"{args.family}.json"
     if args.preregister:
         raise SystemExit("the pre-registration lives in results/experiments.jsonl "
-                         "(E05-prereg-user_rules); nothing to append here")
+                         "(E05-prereg-user_rules / E06-prereg-user_rules_50); "
+                         "nothing to append here")
 
     L, g = build_team_features()
     F = assemble(L, g)
     F = F[F["split"] != "other"].reset_index(drop=True)
     priced = F.dropna(subset=["O1", "O2"])
     arm_rows, overlap = [], {}
-    for label, mask, bet_home in rules(F):
+    rule_fn = {"user_rules": rules_13, "user_rules_50": rules_50}[args.family]
+    for label, mask, bet_home in rule_fn(F):
         full = pd.Series(mask, index=F.index)
         d = settle(F, (mask & (F["split"] == "discovery").to_numpy()), bet_home)
         h = settle(F, (mask & (F["split"] == "holdout").to_numpy()), bet_home)
@@ -299,8 +427,8 @@ def main() -> int:
                 ov[f"{a} ∩ {b}"] = inter
     payload = {
         "generated": datetime.now(timezone.utc).isoformat(),
-        "family": "user_rules",
-        "issue": 91,
+        "family": args.family,
+        "issue": {"user_rules": 91, "user_rules_50": 93}[args.family],
         "prereg": "E05-prereg-user_rules",
         "n_arms": len(arm_rows),
         "bar_z": BAR_Z,
@@ -313,11 +441,12 @@ def main() -> int:
     args.out.parent.mkdir(parents=True, exist_ok=True)
     args.out.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n")
 
+    ledger = {"user_rules": "E05", "user_rules_50": "E06"}[args.family]
     run = {
-        "name": "E05-run-user_rules",
-        "experiment_type": "search loop family 5: user_rules",
+        "name": f"{ledger}-run-{args.family}",
+        "experiment_type": f"search loop family: {args.family}",
         "declared_utc": payload["generated"],
-        "meta": {"family": "user_rules", "n_arms": len(arm_rows), "bar_z": BAR_Z,
+        "meta": {"family": args.family, "n_arms": len(arm_rows), "bar_z": BAR_Z,
                  "population": payload["population"]},
         "arms": arm_rows,
         "status": "executed",
@@ -325,7 +454,7 @@ def main() -> int:
     with open(ROOT / "results" / "experiments.jsonl", "a") as fh:
         fh.write(json.dumps(run, sort_keys=True) + "\n")
 
-    print(f"user_rules: 13 arms, priced {payload['population']['priced_games']:,} "
+    print(f"{args.family}: {len(arm_rows)} arms, priced {payload['population']['priced_games']:,} "
           f"(discovery {payload['population']['discovery']:,}, "
           f"holdout {payload['population']['holdout']:,}), bar |z| > {BAR_Z}")
     for r in arm_rows:

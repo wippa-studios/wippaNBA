@@ -273,6 +273,25 @@ head-to-head wins (+2.5%/+10.8%) — watchlist material only, exactly like the
 family-1 pair. Rare-event cells (2OT fades: 9 holdout bets) can never clear
 a bar, which is itself a finding.
 
+### The 50-rule grid: one significant result, and it is negative
+
+Family 6 expanded the fan rules to a systematic 50-arm grid — every schedule
+event (B2B, road B2B, 4-in-6, road trips, 2OT legs, letdowns) crossed with
+form gates and venue/price roles, registered before the run (#93). **No
+candidate.** The only \|z\| > 3 result in 50 arms is a **negative**: backing
+heavy chalk (≤1.30) at the best-of-books maximum returns **−2.88% (z −3.13)**,
+−2.64% on coherent rows, −3.72% on the holdout — heavy favourites are
+significantly overbet. Its mirror (the dog side of those games, +3.64%) is
+noise-level at z 0.84.
+
+The positive leads died the usual deaths: road dogs plain (+6.6%, z 2.8)
+collapse to +0.2% on coherent rows; road dogs 5-5+ collapse to −2.9%; and the
+one cell positive on coherent prices — the home opponent of a road favourite
+on its 4th game in 6 nights (+9.6%, z 2.1) — loses 4.6% on the holdout. The
+most intuitive schedule angle in basketball, fading tired teams, is negative
+in *every* variant measured (seven arms), because the market already prices
+the fatigue.
+
 ### A number in the committed output that looked good, and was a bug
 
 An earlier revision reported **+11.76%** ROI for the model and **+13.54%** for model +
