@@ -1,0 +1,96 @@
+{
+  "generated_utc": "2026-10-16T16:49:31Z",
+  "git_sha": "74683e661027b42ba68b134fee5a60474363a96c",
+  "git_dirty": true,
+  "tables": {
+    "dataset_2012-26": {
+      "rows": 17356,
+      "cols": 117,
+      "content_sha256": "45e53e00513b4636b37a1f21f558c348930815a358ba57863064596d61ac75bf",
+      "column_list_sha256": "cce3e27db1c53db203d5e12cbc8b62d2307628c61ea847e008aaee588d631c3e",
+      "game_date_range": [
+        "2012-10-30",
+        "2026-01-07"
+      ],
+      "build": {
+        "odds_tables_used": {
+          "2012-13": [
+            "odds_2012-13_new",
+            "odds_2012-13"
+          ],
+          "2013-14": [
+            "odds_2013-14_new",
+            "odds_2013-14"
+          ],
+          "2014-15": [
+            "odds_2014-15_new",
+            "odds_2014-15"
+          ],
+          "2015-16": [
+            "odds_2015-16_new",
+            "odds_2015-16"
+          ],
+          "2016-17": [
+            "odds_2016-17_new",
+            "odds_2016-17"
+          ],
+          "2017-18": [
+            "odds_2017-18_new",
+            "odds_2017-18"
+          ],
+          "2018-19": [
+            "odds_2018-19_new",
+            "odds_2018-19"
+          ],
+          "2019-20": [
+            "odds_2019-20_new",
+            "odds_2019-20"
+          ],
+          "2020-21": [
+            "odds_2020-21_new",
+            "odds_2020-21"
+          ],
+          "2021-22": [
+            "odds_2021-22_new",
+            "odds_2021-22"
+          ],
+          "2022-23": [
+            "odds_2022-23_new",
+            "odds_2022-23"
+          ],
+          "2023-24": [
+            "odds_2023-24_new",
+            "2023-24"
+          ],
+          "2024-25": [
+            "2024-25"
+          ],
+          "2025-26": [
+            "odds_2025-26"
+          ]
+        },
+        "expected_team_rows": 30,
+        "usable_snapshots": 4262,
+        "truncated_snapshots": 58,
+        "snapshot_lag_days_gt_7": 356,
+        "max_snapshot_lag_days": 178,
+        "stats": {
+          "odds_rows": 31515,
+          "kept": 17356,
+          "no_prior_snapshot": 14149,
+          "unknown_team": 0,
+          "missing_result": 10,
+          "unusable_snapshot": 0,
+          "unparseable_date": 14149,
+          "legacy_same_day_drop": 256
+        }
+      },
+      "labels": {
+        "Home-Team-Win": {
+          "positives": 9924,
+          "base_rate": 0.5717907351924406
+        }
+      }
+    }
+  }
+}
