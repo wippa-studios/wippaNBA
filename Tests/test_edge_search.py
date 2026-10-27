@@ -19,6 +19,11 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
+try:  # imported as Tests.test_edge_search by pytest and unittest discovery
+    from ._data_guard import require_dataset
+except ImportError:  # executed directly as a script
+    from _data_guard import require_dataset
+
 REPO_ROOT = Path(__file__).resolve().parents[1]
 MODULE_PATH = REPO_ROOT / "scripts" / "edge_search.py"
 SPEC = importlib.util.spec_from_file_location("edge_search", MODULE_PATH)
@@ -224,6 +229,10 @@ class TestFamilyRegistry(unittest.TestCase):
 class TestHoldoutData(unittest.TestCase):
     """The committed 2025-26 close table, pinned to the games it prices."""
 
+    @classmethod
+    def setUpClass(cls):
+        require_dataset("Data/OddsData.sqlite")
+
     def test_the_table_is_canonical_complete_and_unique(self):
         df = es.read_espn_table()
         self.assertEqual(len(df), 1321)
@@ -237,6 +246,7 @@ class TestHoldoutData(unittest.TestCase):
         self.assertEqual(set(df["Away"]) - canonical, set())
 
     def test_1224_of_1225_regular_season_games_are_priced(self):
+        require_dataset("data/nba")
         df = es.read_espn_table()
         g = __import__("DataProviders.nba_data", fromlist=["x"]).build_games()
         g = g[g["SEASON"] == "2025-26"].copy()

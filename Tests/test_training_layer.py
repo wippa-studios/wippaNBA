@@ -70,6 +70,11 @@ from wippa_nba.legacy.train_models import training_reporting  # noqa: E402
 from wippa_nba.evaluation import metrics  # noqa: E402
 from wippa_nba.evaluation import validation  # noqa: E402
 
+try:  # imported as Tests.test_training_layer by pytest and unittest discovery
+    from ._data_guard import require_dataset
+except ImportError:  # executed directly as a script
+    from _data_guard import require_dataset
+
 TRAINER_SOURCES = (
     "Logistic_Regression_ML.py",
     "Logistic_Regression_UO.py",
@@ -327,6 +332,7 @@ class TestDatasetTableAgreement(unittest.TestCase):
             )
 
     def test_a_table_that_does_not_exist_names_what_is_available(self):
+        require_dataset("Data/dataset.sqlite")
         with self.assertRaises(LookupError) as caught:
             training_common.resolve_dataset_table("dataset_2012-26_new")
         message = str(caught.exception)
@@ -334,6 +340,7 @@ class TestDatasetTableAgreement(unittest.TestCase):
         self.assertIn("dataset_2012-26", message)
 
     def test_a_leaked_table_is_refused_by_name(self):
+        require_dataset("Data/dataset.sqlite")
         # The other half of the same defect: dataset_2012-24_new EXISTS, so the
         # old code trained on a same-day join and never noticed.
         for table in training_common.LEAKED_DATASET_TABLES:

@@ -66,6 +66,11 @@ for _candidate in (ROOT, ROOT / "src"):
 from wippa_nba.data import nba_data as nd  # noqa: E402
 from wippa_nba.models import logreg_rolling as lr  # noqa: E402
 
+try:  # imported as Tests.test_closing_line by pytest and unittest discovery
+    from ._data_guard import require_dataset
+except ImportError:  # executed directly as a script
+    from _data_guard import require_dataset
+
 ODDS_DB = ROOT / "Data" / "OddsData.sqlite"
 RESULTS = ROOT / "results" / "closing_line.json"
 
@@ -121,8 +126,7 @@ class TestTricodeTranslation(unittest.TestCase):
         `build_games` keys teams by tricode; every odds table uses the full name.
         A zero-row join is the symptom of a naming mismatch, not of absent odds.
         """
-        if not ODDS_DB.exists():
-            self.skipTest("odds database not present")
+        require_dataset("Data/OddsData.sqlite")
         games = pd.DataFrame({
             "GAME_ID": ["0021800001"],
             "GAME_DATE": pd.to_datetime(["2018-10-16"]),
@@ -141,8 +145,7 @@ class TestTricodeTranslation(unittest.TestCase):
 
 class TestDeVigProducesSaneProbabilities(unittest.TestCase):
     def test_overround_is_normal_and_devig_sums_to_one(self):
-        if not ODDS_DB.exists():
-            self.skipTest("odds database not present")
+        require_dataset("Data/OddsData.sqlite")
         odds = cl.load_odds()
         p_home = cl.implied_from_american(odds["ML_Home"].to_numpy())
         p_away = cl.implied_from_american(odds["ML_Away"].to_numpy())
@@ -162,8 +165,7 @@ class TestAlignmentCannotSilentlyBreak(unittest.TestCase):
     """The regression guard for the bug in this file's docstring."""
 
     def test_row_for_row_alignment_matches_the_model_output(self):
-        if not ODDS_DB.exists():
-            self.skipTest("odds database not present")
+        require_dataset("Data/OddsData.sqlite", "data/nba")
         from wippa_nba.data import nba_data as nd
 
         games = nd.build_games().head(2500)

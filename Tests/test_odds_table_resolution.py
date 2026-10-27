@@ -30,8 +30,16 @@ for _candidate in (ROOT, ROOT / "src", ROOT / "scripts"):
 
 import closing_line as cl  # noqa: E402
 
+try:  # imported as Tests.test_odds_table_resolution by pytest
+    from ._data_guard import require_dataset
+except ImportError:  # executed directly as a script
+    from _data_guard import require_dataset
+
 
 class TestOddsTableResolution:
+    def setup_method(self):
+        require_dataset("Data/OddsData.sqlite")
+
     def test_every_season_in_the_list_resolves_to_a_table(self):
         """Each of SEASONS must resolve. A miss is an error, not a skip."""
         con = sqlite3.connect(f"file:{cl.ODDS_DB}?mode=ro", uri=True)
@@ -75,8 +83,25 @@ class TestOddsTableResolution:
         assert set(odds["SEASON"].unique()) == set(cl.SEASONS)
 
 
+@pytest.fixture
+def empty_odds_db(tmp_path, monkeypatch):
+    """A sqlite file with no tables, standing in for the shipped database.
+
+    These two tests pin the error raised for a season whose table is missing.
+    They do not need the 13k shipped odds rows, and requiring that file made
+    them fail on every checkout without it. An empty database reaches the same
+    branch: the file exists, the season does not.
+    """
+    path = tmp_path / "OddsData.sqlite"
+    with sqlite3.connect(path):
+        pass
+    monkeypatch.setattr(cl, "ODDS_DB", path)
+    return path
+
+
 class TestMissingSeasonIsLoud:
-    def test_an_unresolvable_season_raises_rather_than_skipping(self, monkeypatch):
+    def test_an_unresolvable_season_raises_rather_than_skipping(
+            self, monkeypatch, empty_odds_db):
         """The whole point: absence of a table must not look like absence of data.
 
         If load_odds ever goes back to swallowing the miss, a silently shorter
@@ -86,7 +111,8 @@ class TestMissingSeasonIsLoud:
         with pytest.raises(RuntimeError, match="1999-00"):
             cl.load_odds()
 
-    def test_the_error_names_the_season_and_the_names_tried(self, monkeypatch):
+    def test_the_error_names_the_season_and_the_names_tried(
+            self, monkeypatch, empty_odds_db):
         monkeypatch.setattr(cl, "SEASONS", ("1999-00",))
         with pytest.raises(RuntimeError) as exc:
             cl.load_odds()

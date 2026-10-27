@@ -15,3 +15,17 @@ check: it runs ``main()`` against throwaway sqlite files in a
 ``tempfile.TemporaryDirectory`` and asserts on a single generated row, which
 would fail loudly if the module were executed twice against stale state.
 """
+
+import sys
+from pathlib import Path
+
+# ``python -m unittest discover`` does not read conftest.py, so the package
+# marker is the only place that runs before any test module is imported. Both
+# the repository root and ``src`` go on the path: the tests import ``main`` and
+# ``scripts.*`` from the root, and ``wippa_nba`` from ``src``. The insertion is
+# idempotent and has no other side effect, so importing this package twice is
+# harmless.
+_REPO_ROOT = Path(__file__).resolve().parents[1]
+for _path in (_REPO_ROOT, _REPO_ROOT / "src"):
+    if str(_path) not in sys.path:
+        sys.path.insert(0, str(_path))
