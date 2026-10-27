@@ -42,5 +42,38 @@ class TestUserRulesArtifact(unittest.TestCase):
         self.assertEqual(sorted(order), order)
 
 
+class TestUserRules50Artifact(unittest.TestCase):
+    def test_schema_and_consistency_with_family_5(self):
+        r50 = json.loads((ROOT / "results" / "edge_search" / "user_rules_50.json").read_text())
+        self.assertEqual(r50["family"], "user_rules_50")
+        self.assertEqual(r50["n_arms"], 50)
+        r13 = json.loads((ROOT / "results" / "edge_search" / "user_rules.json").read_text())
+        by13 = {a["label"]: (a["discovery"], a["holdout"]) for a in r13["arms"]}
+        for a in r50["arms"]:
+            if a["label"].split()[0] in {f"R{i}" for i in range(1, 14)}:
+                d13, h13 = by13[a["label"]]
+                self.assertEqual(a["discovery"], d13, a["label"])
+                self.assertEqual(a["holdout"], h13, a["label"])
+        # no candidate among the 50
+        cleared = [a for a in r50["arms"]
+                   if abs(a["discovery"]["z"]) > r50["bar_z"] and a["holdout"]["roi"] > 0]
+        self.assertEqual(cleared, [])
+        # the one |z|>3 result is the significant negative on heavy chalk
+        neg = [a for a in r50["arms"] if a["discovery"]["z"] < -r50["bar_z"]]
+        self.assertEqual(len(neg), 1)
+        self.assertTrue(neg[0]["label"].startswith("R42"))
+        # the ledger carries prereg -> run -> diagnostics in order
+        recs = [json.loads(line) for line in
+                (ROOT / "results" / "experiments.jsonl").read_text().splitlines()]
+        names = [r.get("name") for r in recs]
+        for n in ("E06-prereg-user_rules_50", "E06-run-user_rules_50",
+                  "E06-diagnostics-user_rules_50"):
+            self.assertIn(n, names)
+        idx = [names.index(n) for n in ("E06-prereg-user_rules_50",
+                                        "E06-run-user_rules_50",
+                                        "E06-diagnostics-user_rules_50")]
+        self.assertEqual(idx, sorted(idx))
+
+
 if __name__ == "__main__":
     unittest.main()
