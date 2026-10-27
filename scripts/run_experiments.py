@@ -31,6 +31,7 @@ for _c in (ROOT, ROOT / "src", ROOT / "scripts"):
 from wippa_nba.data import nba_data as nd  # noqa: E402
 from experiments import (Experiment, N_SPLITS, append, build_frame,  # noqa: E402
                          load_log, run_one)
+from _data_guard import require_data_dir  # noqa: E402
 
 # ===========================================================================
 # THE PRE-REGISTERED GRID
@@ -210,6 +211,8 @@ STAGES = {"1": STAGE_1, "2": STAGE_2, "3": STAGE_3, "4": STAGE_4, "5": STAGE_5,
 
 
 def main() -> int:
+    require_data_dir()
+
     args = sys.argv[1:]
     stage = "all"
     for a in args:

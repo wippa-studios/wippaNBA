@@ -34,6 +34,7 @@ for _c in (ROOT, ROOT / "src", ROOT / "scripts"):
 
 from closing_line import tricode_to_full_name  # noqa: E402
 from wippa_nba.data import nba_data as nd       # noqa: E402
+from _data_guard import require_data_dir  # noqa: E402
 
 KEEP_STAGES = {"regular", "play offs", "promotion - play offs"}
 
@@ -160,6 +161,8 @@ def main() -> int:
                     help="after validation, write the scrape into OddsData.sqlite")
     ap.add_argument("--db", type=Path, default=ROOT / "Data" / "OddsData.sqlite")
     args = ap.parse_args()
+
+    require_data_dir()
 
     seasons = load_seasons(args.csv_dir)
     report = validate(seasons)

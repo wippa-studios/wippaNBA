@@ -69,8 +69,12 @@ TRAINING_DIR = BASE_DIR / "src" / "wippa_nba" / "legacy" / "train_models"
 _SRC_DIR = BASE_DIR / "src"
 if str(_SRC_DIR) not in sys.path:
     sys.path.insert(0, str(_SRC_DIR))
+_SCRIPTS_DIR = BASE_DIR / "scripts"
+if str(_SCRIPTS_DIR) not in sys.path:
+    sys.path.insert(0, str(_SCRIPTS_DIR))
 
 from wippa_nba.legacy.train_models import training_common  # noqa: E402
+from _data_guard import require  # noqa: E402
 
 # THE FEATURE CONTRACT, TAKEN FROM THE TRAINERS.
 #
@@ -198,6 +202,8 @@ def main():
     parser.add_argument("--xgb-ml-model", help="Path to XGBoost ML model.")
     parser.add_argument("--xgb-uo-model", help="Path to XGBoost OU model.")
     args = parser.parse_args()
+
+    require(DATASET_DB)
 
     train_cols_ml = get_training_columns(args.dataset, DROP_COLUMNS_ML)
     train_cols_uo = get_training_columns(args.dataset, DROP_COLUMNS_UO)

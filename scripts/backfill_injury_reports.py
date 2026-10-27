@@ -43,11 +43,12 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-for _c in (ROOT, ROOT / "src"):
+for _c in (ROOT, ROOT / "src", ROOT / "scripts"):
     if str(_c) not in sys.path:
         sys.path.insert(0, str(_c))
 
 from wippa_nba.data import nba_data as nd  # noqa: E402
+from _data_guard import require_data_dir  # noqa: E402
 
 INJURY_MODULE = ROOT / "src" / "wippa_nba" / "legacy" / "process_data" / "Get_Injury_Data.py"
 
@@ -86,6 +87,8 @@ def main(argv=None) -> int:
     p.add_argument("--no-parse", action="store_true",
                    help="Capture PDFs only; skip turning them into status events")
     args = p.parse_args(argv)
+
+    require_data_dir()  # game_dates() resolves the range against the game logs
 
     slots = args.slot or ["17:00"]
     dates = game_dates(args.date_from, args.date_to)

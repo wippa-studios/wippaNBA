@@ -45,6 +45,7 @@ for _c in (ROOT, ROOT / "src", ROOT / "scripts"):
 from wippa_nba.data import nba_data as nd        # noqa: E402
 from wippa_nba.models import logreg_rolling as lr         # noqa: E402
 from wippa_nba.models import measurement as ms            # noqa: E402
+from _data_guard import require, require_data_dir  # noqa: E402
 
 OUT_JSON = ROOT / "results" / "issue74_form_mismatch.json"
 OUT_MD = ROOT / "results" / "issue74_form_mismatch.md"
@@ -331,6 +332,9 @@ def _row(label: str, r: dict, price: str) -> dict:
 
 
 def main() -> int:
+    require(cl.ODDS_DB)
+    require_data_dir()
+
     t0 = time.time()
     games = nd.build_games().reset_index(drop=True)
     form = form_wins_entering(games, WINDOW, reset_seasons=False)

@@ -104,6 +104,7 @@ from __future__ import annotations
 import argparse
 import json
 import sys
+import unittest
 from pathlib import Path
 
 import numpy as np
@@ -653,7 +654,13 @@ def main() -> int:
                          f"Known blocks: {sorted(FEATURE_BLOCKS)}")
     blocks = args.blocks or sorted(FEATURE_BLOCKS)
 
-    games = nd.build_games()
+    try:
+        games = nd.build_games()
+    except unittest.SkipTest as exc:
+        # nba_data raises SkipTest for absent data so the test suite can skip;
+        # a script run must stop with the same one-line contract instead.
+        print(str(exc), file=sys.stderr)
+        raise SystemExit(1) from None
     splits = nd.walk_forward_split(games, n_splits=args.splits)
     frame = build_feature_frame(games)
 

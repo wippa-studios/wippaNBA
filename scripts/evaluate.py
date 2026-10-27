@@ -36,18 +36,15 @@ Four things this file is deliberately strict about.
 
 4. Data/ is read-only, and sqlite is opened `mode=ro` throughout.
 
-`src/Train-Models/training_reporting.py` supplies the American-odds arithmetic
-and the closing-price loader, exactly as the trainers use it. That directory
-contains a hyphen so it is not a package: it is loaded by file path after being
-placed on sys.path, which is what makes its own plain
-`from training_common import BASE_DIR` resolve. If that import ever fails the
-arithmetic is replicated locally and the substitution is printed rather than
-made silently.
+`wippa_nba.legacy.train_models.training_reporting` supplies the American-odds
+arithmetic and the closing-price loader, exactly as the trainers use it. It is
+imported like any other module of the package; the file-path loader this script
+used while the module still lived in `src/Train-Models/` is gone, and with it
+the printed substitution note and the local fallback arithmetic.
 """
 
 import argparse
 import base64
-import importlib.util
 import json
 import re
 import sqlite3
@@ -68,7 +65,6 @@ BASE_DIR = Path(__file__).resolve().parents[1]
 DATASET_DB = BASE_DIR / "Data" / "dataset.sqlite"
 ODDS_DB = BASE_DIR / "Data" / "OddsData.sqlite"
 TEAM_DB = BASE_DIR / "Data" / "TeamData.sqlite"
-TRAINING_DIR = BASE_DIR / "src" / "wippa_nba" / "legacy" / "train_models"
 
 MONEYLINE_TARGET = "Home-Team-Win"
 DATE_COLUMN = "Date"
@@ -89,7 +85,11 @@ AWAY_TEAM = "TEAM_NAME.1"
 # harness must select the same columns they do.
 if str(BASE_DIR / "src") not in sys.path:
     sys.path.insert(0, str(BASE_DIR / "src"))
+if str(BASE_DIR / "scripts") not in sys.path:
+    sys.path.insert(0, str(BASE_DIR / "scripts"))
 from wippa_nba.legacy.train_models.training_common import drop_columns_for  # noqa: E402
+from wippa_nba.legacy.train_models import training_reporting  # noqa: E402
+from _data_guard import require  # noqa: E402
 
 DROP_COLUMNS = drop_columns_for(MONEYLINE_TARGET, include_team_ids=True)
 
@@ -189,71 +189,6 @@ def rule(title):
     print("=" * 78)
     print(title)
     print("=" * 78)
-
-
-def load_training_reporting():
-    """Load src/Train-Models/training_reporting.py by file path, or None.
-
-    The directory holds a hyphen, so it can never be imported as a package. It
-    goes on sys.path for the duration so the module's own
-    `from training_common import BASE_DIR` resolves the way it does when the
-    trainers are executed from inside that directory.
-    """
-    path = TRAINING_DIR / "training_reporting.py"
-    if not path.exists():
-        return None
-    if str(TRAINING_DIR) not in sys.path:
-        sys.path.insert(0, str(TRAINING_DIR))
-    spec = importlib.util.spec_from_file_location("training_reporting", path)
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
-    return module
-
-
-def local_american_odds_profit(odds, won):
-    """American-odds profit on a flat $100 stake; the fallback arithmetic.
-
-    A winning bet returns `odds` when the price is positive and 10000/abs(odds)
-    when it is negative. A losing bet loses the stake, and so does a price of
-    exactly zero, which is not a real price and cannot win.
-    """
-    if not won:
-        return -FLAT_STAKE
-    odds = float(odds)
-    if odds > 0:
-        return odds
-    if odds < 0:
-        return 10000.0 / abs(odds)
-    return -FLAT_STAKE
-
-
-def local_implied_probability(odds):
-    """Vig-free win probability implied by one American price, or None."""
-    try:
-        odds = float(odds)
-    except (TypeError, ValueError):
-        return None
-    if not np.isfinite(odds) or odds == 0:
-        return None
-    if odds > 0:
-        return 100.0 / (odds + 100.0)
-    return abs(odds) / (abs(odds) + 100.0)
-
-
-def resolve_odds_arithmetic():
-    """(profit_fn, implied_fn, source_label) from the shared reporting module."""
-    try:
-        module = load_training_reporting()
-    except Exception as exc:
-        print(f"Could not import training_reporting.py ({exc}); using local arithmetic.")
-        module = None
-    if module is None:
-        return local_american_odds_profit, local_implied_probability, "local fallback"
-    return (
-        module.american_odds_profit,
-        module.american_odds_implied_probability,
-        "training_reporting.american_odds_profit",
-    )
 
 
 # ---------------------------------------------------------------------------
@@ -1348,6 +1283,14 @@ def describe_dataset(data, X, train_rows, test_rows):
 def main():
     args = build_parser().parse_args()
 
+    # The repository ships no data. An absent artefact is a configuration
+    # problem, not a measurement result: stop before the gate with one clear
+    # line rather than degrading inside it.
+    require(DATASET_DB)
+    require(TEAM_DB)
+    if not args.skip_odds:
+        require(ODDS_DB)
+
     rule(f"EVALUATION HARNESS -- {DATASET_DB.name}::{args.dataset}")
     print(
         f"Options: dataset={args.dataset} test_size={args.test_size} seed={args.seed} "
@@ -1373,7 +1316,9 @@ def main():
             print(f"No rows found for dataset {args.dataset}.")
         return 2
 
-    profit_fn, implied_fn, arithmetic_source = resolve_odds_arithmetic()
+    profit_fn = training_reporting.american_odds_profit
+    implied_fn = training_reporting.american_odds_implied_probability
+    arithmetic_source = "training_reporting.american_odds_profit"
     print(f"American-odds arithmetic: {arithmetic_source}")
 
     data, X, y = prepare_frame(df)

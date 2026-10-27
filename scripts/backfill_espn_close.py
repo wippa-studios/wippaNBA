@@ -56,6 +56,7 @@ for _c in (ROOT, ROOT / "src", ROOT / "scripts"):
         sys.path.insert(0, str(_c))
 
 import closing_line as cl  # noqa: E402
+from _data_guard import require_data_dir  # noqa: E402
 
 SITE = "https://site.api.espn.com/apis/site/v2/sports/basketball/nba"
 CORE = "https://sports.core.api.espn.com/v2/sports/basketball/leagues/nba/events"
@@ -255,6 +256,8 @@ def main() -> int:
     ap.add_argument("--csv-out", type=Path, default=None)
     ap.add_argument("--db", type=Path, default=cl.ODDS_DB)
     args = ap.parse_args()
+
+    require_data_dir()  # validate() matches the scrape against build_games()
 
     if args.from_csv:
         df = pd.read_csv(args.from_csv)
