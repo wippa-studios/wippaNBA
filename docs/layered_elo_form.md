@@ -113,6 +113,6 @@ A positive point estimate below the bar would not be evidence of a small edge.
 - `scripts/issue81_layered_elo_form.py` — measurement and Markdown writer
 - `results/issue81_layered_elo_form.json` — authoritative artifact
 - `results/issue81_layered_elo_form.md` — generated summary
-- `Tests/test_issue81_layered_elo_form.py` — 13 tests: side-aware settlement,
+- `tests/unit/test_issue81_layered_elo_form.py` — 13 tests: side-aware settlement,
   push rule, causality, Elo direction, constant drift, artifact schema
 - Ledger: `I81-prereg-layered-elo-form`, `I81-run-layered-elo-form`

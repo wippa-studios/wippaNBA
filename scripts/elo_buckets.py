@@ -30,7 +30,7 @@ axis.
 WHY THIS CANNOT BE CIRCULAR
 ---------------------------
 The Elo ratings are strictly causal - `player_elo_ratings` reads a rating BEFORE a
-game and writes it after, and `Tests/test_player_elo.py` verifies that truncating
+game and writes it after, and `tests/regression/test_player_elo.py` verifies that truncating
 the future changes nothing. So the bucketing uses no post-game information. There
 is no fitted object here, no train/test split, and no threshold: the buckets are
 fixed quantiles of the contrast, not chosen to look good.

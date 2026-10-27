@@ -54,17 +54,17 @@ jobs:
       # The suite must stay runnable through BOTH entry points. These diverge
       # in ways that are easy to regress: `python -m pytest` puts the cwd on
       # sys.path implicitly and therefore hides a broken bare `pytest`, while
-      # `unittest discover -s Tests -t .` additionally requires Tests/ to be a
+      # `unittest discover -s tests -t .` additionally requires tests/ to be a
       # real package. Running both here is what caught the original
       # "ModuleNotFoundError: No module named 'src'" collection failure.
       - name: Run tests (pytest)
-        run: python -m pytest Tests/ -q
+        run: python -m pytest tests/ -q
 
       - name: Run tests (bare pytest entry point)
-        run: pytest Tests/ -q
+        run: pytest tests/ -q
 
       - name: Run tests (unittest discovery)
-        run: python -m unittest discover -s Tests -t .
+        run: python -m unittest discover -s tests -t .
 
   # ---------------------------------------------------------------------------
   # The totals (over/under) trainer, run end to end.
@@ -149,10 +149,10 @@ jobs:
       # a module constant with no command-line override, so the synthetic table
       # is written to that exact path.
       #
-      # Nothing is downloaded, and the committed 38 MB table is deleted first on
-      # purpose: leaving it in place would let a failed build here fall through
-      # to a ten-minute run on real data and report a green job that tested
-      # nothing at all. The committed table is restored by the next checkout.
+      # Nothing is downloaded. No dataset is committed either, but any local
+      # copy at that path is deleted first on purpose: leaving one in place
+      # would let a failed build here fall through to a ten-minute run on real
+      # data and report a green job that tested nothing at all.
       - name: Build a synthetic dataset (nothing is downloaded)
         run: |
           rm -f Data/dataset.sqlite
@@ -161,10 +161,10 @@ jobs:
           import sys
           from pathlib import Path
 
-          sys.path[:0] = ["Tests", "src/Train-Models", "."]
+          sys.path[:0] = ["tests/integration", "src", "."]
           from test_training_layer import write_synthetic_dataset_db
 
-          import training_common
+          from wippa_nba.legacy.train_models import training_common
 
           path = write_synthetic_dataset_db(Path("Data/dataset.sqlite"))
           with sqlite3.connect(f"file:{path}?mode=ro", uri=True) as con:
@@ -185,4 +185,9 @@ jobs:
       # regression in this path fails CI, not that CI produces a model worth
       # having; the real search defaults to 15 trials over 5 folds.
       - name: Train the totals model
-        run: python -m src.Train-Models.Logistic_Regression_UO --trials 2 --splits 3
+        # PYTHONPATH=src because python -m must resolve `wippa_nba` before the
+        # trainer's own sys.path insertion runs. The test job installs the
+        # project; this job installs only the trainer's three dependencies.
+        env:
+          PYTHONPATH: src
+        run: python -m wippa_nba.legacy.train_models.Logistic_Regression_UO --trials 2 --splits 3

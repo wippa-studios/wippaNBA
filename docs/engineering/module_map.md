@@ -222,7 +222,7 @@ Run from the repository root with the project environment:
 
 ```
 python -m compileall -q src
-python -m pytest Tests/ -q
+python -m pytest tests/ -q
 ```
 
 Results, both measured with `Data/OddsData.sqlite` absent because that zero-byte

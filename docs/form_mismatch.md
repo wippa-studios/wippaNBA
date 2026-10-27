@@ -210,7 +210,7 @@ Reproduce with:
 
 ```bash
 OMP_NUM_THREADS=1 python scripts/issue74_form_mismatch.py
-python -m pytest Tests/test_issue74_form_mismatch.py -q
+python -m pytest tests/unit/test_issue74_form_mismatch.py -q
 ```
 
 The script writes `results/issue74_form_mismatch.json` and `.md` and appends

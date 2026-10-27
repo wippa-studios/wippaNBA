@@ -22,7 +22,7 @@ python -m src.Process-Data.Get_Injury_Data slots --date 2026-10-23
 
 No top-level call fetches anything; `main()` fetches only what the command
 line asked for, under the request budget it was given. Tests:
-`Tests/test_injury_data.py`.
+`tests/unit/test_injury_data.py`.
 
 ## Three filename eras
 

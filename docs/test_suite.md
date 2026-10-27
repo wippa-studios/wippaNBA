@@ -1,7 +1,7 @@
 # Test suite: 1,104 passing, 0 failing
 
 **Repo:** `/home/Joel/.cache/nba-fix-worktree` (branch `improve-model-v2`)
-**Run:** `pytest Tests/` — or `python -m unittest discover -s Tests -t .`
+**Run:** `pytest tests/` — or `python -m unittest discover -s tests -t .`
 
 35 files, measured individually:
 

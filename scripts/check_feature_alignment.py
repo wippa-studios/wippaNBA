@@ -20,7 +20,7 @@ six trainers that call ``training_common.drop_columns_for``:
 Six of its ten entries were still correct, which is the worse shape: the checker
 agreed with the trainers on most of the contract and disagreed exactly where a
 permutation could hide. So both lists below are now the trainer function's own
-return values, and ``Tests/test_feature_alignment_checker.py`` pins the equality
+return values, and ``tests/unit/test_feature_alignment_checker.py`` pins the equality
 -- list AND order -- so the copy cannot start drifting again.
 
 WHAT WAS WRONG, against the live 117-column ``dataset_2012-26`` table: the two
@@ -62,8 +62,8 @@ TRAINING_DIR = BASE_DIR / "src" / "wippa_nba" / "legacy" / "train_models"
 # (renaming it is tracked as follow-up work). It goes on sys.path instead and its
 # modules import under plain top-level names, which is the bootstrap
 # `training_common`'s own docstring describes for the trainers, the one
-# `scripts/evaluate.py` uses, and the one `Tests/test_game_date.py` and
-# `Tests/test_training_layer.py` already use. `training_common` itself puts the
+# `scripts/evaluate.py` uses, and the one `tests/integration/test_game_date.py` and
+# `tests/integration/test_training_layer.py` already use. `training_common` itself puts the
 # repository root on sys.path in turn, so importing it here is self-sufficient
 # whatever the working directory.
 _SRC_DIR = BASE_DIR / "src"

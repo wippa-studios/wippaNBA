@@ -31,8 +31,8 @@ LEAKAGE DISCIPLINE
 * Every transform - imputation, scaling - lives INSIDE a `Pipeline` fitted within
   each fold. Nothing is fitted on the union of train and test.
 * Feature builders are causal by construction: they take `games` and read only
-  strictly-past information, which `Tests/test_opponent_adjusted.py` and
-  `Tests/test_logreg_rolling.py` verify by truncating the future.
+  strictly-past information, which `tests/regression/test_opponent_adjusted.py` and
+  `tests/unit/test_logreg_rolling.py` verify by truncating the future.
 * Train-vs-test gap is reported for every experiment precisely so that an
   improvement bought by memorising the training set cannot hide.
 

@@ -52,7 +52,7 @@ data survives being chosen somewhere else.
 ## Run the tests
 
 ```bash
-pytest Tests/                       # or: python -m unittest discover -s Tests -t .
+pytest tests/                       # or: python -m unittest discover -s tests -t .
 ```
 
 Most tests need no network access and no TensorFlow or XGBoost import. The model

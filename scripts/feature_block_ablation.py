@@ -63,7 +63,7 @@ and must not be reported as one.
 FAILURE MODES THIS FILE GUARDS AGAINST
 ---------------------------------------
 Each of these has actually cost this repository a result. They are listed here,
-guarded below, and pinned in ``Tests/test_feature_block_ablation.py``.
+guarded below, and pinned in ``tests/unit/test_feature_block_ablation.py``.
 
 1. IMPUTATION AND SCALING FIT ON THE FULL FRAME.
    The imputer median and the scaler mean/sd are statistics of the rows they are

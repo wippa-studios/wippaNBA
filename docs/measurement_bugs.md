@@ -73,7 +73,7 @@ computing twice by different routes.
 ### The fix
 
 Both the mean and the bootstrap now restrict to placed bets before aggregating.
-Pinned by `Tests/test_roi_denominator.py`, whose headline test asserts the
+Pinned by `tests/regression/test_roi_denominator.py`, whose headline test asserts the
 invariant the bug violated: *the sign of the ROI is the sign of the total profit.*
 
 ---
@@ -99,7 +99,7 @@ A **partial** download failed the same way by a different route: `game_logs/`
 populated but `team_gamelogs/` still empty passed a single-directory check and then
 blew up on the second glob. So checking only one directory was not enough either.
 
-Two defects, both fixed and both pinned in `Tests/test_data_guard.py`:
+Two defects, both fixed and both pinned in `tests/integration/test_data_guard.py`:
 
 1. the guard tested for a directory rather than for files;
 2. `DATA_ROOT` defaulted to one developer's home directory,

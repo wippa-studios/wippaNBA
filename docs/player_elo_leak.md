@@ -52,7 +52,7 @@ EWMAs and genuinely causal. The leak lives in *which players are in the sum*, an
 deleting the future does not change who is in the sum — the lineup is in the
 feature because it was in the frame, not because the weights saw the result.
 
-So `Tests/test_player_elo.py` asserts something else entirely: that the raw total
+So `tests/regression/test_player_elo.py` asserts something else entirely: that the raw total
 (`elo_available`) is **inverted** relative to winning. See the bucketing below —
 the diagnosis, not the arithmetic, is what the test pins.
 

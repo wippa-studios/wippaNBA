@@ -392,7 +392,7 @@ def feature_frame(games: pd.DataFrame, with_availability: bool = False) -> pd.Da
     ``assemble_features``: every rating, matchup, rebound and home-split feature
     is a home-minus-away difference; ``pace_mean``, the schedule levels and the
     constant ``home_adv`` are the only levels, and ``home_adv`` is the canonical
-    home indicator, constant 1.0 BY DESIGN). ``Tests/test_closing_line.py``
+    home indicator, constant 1.0 BY DESIGN). ``tests/regression/test_closing_line.py``
     pins the equality against ``load_design`` so this file cannot drift again.
 
     BOTH ARMS ARE ``load_design`` WITH AN EXPLICIT FLAG (issue #36). The

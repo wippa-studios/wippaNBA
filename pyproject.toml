@@ -58,7 +58,7 @@ include = [
     "wippa_nba",
     "wippa_nba.*",
 ]
-# `Tests`, `scripts`, `Data`, `Models` and `Screenshots` live outside src/ and
+# `tests`, `scripts`, `Data`, `Models` and `Screenshots` live outside src/ and
 # are therefore never discovered as packages. The old hyphenated directories
 # (src/Process-Data, src/Train-Models) are gone: the same modules now sit under
 # wippa_nba.legacy.*, where they are ordinary importable packages.
@@ -70,11 +70,11 @@ include = [
 
 [tool.pytest.ini_options]
 # `pythonpath` puts the source root first so `import wippa_nba...` resolves for
-# both `pytest Tests/` and the bare `pytest` entry point. The repository root is
+# both `pytest tests/` and the bare `pytest` entry point. The repository root is
 # kept for `import main`, which some tests do. Requires pytest >= 7.0;
 # conftest.py performs the same insertion for anyone on an older pytest.
 pythonpath = ["src", "."]
-testpaths = ["Tests"]
+testpaths = ["tests"]
 
 [tool.coverage.run]
 source = ["src/wippa_nba"]

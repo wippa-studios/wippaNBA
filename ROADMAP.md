@@ -145,7 +145,7 @@ cannot beat a price you already have.
 
 ### 1.2 Leakage assertion as a permanent gate
 
-`Tests/test_create_games.py::test_main_never_uses_a_same_day_snapshot` proves the
+`tests/integration/test_create_games.py::test_main_never_uses_a_same_day_snapshot` proves the
 join does not use a same-day snapshot. Extend the same idea to the live path in
 `main.py` (`DateTo` must be yesterday) and to any future data source.
 
