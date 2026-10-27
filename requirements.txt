@@ -8,7 +8,7 @@
 # tensorflow==2.14.0 only publishes cp39/cp310/cp311 wheels. Its own metadata
 # declares `requires-python >=3.9`, which is wrong, so on Python 3.12 or 3.13
 # pip believes the requirement is satisfiable, falls back to building the sdist
-# from source, and fails. pandas==2.1.1 and scikit-learn==1.3.1 have no cp313
+# from source, and fails. pandas==2.3.3 and scikit-learn==1.3.1 have no cp313
 # wheels either, so a contributor on 3.13 cannot install this repo at all.
 # The same bound is declared as `requires-python = ">=3.10,<3.12"` in
 # pyproject.toml so packaging metadata tells the truth up front.
@@ -44,7 +44,7 @@
 # sbrscrape==0.0.10 declares NO dependencies at all, so it cannot be relied on
 # to supply anything indirectly. These three are now explicit.
 colorama==0.4.6
-pandas==2.1.1
+pandas==2.3.3
 numpy>=1.23.5,<2.0
 requests==2.32.4
 joblib==1.5.2
