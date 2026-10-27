@@ -292,6 +292,28 @@ most intuitive schedule angle in basketball, fading tired teams, is negative
 in *every* variant measured (seven arms), because the market already prices
 the fatigue.
 
+### Lay bets: the favourite-overbet, viewed from the exchange side
+
+Family 7 tested the user's lay-bet structure — betting *against* a team at its
+own moneyline price, the exchange bet a regular sportsbook cannot take. The
+pre-registered identity (lay ROI = −back ROI at the same odds) makes the
+outcome predictable, and it held exactly: laying the favourite in every
+de-vigged probability bucket is positive, and two arms clear the bar — lay
+the 0.80+ favourite at **+3.03% (z 3.42)** and lay the home favourite ≤1.30 at
+**+2.88% (z 3.13)**, both with positive holdouts. These are exact mirrors of
+family 3's and family 6's negative back results, verified to 12 decimal
+places — re-expressions, not new information.
+
+What the family adds: the favourite-overbet **survives the coherent filter**
+from the lay side (+2.81%, z 3.09); at a 5% exchange commission the lays
+remain +1.4% to +2.2%; and on the same games the sportsbook fallback (betting
+the dog at its own price) returns +3.64% per backer stake — *more* than the
+lay's +2.22%, because the stale-quote value sits on the dog side — though the
+lay risks ~0.17 per unit where the dog bet risks 1.00. The conclusion: the
+measured favourite-overbet is executable only on an exchange, and only worth
+the trouble at scale; at a regular book it is the dog bet, which remains
+suggestive (z 0.84), not significant.
+
 ### A number in the committed output that looked good, and was a bug
 
 An earlier revision reported **+11.76%** ROI for the model and **+13.54%** for model +

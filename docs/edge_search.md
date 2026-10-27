@@ -421,6 +421,62 @@ already prices the fatigue. The only significant signal in 50 arms is that
 **heavy favourites at the best-of-books maximum lose more than the vig** —
 a pricing asymmetry worth remembering, but its mirror is too noisy to bet.
 
+## Family 7: `lay_rules` — laying the favourite at its own price
+
+A different bet structure (#95): **lay bets**, using the moneyline as lay
+odds. Laying team X at decimal odds O wins **+1** if X loses and loses
+**−(O−1)** if X wins. Pre-registered with the identity that frames it:
+**lay ROI = −back ROI at the same odds**, so this family re-expresses the
+measured favourite-overbet result (family 3) rather than discovering one.
+The genuine questions: coherence, commission, and the sportsbook fallback.
+
+12 arms; settlement +1 on the laid side losing, −(O−1) on it winning;
+discovery 11,902 priced games, holdout 1,204; bar \|z\| > 3.0.
+
+| arm | n disc | ROI disc | \|z\| | coh disc | n hold | ROI hold | verdict |
+|---|---|---|---|---|---|---|---|
+| L1: lay the favourite 0.50-0.55 | 1,668 | -1.49% | 0.64 | -0.30% | 143 | +14.82% | no evidence |
+| L2: lay the favourite 0.55-0.60 | 1,820 | +1.99% | 1.00 | +1.22% | 183 | +1.32% | same sign, underpowered |
+| L3: lay the favourite 0.60-0.65 | 1,868 | +3.11% | 1.69 | +4.44% | 157 | -0.82% | no evidence |
+| L4: lay the favourite 0.65-0.70 | 1,648 | +1.26% | 0.76 | +0.83% | 164 | -1.35% | no evidence |
+| L5: lay the favourite 0.70-0.75 | 1,417 | +1.31% | 0.83 | +1.09% | 146 | -4.88% | no evidence |
+| L6: lay the favourite 0.75-0.80 | 1,168 | +1.17% | 0.70 | +1.79% | 122 | +1.21% | same sign, underpowered |
+| L7: lay the favourite 0.80-1.01 | 2,313 | +3.03% | 3.42 | +2.81% | 289 | +2.33% | candidate (see mirror-identity caveat) |
+| L8: lay the favourite priced <= 1.40 | 4,788 | +2.04% | 2.80 | +2.31% | 540 | +1.28% | same sign, underpowered |
+| L9: lay the favourite priced <= 1.30 | 3,268 | +2.22% | 2.78 | +2.12% | 382 | +2.85% | same sign, underpowered |
+| L10: lay the underdog (any price) | 4,393 | +0.10% | 0.04 | +0.76% | 499 | +1.77% | same sign, underpowered |
+| L11: lay the home favourite priced <= 1.30 | 2,428 | +2.88% | 3.13 | +2.64% | 256 | +3.72% | candidate (see mirror-identity caveat) |
+| L12: lay the road favourite priced <= 1.30 | 840 | +0.31% | 0.20 | +0.67% | 126 | +1.09% | same sign, underpowered |
+
+Two arms meet the formal candidate rule:
+
+- **L7 lay the favourite 0.80+: +3.03% (z 3.42)** discovery, +2.33% holdout —
+  the exact mirror of family 3's back-favourite 0.80+ (−3.03%, z −3.42).
+- **L11 lay the home favourite ≤1.30: +2.88% (z 3.13)** discovery, +3.72%
+  holdout — the exact mirror of family 6's R42 (−2.88%, z −3.13).
+
+Per the pre-registered caveat, these are **re-expressions of measured back
+results, not new information** — the family's value is the three quantities
+it adds:
+
+1. **Coherence:** the favourite-overbet survives the coherent filter from the
+   lay side — L7 coherent discovery is **+2.81% (z 3.09)**. Unlike the
+   road-dog artifact (families 3/6), this signal is not a stale-snapshot
+   mirage.
+2. **Commission:** at a 5% exchange commission on winnings, the lays remain
+   +1.4% to +2.2% per backer stake (L7: +2.23%; L9: +1.35%; L11: +2.01%).
+3. **The sportsbook fallback:** on the same 3,268 games, *betting the dog at
+   its own price* returns **+3.64%** vs the lay's +2.22% per backer stake —
+   the stale-quote value sits on the dog side of the book. Per unit risked,
+   though, the lay is far more capital-efficient: mean liability ≈ 0.17 vs
+   1.00 staked.
+
+**Family closed.** Candidates L7/L11 are recorded as re-expressions, not
+promoted as new information. The actionable content: the measured
+favourite-overbet is executable **only on an exchange** (commission
+adjusted ~+2%), while at a regular sportsbook the same view is the dog bet,
+which measures +3.6% at z 0.84 — suggestive, not significant.
+
 ## Adding a family
 
 1. Write `family_<name>(j)` in `scripts/edge_search.py`; return `(arms, meta)`
