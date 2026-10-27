@@ -1,0 +1,54 @@
+# Bug report form for wippaNBA.
+#
+# This repository is a fork of kyleskom/NBA-Machine-Learning-Sports-Betting
+# by Kyle Skompinski and contributors; that credit applies to everything here.
+name: Bug report
+description: Report something that crashes, produces wrong output, or contradicts the documentation
+labels: ["bug"]
+body:
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: A clear description of the failure, including any error output. Paste the actual output rather than paraphrasing it.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What did you expect to happen?
+    validations:
+      required: true
+  - type: textarea
+    id: exact-command
+    attributes:
+      label: Exact command
+      description: The full command you ran, copied verbatim, plus whatever is needed to reproduce the failure.
+      placeholder: |
+        # for example
+        python -m pytest tests/ -q
+      render: shell
+    validations:
+      required: true
+  - type: dropdown
+    id: python-version
+    attributes:
+      label: Python version
+      description: This project supports Python 3.10 and 3.11 only — the tensorflow==2.14.0 pin has no wheels above 3.11.
+      options:
+        - "3.11"
+        - "3.10"
+        - Other (outside the supported range)
+    validations:
+      required: true
+  - type: dropdown
+    id: data-present
+    attributes:
+      label: Is dataset data present locally?
+      description: The repository ships no data. Do you have datasets under Data/ on your machine? Many tests skip without them, so this changes what a reproduction means.
+      options:
+        - "Yes"
+        - "No"
+        - Partial (some files present)
+    validations:
+      required: true
