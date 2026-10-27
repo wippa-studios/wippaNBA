@@ -4,8 +4,8 @@
 
 **NBA outcome prediction, measured honestly — as a research project, a betting project, and a data-analytics project in one repository.**
 
-[![CI](https://github.com/wippa-studios/Legit-NBA-Predictions/actions/workflows/ci.yml/badge.svg?branch=master)](https://github.com/wippa-studios/Legit-NBA-Predictions/actions/workflows/ci.yml?query=branch%3Amaster)
-[![Python](https://img.shields.io/badge/python-3.10%20%7C%203.11-3776AB.svg)](https://github.com/wippa-studios/Legit-NBA-Predictions/actions/workflows/ci.yml)
+[![CI](https://github.com/wippa-studios/wippaNBA/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/wippa-studios/wippaNBA/actions/workflows/ci.yml?query=branch%3Amain)
+[![Python](https://img.shields.io/badge/python-3.10%20%7C%203.11-3776AB.svg)](https://github.com/wippa-studios/wippaNBA/actions/workflows/ci.yml)
 [![Data](https://img.shields.io/badge/data-nba_api-13%2C199%20games-informational.svg)](https://github.com/swar/nba_api)
 [![No betting edge claimed](https://img.shields.io/badge/prediction%20quality%20only%20%E2%80%94%20no%20betting%20edge%20claimed-lightgrey.svg)](results_pipeline_b.md)
 
@@ -58,10 +58,10 @@ The same models, scored against the closing line and the posted price — the au
 
 A single reproducible feature layer over NBA's own data, and the tooling that keeps its numbers trustworthy.
 
-- **13,199 games, one shared design:** `scripts/download_nba_data.py` builds 310 CSVs (10+ seasons) and `src/DataProviders/nba_data.py` assembles **26 causal feature columns** used by every model. No model has a second loader.
+- **13,199 games, one shared design:** `scripts/download_nba_data.py` builds 310 CSVs (10+ seasons) and `src/wippa_nba/data/nba_data.py` assembles **26 causal feature columns** used by every model. No model has a second loader.
 - **Causality is tested, not asserted:** deleting 5,199 future games changes no historical feature by more than `0.000e+00`; a reusable leakage gate separates confirmed future-dated leaks from same-date dependencies.
-- **Append-only evidence:** the injury-report store holds **2,046 snapshots across 1,037 report dates / 237,436 designation events** (official pre-tip injury reports, point-in-time semantics).
-- **1,556 tests, 0 failing, 104 subtests** across 66 files; CI on Python 3.10 & 3.11 and both sides of the scikit-learn 1.7 `multi_class` removal.
+- **Append-only evidence:** the injury-report store holds **2,046 snapshots across 1,037 report dates / 240,241 designation events** per `results/issue72_late_scratch.json` (official pre-tip injury reports, point-in-time semantics).
+- **1,552 tests collected across 66 files:** pytest reports **1,406 passed, 184 skipped** on a clone with no data (92 subtests), and `unittest` reports 1,461 tests with 126 skipped. The skips are deliberate — see [docs/data/README.md](docs/data/README.md). CI on Python 3.10 & 3.11 and both sides of the scikit-learn 1.7 `multi_class` removal.
 
 **Start here:** [Models, features and retraining](models_and_training.md) · [the availability block](docs/availability_block.md) · [the injury-report pipeline](docs/injury_pipeline.md) · [the feature search](docs/feature_search.md) · [reproducing every number](reproducing.md).
 
@@ -83,7 +83,7 @@ A single reproducible feature layer over NBA's own data, and the tooling that ke
 | **The biggest-looking win was a leak** | A per-player Elo block measured \|z\| 5.18 and was leaking the real lineup; on a pre-game roster it is +0.00065. |
 | **The simplest sensible model wins** | Logistic regression (0.6157) leads XGBoost, HistGradientBoosting, random forest, Gaussian NB, a five-seed neural network and margin/total models. |
 | **The close absorbs everything our model knows** | Price + model loses to price alone (0.00177 nats, \|z\| 3.15); availability beyond price is a tight null. |
-| **Do not use the committed model files** | They were trained on the leaked dataset. Retrain before using anything. |
+| **Do not use the old model artefacts** | They were removed in the migration because they were trained on the leaked dataset. Retrain before using anything. |
 
 ---
 
@@ -95,7 +95,7 @@ A single reproducible feature layer over NBA's own data, and the tooling that ke
 | **Data** | NBA's own data via `nba_api` (310 CSVs, 13,199 games) | Scraped team stats and sportsbook odds |
 | **Models** | Elo, logistic regression, margin/total, boosting, MLP | XGBoost and neural networks |
 | **Judged on** | Log loss, Brier, AUC, calibration | Accuracy, log loss, market baseline, ROI |
-| **Entry points** | `scripts/download_nba_data.py`, `python -m src.Models.*` | `main.py`, `src/Process-Data/`, `src/Train-Models/` |
+| **Entry points** | `scripts/download_nba_data.py`, `python -m wippa_nba.models.*` | `main.py`, `src/wippa_nba/legacy/process_data/`, `src/wippa_nba/legacy/train_models/` |
 
 Every feature for a game is computed **only from games that already happened**; the leakage gate tests it.
 
@@ -105,16 +105,18 @@ Every feature for a game is computed **only from games that already happened**; 
 
 Python **3.10 or 3.11** (the ceiling is deliberate: `tensorflow==2.14.0` has no wheels for 3.12+).
 
+**First: get the data.** The datasets are not shipped — a fresh clone cannot reproduce the published numbers without them. See [docs/data/README.md](docs/data/README.md).
+
 ```bash
 pip install -r requirements.txt
 
+python scripts/download_nba_data.py        # get the data; resumable; core = 10+ seasons / 13,199 games
 python scripts/evaluate.py                 # reproduce every number; opens with a leakage gate
-python scripts/download_nba_data.py        # resumable; core = 10+ seasons / 13,199 games
-python -m src.Models.logreg_rolling        # the canonical model (Pipeline A)
+python -m wippa_nba.models.logreg_rolling  # the canonical model (Pipeline A)
 python scripts/closing_line.py             # does any of this beat the closing line? (it doesn't)
 ```
 
-> ⚠️ The model files committed in `Models/` predate every fix in this fork and were trained on the leaked dataset. **Retrain before using anything** — see [Models, features and retraining](models_and_training.md).
+> ⚠️ The fitted model artefacts were removed in the migration because they were trained on the leaked dataset. **Retrain before using anything** — see [Models, features and retraining](models_and_training.md).
 
 ---
 
@@ -173,9 +175,9 @@ python scripts/closing_line.py             # does any of this beat the closing l
 ## Limitations
 
 1. **No demonstrated betting edge — this is a measured loss.** Betting wherever the model beats the posted price returns **−8.23%** over 4,828 bets; no margin or threshold cell reaches \|z\| 3. Reproduce with `python scripts/edge_betting.py`.
-2. **The model is worse than the market.** On 5,788 games with both a prediction and a closing line: market **0.59766** vs model + availability **0.62034** (gap 0.02268, CI [0.01638, 0.02859], \|z\| 7.28). Accuracy is not profitability; this project's 0.6573 is the field's normal – and no published figure in the survey accounts for the vig that this one measures at +4.13%.
+2. **The model is worse than the market.** On 5,788 games with both a prediction and a closing line: market **0.59766** vs model + availability **0.62034** (gap 0.02268, CI [0.01638, 0.02859], \|z\| 7.28). Accuracy is not profitability; this project's 0.6584 is the field's normal – and no published figure in the survey accounts for the vig that this one measures at +4.13%.
 3. **Effect sizes here are small and the honest bar is high.** Everything measured is of order 0.001–0.03 nats; the effects that clear |z| > 3 are availability and the pre-tip injury multiplier on top of it, and availability is priced in at the close (see [Pipeline A](results_pipeline_a.md)).
-4. **The committed model artifacts must be retrained.** They were fitted on the leaked dataset; the neural artifact also carries a stale totals column order. The totals model should not be used.
+4. **The model artefacts were removed and must be retrained.** They were fitted on the leaked dataset; the neural artefact also carried a stale totals column order. The totals model should not be used.
 5. **Kelly sizing here is full Kelly** with no fractional scaling or drawdown control.
 6. **Legal:** not financial advice; upstream data is not licensed for redistribution; neither this fork nor its upstream grants reuse rights.
 

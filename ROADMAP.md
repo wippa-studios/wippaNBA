@@ -3,9 +3,10 @@
 Where this project is, what is actually blocking it, and what has to be true
 before any claim of being an "elite prediction engine" is meaningful.
 
-Every number in this document was measured from the data committed in this
-repository. Where a figure is quoted it names how it was produced. Numbers that
-have not been reproduced here are labelled as such.
+Every number in this document was measured from the datasets described in
+`docs/data/README.md`, which are not shipped with the repository. Where a
+figure is quoted it names how it was produced. Numbers that have not been
+reproduced here are labelled as such.
 
 ---
 
@@ -35,10 +36,10 @@ them is how projects like this one end up with impressive numbers and no money.
 naive baselines on log loss and Brier score. Achievable, honest, measurable.
 
 **Elite betting** — durable positive ROI after vig. Much harder. Measured here:
-backing the **closing-line favourite** on every game returns **−5.5%** ROI over
-1,697 held-out rows. The market prices public information very efficiently. The
-106 cumulative season-average features in this repo are nowhere near the
-information edge needed to beat it.
+backing the **closing-line favourite** on every game returns **−5.29%** ROI
+(±1.62) over 1,736 held-out rows. The market prices public information very
+efficiently. The 106 cumulative season-average features in this repo are
+nowhere near the information edge needed to beat it.
 
 Pursue both, but hold them to different standards of proof, and never let a
 result in the first be reported as a result in the second.
@@ -52,11 +53,11 @@ These are measurements, not intentions. Re-running them is the first task below.
 | Finding | Measurement |
 |---|---|
 | The `68.9%` headline was target leakage | Trivial rule on contaminated columns scores 96.1% (2025), 100% (2026); chance is 50% |
-| Leak-free accuracy | 0.657 vs a 0.547 always-bet-home baseline, over 1,722 held-out games |
+| Leak-free accuracy | 0.6584 over 1,736 held-out games (the 0.547 always-bet-home baseline is from the earlier frame and has no artefact in `results/`) |
 | **No demonstrated edge at the closing line** | Model ROI +1.5% to +8.3% across edge thresholds, standard errors ±4.4 to ±9.4 — inside one SE of zero everywhere, with the sign moving with the evaluation window |
-| **The market beats the model** | Closing-line favourite wins 0.681 to the model's 0.657 |
-| The favourite loses money, as it must | −5.46% ROI ±1.62 — that is the vig, and it is the one result here that is statistically solid |
-| The totals model has no signal | 0.497 accuracy vs 0.504 for always predicting "over" |
+| **The market beats the model** | Closing-line favourite wins 0.681 to the model's 0.6584 |
+| The favourite loses money, as it must | −5.29% ROI ±1.62 on 1,736 bets — that is the vig, and it is the one result here that is statistically solid |
+| The totals model has no signal | 0.497 accuracy vs 0.504 for always predicting "over" (no committed artefact — see the traceability section of `results/README.md`) |
 | Class weighting broke calibration | mean P(home) 0.5079 vs a true 0.5694; the resulting model scores 0.5324 accuracy — identical to its own base rate — while a +8.7% edge sat unactioned |
 | Selection effect is real | 100 hyperparameter trials are worth ~2.50 standard errors at this sample size |
 
@@ -75,13 +76,14 @@ Done in PR #1. Summary, for context:
 - Silent prediction bugs fixed (3-column permutation in the totals model, push-rendered-as-OVER, Flask labelling the winner as "home" and misattributing EV).
 - Leaked third-party API key removed; Werkzeug debug source disclosure closed; timeouts on every request and subprocess.
 - 81 tests passing under both `pytest` and `unittest`; CI on Python 3.10–3.11.
-  (Now 419 — see Levels 1 and 2.)
+  (Now 1,552 collected — see Levels 1 and 2 and `docs/test_suite.md`.)
 
 **Standing hazard:** nothing has been retrained. `xgboost` and TensorFlow are
 absent from the review environment, so the XGBoost and NN paths were verified by
-construction and AST comparison, never by execution. Every artifact in
-`Models/` predates the fixes and is untrusted. `Trained-Model-OU-49.2.keras`
-additionally carries the old totals column order and will fail **silently**.
+construction and AST comparison, never by execution. The fitted artefacts were
+removed in the migration because they predate the fixes and were trained on the
+leaked dataset — retrain before relying on anything. `Trained-Model-OU-49.2.keras`
+additionally carried the old totals column order and would fail **silently**.
 
 ---
 
@@ -118,11 +120,13 @@ in `scripts/README.md`.
 - A partial odds join is refused rather than scored.
 
 **Gate — met:** `python scripts/evaluate.py` reproduces the figures in this
-document from committed data, with no manual steps.
+document from the datasets described in `docs/data/README.md`, with no manual
+steps.
 
 **Remaining:** calibration error and CLV are implemented as modules
-(`src/Utils/metrics.py`, `Get_Odds_Line_Movement.py`) but are not yet reported by
-the harness.
+(`src/wippa_nba/evaluation/metrics.py`,
+`src/wippa_nba/legacy/process_data/Get_Odds_Line_Movement.py`) but are not yet
+reported by the harness.
 
 **Retrospective CLV is struck, not deferred.** It cannot be computed for any game
 already played. The historical odds tables are single scrapes, so there is no
@@ -130,8 +134,8 @@ intraday history to recover and no CLV figure for those games exists, now or eve
 This is a permanent unanswerability for past games, not a backlog item.
 
 What is *not* struck is prospective CLV, and the capture machinery now ships for it:
-`Get_Odds_Line_Movement.py --sportsbook all --watch --every 900` keeps a trajectory
-resident, and `contrib/odds-capture.timer` does the same under systemd for anyone who
+`src/wippa_nba/legacy/process_data/Get_Odds_Line_Movement.py --sportsbook all --watch --every 900`
+keeps a trajectory resident, and `contrib/odds-capture.timer` does the same under systemd for anyone who
 would rather schedule it than babysit a process. Coverage has to build before any
 figure means anything — `snapshot_coverage()` reports density per game, and a game
 with one snapshot is indistinguishable from a line that never moved, so CLV over thin
@@ -178,7 +182,8 @@ was fit on unweighted data.
 
 ### 2.2 Refit calibrators on leak-free data
 
-All committed calibrators were fit on the leaked dataset. Retrain everything.
+All calibrators were fit on the leaked dataset (the artefacts were removed in
+the migration). Retrain everything.
 
 ### 2.3 Ensemble with calibrated outputs
 
@@ -267,7 +272,7 @@ positive, say so and stop — that is a valid, publishable result.
 
 ### 5.1 Fractional Kelly with caps
 
-The Kelly implementation in `src/Utils/Kelly_Criterion.py` is mathematically
+The Kelly implementation in `src/wippa_nba/betting/kelly.py` is mathematically
 correct (verified: exactly `f* = (bp−q)/b`; only the function name is misleading).
 The problem is the **policy**: it is full Kelly, uncapped.
 
@@ -299,7 +304,7 @@ Consecutive games share team state, so validation folds are not independent.
 Use purged splits with an embargo window.
 
 **Tested here and rejected as the fix.** `purged_walk_forward_split` in
-`src/Utils/validation.py` does what it says, but on this dataset it changes
+`src/wippa_nba/evaluation/validation.py` does what it says, but on this dataset it changes
 nothing: `embargo_pct=0.01` over the 4,522-day training span resolves to a
 45-day embargo, and swapping `TimeSeriesSplit` for the purged split moved mean CV
 log loss by **+0.0006 to +0.0016** across three configurations. Fold *geometry* is
@@ -360,6 +365,6 @@ Things that look like progress and are not:
    same host, so it bought maintainability and proxy support but did not fix
    availability. A commercial source that serves stats *and* odds would also
    retire the `sbrscrape` scraping — worth evaluating.
-3. **Licensing.** Neither this fork nor upstream ships a LICENSE file. That
-   constrains reuse and should be settled before the project attracts
-   contributors.
+3. **Licensing.** Upstream ships no LICENSE file, and this fork's [LICENSE](LICENSE)
+   is proprietary with no reuse granted. That constrains reuse and should be
+   settled before the project attracts contributors.
